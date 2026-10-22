@@ -1,0 +1,553 @@
+Random sentence: They are very excited and want to fly too.
+Features: Dialogue
+Summary: Tom and Anna are excited to go on a holiday with their parents, and they fly on a big plane to a place with sun and sand.
+Story: 
+Tom and Anna are brother and sister. They like to play with their toys and read books. They are very happy because they are going on a holiday with their mum and dad. They will fly on a big plane to a place with a lot of sun and sand.
+The day of the holiday comes and they pack their bags. They go to the airport and wait for their plane. They see many other planes flying in the sky. They are very excited and want to fly too.
+"Look, Anna, that plane is so big and fast!" Tom says.
+"Yes, Tom, and it has wings and a tail. I wonder where it is going," Anna says.
+They hear their mum call them. "Come on, kids, it's time to board our plane. We have to show our tickets and go through the gate."
+They follow their mum and dad and get on their plane. They find their seats and buckle their belts. They look out the window and see the ground and the cars and the people. They hear the pilot say something on the speaker.
+"Hello, everyone, this is your pilot speaking. Welcome aboard flight 123 to Sunny Beach. We are ready to take off. Please sit back and enjoy the flight."
+The plane starts to move and makes a loud noise. Tom and Anna feel the plane go faster and faster. They see the ground get smaller and smaller. They see the clouds get closer and closer. They are flying!
+"Wow, Anna, we are flying! We are in the sky!" Tom says.
+"I know, Tom, it's amazing! We are so high! Look, there is the sun!" Anna says.
+They smile and laugh and clap their hands. They are not sad at all. They are very happy. They are flying to their holiday.
+<|endoftext|>
+Features: Dialogue, BadEnding
+Summary: Ben and Mia get lost in a subway station after a train zooms past them, leaving them alone and scared.
+Random sentence: They wished they had never been eager to ride the subway.
+Story: 
+Ben and Mia were eager to ride the subway with their mom. They had never been on a subway before. They wanted to see the big trains and the tunnels and the people.
+Mom bought the tickets and they went to the platform. They saw a subway coming. It was loud and fast. Ben and Mia held mom's hands. They waited for the subway to stop.
+But the subway did not stop. It zoomed past them. Ben and Mia were scared. They let go of mom's hands and ran away. They did not see where they were going. They got lost in the crowd.
+Mom shouted, "Ben! Mia! Stop! Come back!" But they did not hear her. They did not see her. They were alone and afraid.
+Mom looked for them. She asked the people. She asked the workers. She asked the police. But no one had seen them. She cried and cried. She did not know what to do.
+Ben and Mia did not find mom. They did not find the subway. They did not find their way home. They had a bad day. They wished they had never been eager to ride the subway.
+<|endoftext|>
+Summary: Tom and Lily escape from a scary house and find a cozy tree house in the forest where they meet Ben, who invites them to stay with him.
+Features: Dialogue
+Words: escape, war, tall
+Story: 
+Tom and Lily were friends. They lived in a big house with many other children. They did not like the big house. It was loud and scary. Sometimes, they heard bad noises outside. They said it was war.
+One day, Tom and Lily saw a hole in the fence. They wanted to escape. They wanted to find a better place. They waited until it was dark. Then, they crawled through the hole. They ran and ran until they reached a forest.
+"Look, Lily, a tree house!" Tom said. He pointed to a tall tree with a wooden box on top. "Maybe we can stay there."
+"OK, Tom, let's go," Lily said. They climbed the tree and entered the box. It was cozy and warm. There were blankets and toys and books. They felt happy and safe.
+"Who are you?" a voice asked. Tom and Lily turned around. They saw a boy sitting in a corner. He had curly hair and brown eyes. He looked friendly.
+"Hi, I'm Tom and this is Lily," Tom said. "We escaped from the big house. We don't like war."
+"I'm Ben," the boy said. "I escaped too. I live here now. You can stay with me if you want."
+"Really?" Lily asked. "Thank you, Ben. You are very nice."
+"Yes, really," Ben said. "We can be friends. And maybe, one day, the war will end."
+<|endoftext|>
+Words: meet, waffle, new
+Story: 
+Lily was hungry. She wanted a waffle. She asked her mom for a waffle. Her mom said, "OK, but you have to wait. I have to make it first."
+Lily waited and waited. She saw a new toy on the table. It was a red car. She liked cars. She wanted to play with it. She took the car and ran to the living room.
+She saw a big dog on the couch. The dog was sleeping. Lily wanted to meet the dog. She said, "Hi, dog. I have a new car. Do you want to see it?" She went closer to the dog.
+The dog woke up. He did not like Lily. He did not like her car. He was angry. He growled and barked. He bit Lily's hand. Lily screamed and dropped the car.
+Her mom heard her scream. She ran to the living room. She saw the dog and Lily. She was scared. She grabbed Lily and took her to the bathroom. She wrapped her hand with a cloth. She called the doctor.
+The doctor came and looked at Lily's hand. He said, "She needs stitches. The dog was very bad. He hurt her a lot." He took Lily to the hospital.
+Lily cried and cried. She did not get a waffle. She did not play with the car. She did not meet the dog. She had a bad day.
+Summary: Lily wants a waffle but gets bitten by a dog while playing with a toy car and has to go to the hospital for stitches.
+<|endoftext|>
+Words: call, leak, foolish
+Features: Dialogue
+Summary: Lily and Ben play with water in the garden, but don't notice the leak in the bucket. Mum calls them in to tell them they're wasting water and they learn to be more careful with it.
+Story: 
+Lily and Ben are playing in the garden. They have a big bucket of water and some cups. They want to make a fountain with the water. They fill the cups and pour the water in the air. They laugh and splash each other.
+But they do not see the hole in the bucket. The water is leaking out of the bucket. The bucket is getting empty. The grass is getting wet.
+Mum is watching them from the window. She sees the leak. She calls them. "Lily, Ben, come here!" she says. "The bucket has a leak. You are wasting water. And you are making a mess."
+Lily and Ben hear Mum. They look at the bucket. They see the leak. They feel foolish. They did not notice the leak. They say sorry to Mum. They pick up the bucket and the cups. They go inside.
+Mum is not angry. She is glad they are having fun. But she tells them to be careful with water. Water is precious. They should not waste it. They should fix the leak. Lily and Ben nod. They hug Mum. They say they love her. They learn a lesson.
+<|endoftext|>
+Words: point, stadium, fast
+Summary: Tom, Lily and their dad go to the stadium to watch cars race. They cheer for their favorite cars and have a fun time.
+Features: Dialogue
+Story: 
+Tom and Lily are going to the stadium with Dad. They are very happy. They like to watch the big cars go fast on the track. They have flags and hats with their favorite car colors.
+When they get to the stadium, they see many people and cars. Dad finds their seats and they sit down. They can hear the cars make loud noises. They can smell the smoke and gas.
+"Look, Lily, there is our car!" Tom points to a red and blue car on the track. "It is number five. It is very fast and shiny."
+"I see it, Tom. It is very pretty. But I like the yellow and green car better. It is number seven. It is fast and bright." Lily points to another car on the track. "Do you think it will win?"
+"I don't know, Lily. Maybe. But I hope our car will win. Let's cheer for it. Go, go, go, number five!" Tom waves his flag and shouts.
+"Go, go, go, number seven!" Lily waves her hat and shouts.
+Dad smiles and hugs them. He is happy to see them have fun. He likes both cars. He likes the stadium. He likes the fast cars. He likes Tom and Lily.
+<|endoftext|>
+Features: MoralValue
+Words: slide, switch, expensive
+Summary: Lila and Ben accidentally break a car in the park that belongs to Tom, causing him to be angry and upset. They apologize and promise to help him fix it, learning the lesson to ask before using something that doesn't belong to them.
+Story: 
+Lila and Ben were twins who liked to play in the park. They loved to slide on the big slide, swing on the swings, and climb on the monkey bars. One day, they saw a new toy in the park. It was a big car with four wheels and a switch. The switch made the car go fast or slow.
+"Wow, look at that car!" Lila said. "It looks so fun and shiny!"
+"Let's try it!" Ben said. "Maybe no one is using it."
+They ran to the car and climbed inside. They pushed the switch and the car started to move. They laughed and cheered as they drove around the park.
+But they did not see the sign next to the car. The sign said: "This car belongs to Tom. It is very expensive. Do not touch it or you will be in trouble."
+Tom was a boy who lived near the park. He had saved his money for a long time to buy the car. He was very proud of it and took good care of it. He had gone to the bathroom and left the car for a few minutes.
+When he came back, he saw Lila and Ben driving his car. He was very angry and sad.
+"Hey, stop! That's my car!" he shouted. "You are not allowed to use it!"
+Lila and Ben heard him and got scared. They tried to stop the car, but they did not know how. They pushed the switch again and again, but the car only went faster and faster. They crashed into a tree and broke the car.
+Tom ran to the car and saw the damage. He cried and yelled at Lila and Ben.
+"You are very bad and mean! You broke my car! It was very expensive! How will I fix it?"
+Lila and Ben felt very sorry and ashamed. They realized they had done something wrong. They apologized to Tom and said they would help him.
+"We are very sorry, Tom. We did not know it was your car. We should have asked first. We will help you fix it."
+They gave Tom a hug and promised to be more careful and respectful. They learned their lesson: they should not touch things that do not belong to them, especially if they are expensive. They should always ask before they use something. They should be kind and honest to others.
+<|endoftext|>
+Features: Dialogue, Conflict
+Words: call, tank, jolly
+Summary: Lily and Tom race their toys down a hill, but a dog comes and takes Lily's tank. A kind man helps them get the tank back and apologizes by buying Lily a new one. They play with the man's jolly dog and have fun.
+Story: 
+Lily and Tom are friends. They like to play with toys. Lily has a big tank. It is green and has wheels. Tom has a small car. It is red and has doors.
+One day, they go to the park. They bring their toys. They find a hill. They want to race their toys down the hill. Lily says, "My tank is faster than your car. It can go over rocks and grass." Tom says, "No, my car is faster than your tank. It can go around curves and trees."
+They put their toys at the top of the hill. They say, "Ready, set, go!" They push their toys. The toys roll down the hill. The tank and the car are close. They both want to win.
+But then, a dog comes. It is big and brown. It sees the toys. It thinks they are fun. It runs to the hill. It grabs the tank in its mouth. It shakes it. It makes a loud noise. Lily and Tom are scared. They want their toys back.
+They call the dog. They say, "Hey, dog, stop! Give us our toys! They are not for you!" But the dog does not listen. It runs away with the tank. It leaves the car behind. Lily and Tom are sad. They cry.
+A man comes. He is jolly and kind. He sees Lily and Tom. He says, "What is wrong, children? Why are you crying?" Lily and Tom tell him about the dog and the tank. The man says, "Oh, I am sorry. That is my dog. He likes to play with things. He does not mean to be bad. Come, I will help you find him."
+The man takes Lily and Tom to his house. He finds his dog. He sees the tank. It is dirty and broken. He says, "Bad dog, bad! You should not take things that are not yours. You should be nice to children." He takes the tank from the dog. He gives it to Lily. He says, "I am sorry, Lily. Your tank is ruined. I will buy you a new one. Do you forgive me and my dog?" Lily says, "Yes, I forgive you and your dog. Thank you for being jolly and kind." She hugs the man.
+The man says, "You are welcome, Lily. And what about you, Tom? Do you want a new toy too?" Tom says, "No, thank you. My car is still good. It won the race." He smiles. He hugs the man too.
+The man says, "You are both good children. Do you want to play with my dog? He is jolly too. He just needs to learn some manners." Lily and Tom say, "Yes, we want to play with your dog. We like jolly things." They laugh.
+They play with the dog. They have fun. They are happy. The end.
+<|endoftext|>
+Summary: Anna's favorite doll, Lucy, is taken by her cousin Ben who thinks dolls are for babies. Anna is sad and scared but eventually gets Lucy back and realizes how special and fun she is.
+Random sentence: But Anna felt that Lucy understood.
+Words: let, luxury, difficult
+Features: Dialogue, Foreshadowing
+Story: 
+Anna loved to play with her dolls. She had many dolls, but her favorite was Lucy. Lucy had long hair, a pink dress, and a shiny crown. Anna liked to pretend that Lucy was a princess and she was her friend.
+One day, Anna's cousin Ben came to visit. Ben was older than Anna and he liked to play with cars and robots. He did not like dolls. He saw Lucy on Anna's bed and said, "What is this? A doll? Dolls are for babies. Can I play with your cars?"
+Anna did not want to let Ben play with her cars. She liked her cars too. She said, "No, Ben. These are my cars. You can play with something else."
+Ben was angry. He said, "Fine. Then I will play with your doll. She looks like a luxury. Maybe I can sell her and buy a robot." He grabbed Lucy from the bed and ran away.
+Anna was sad and scared. She did not want to lose Lucy. She ran after Ben and shouted, "Stop, Ben! Give me back Lucy! She is my doll. She is not a luxury. She is my friend."
+Ben did not listen. He ran to the living room and threw Lucy on the couch. He said, "Here, take your stupid doll. I don't want her. She is boring and ugly."
+Anna ran to the couch and picked up Lucy. She hugged her and checked if she was okay. She saw that Lucy's crown was broken and her dress was torn. She felt a tear roll down her cheek. She said, "Lucy, I'm sorry. Ben was mean to you. He did not know how special you are. You are not boring and ugly. You are beautiful and fun. You are my princess and my friend."
+Lucy did not say anything. She was a doll. But Anna felt that Lucy understood. She smiled and said, "Come on, Lucy. Let's go to my room. We can fix your crown and your dress. And we can play with my cars. They are not difficult. They are fun. And you can be the driver. You are the best driver in the world."
+<|endoftext|>
+Summary: Anna is scared of a big dog at the park until she discovers that the dog can whistle and they have a whistling contest, becoming friends.
+Words: whistle, skirt, calm
+Story: 
+Anna likes to whistle. She whistles when she is happy, when she is sad, when she is bored. She whistles with her mouth, with her fingers, with her toys. She whistles all the time.
+One day, Anna goes to the park with her mom. She wears her new skirt. It is pink and has flowers on it. She likes her skirt very much. She whistles as she walks to the park.
+At the park, Anna sees a big dog. The dog is brown and has a long tail. The dog runs to Anna and barks. Anna is scared. She stops whistling. She hugs her mom.
+The dog's owner comes and calls the dog. He says he is sorry. He says the dog is friendly and just wants to play. He says the dog likes Anna's whistling. He says the dog can whistle too.
+Anna is curious. She asks the dog's owner to show her. The dog's owner makes a sound with his mouth. The dog copies him. The dog whistles. Anna laughs. She thinks the dog is funny. She whistles back. The dog whistles again. Anna and the dog have a whistling contest.
+Anna is not scared anymore. She is happy. She likes the dog. She pets the dog. The dog licks her face. Anna's mom smiles. She is calm. She likes the dog's owner. She talks to him. They all have a good time at the park.
+<|endoftext|>
+Random sentence: "That flower is a trap!"
+Words: pick, trap, available
+Features: Dialogue
+Story: 
+Ben and Lily were playing in the park. They liked to pick flowers and make crowns. They saw a big yellow flower that looked very pretty. Ben wanted to pick it for Lily.
+"Wait, Ben!" Lily said. "That flower is a trap!"
+Ben looked at Lily. He did not understand. "A trap? What is a trap?"
+Lily pointed to the flower. "See? There are tiny teeth inside the flower. If you touch it, it will close and bite you. It is a bad flower. It tricks bugs and animals that want to eat it."
+Ben was scared. He moved away from the flower. "Oh, no! Thank you, Lily. You are very smart. How do you know that?"
+Lily smiled. "I saw it in a book. It is called a Venus flytrap. It is not a nice flower. Come, let's find another flower. There are many available in the park."
+Ben nodded. He followed Lily. They found a red flower that smelled good. Ben picked it and gave it to Lily. She put it in her hair. They hugged and continued to play. They were happy and safe.
+Summary: Ben and Lily were playing in the park, and Lily saved Ben from picking a Venus flytrap by explaining that it was a trap and would bite him. They found a different flower to pick and continued to play happily.
+<|endoftext|>
+Words: bathe, x-ray, graceful
+Summary: Lily breaks her arm and needs a cast, but she remains brave and curious about her x-ray. Her mom encourages her to keep dancing and expressing herself, despite the temporary setback.
+Features: Dialogue, MoralValue
+Story: 
+One day, Lily and her mom went to the hospital. Lily had hurt her arm when she fell from the swing. She was very brave and did not cry. The doctor said he needed to take an x-ray of her arm. He explained that an x-ray was a special picture that showed the bones inside her body.
+Lily was curious and asked, "Can I see the x-ray, doctor?"
+"Of course, Lily. Here it is," the doctor said, showing her a big white paper with black shapes on it. "This is your arm, and this is where it is broken. You need to wear a cast for a few weeks, so it can heal."
+Lily looked at the x-ray and nodded. She thought it was very interesting. She thanked the doctor and followed her mom to another room, where a nurse put a white and pink cast on her arm. Lily liked the color and asked the nurse to draw a flower on it.
+The nurse smiled and said, "You are very sweet, Lily. You can decorate your cast however you like. But remember, you have to keep it dry and clean. That means you cannot bathe with it, or play in the mud, or scratch it. Do you understand?"
+Lily understood and promised to take good care of her cast. She asked her mom, "Can I still dance with my cast, mom?"
+Her mom hugged her and said, "Of course, my darling. You can still dance and be graceful, as long as you are careful and gentle. Dancing is good for your spirit and your body. It will help you feel happy and strong."
+Lily smiled and said, "I love dancing, mom. And I love you."
+Her mom kissed her and said, "I love you too, Lily. You are my brave and graceful dancer."
+The moral value of the story is: Even when you are hurt or face a challenge, you can still find joy and beauty in life, and express yourself through your talents and passions.
+<|endoftext|>
+Random sentence: They try to support each other and get the cookies.
+Words: support, cookie, successful
+Summary: Tom and Jen try to reach a jar of cookies but fall and break the jar, causing a mess and getting hurt. Their parents scold them and they learn a lesson about asking for help.
+Features: BadEnding, Conflict
+Story: 
+Tom and Jen are friends. They like to play and share. One day, they see a big jar of cookies on the table. They want some cookies, but they are too small to reach the jar. They have an idea. They get a chair and a stool. Tom stands on the chair and Jen stands on the stool. They try to support each other and get the cookies.
+But they are not careful. They push and pull too hard. The chair and the stool fall over. Tom and Jen fall down too. The jar of cookies falls and breaks. Cookies and glass are everywhere. Tom and Jen are hurt and scared. They cry and scream.
+Mom and Dad hear the noise. They run to the kitchen. They see the mess and the children. They are angry and worried. They scold Tom and Jen for being naughty and dangerous. They clean up the glass and the cookies. They check Tom and Jen for cuts and bruises. They put band-aids on them and hug them. They tell them to never do that again.
+Tom and Jen are sorry and sad. They have no cookies and no fun. They have pain and trouble. They are not successful. They wish they had asked for help instead of trying to get the cookies by themselves. They learn a hard lesson.
+<|endoftext|>
+Features: Dialogue
+Words: wander, metal, cheap
+Summary: Lily and Tom search through a pile of metal looking for treasures to play with, but only find junk. They decide to go back home and hope their parents can make them happy.
+Story: 
+Lily and Tom were bored. They had no toys to play with. Their mom said they had no money to buy new toys. She said they had to use their imagination.
+Lily and Tom decided to wander outside. They saw a big pile of metal. It was shiny and noisy. They thought it was a treasure. They ran to the pile and started to dig.
+"Look, Tom, I found a ring!" Lily said. She put it on her finger. It was too big and fell off.
+"Let me see, Lily," Tom said. He picked up the ring. It was cheap. It had no stone and it was rusty.
+"That's not a ring, Lily. That's a washer. It's for fixing things, not for wearing," Tom said.
+Lily felt sad. She wanted a real ring. She threw the washer back to the pile.
+"Maybe we can find something else, Tom," Lily said.
+They kept digging. They found a spoon, a can, a nail, and a button. They were all cheap and dirty. They were not fun to play with.
+Lily and Tom were disappointed. They thought the pile of metal was a treasure, but it was only junk. They decided to wander back home.
+"Maybe mom can make us some cookies," Lily said.
+"Maybe dad can tell us a story," Tom said.
+They hoped their mom and dad would make them happy. They did not like the pile of metal. It was cheap and boring.
+<|endoftext|>
+Summary: Lily, Ben, Mom, and Dad go to the museum where they ride a new train that takes them around the museum to see many lovely things.
+Words: love, museum, lovely
+Story: 
+Lily and Ben love to go to the museum with Mom and Dad. The museum has many lovely things to see and learn. Lily likes the big dinosaurs that roar and have sharp teeth. Ben likes the shiny rocks that sparkle and have different colors. Mom and Dad like the paintings that tell stories and have beautiful shapes.
+One day, they go to the museum and see something new. It is a big train that can move and make noise. Lily and Ben are very excited and want to ride the train. Mom and Dad say yes and buy tickets for them. They get on the train and sit in a cozy seat. The train starts to move and makes a loud whistle. Lily and Ben laugh and wave to Mom and Dad.
+The train takes them around the museum and shows them many lovely things. They see the dinosaurs, the rocks, the paintings, and more. They also see other people who smile and wave at them. Lily and Ben have a lot of fun and learn a lot. They thank the train driver and get off the train. They hug Mom and Dad and say they love the museum. Mom and Dad say they love them too and they are proud of them. They go home happy and tired. They dream of the lovely train and the lovely museum.
+<|endoftext|>
+Words: disappear, wardrobe, popular
+Features: Dialogue, BadEnding
+Random sentence: But Ben was not there.
+Story: 
+Anna and Ben were twins who liked to play in their big wardrobe. They had many clothes and toys inside. They pretended to be kings and queens, pirates and fairies, and anything they wanted. They were very popular with their friends, who often came to play with them.
+One day, Anna and Ben decided to play a new game. They called it "disappear". They took turns to hide in the wardrobe and count to ten. Then the other one had to find them. They had a lot of fun.
+But then something went wrong. It was Ben's turn to hide, and Anna counted to ten. She opened the wardrobe, but she could not see Ben. She looked behind the clothes, under the toys, and in the corners. But Ben was not there. She called his name, but he did not answer. She started to feel scared.
+She ran out of the wardrobe and looked around the room. Maybe Ben had come out and was hiding somewhere else. But she could not find him anywhere. She checked under the bed, behind the curtains, and in the closet. But Ben was not there. She called his name louder, but he did not answer. She started to cry.
+She ran downstairs and looked for her mom and dad. But they were not there either. The house was empty and quiet. She felt alone and lost. She wondered where Ben and her parents had gone. She wished they would come back. She wished she had never played "disappear". She wished she could disappear too.
+Summary: Anna and Ben play a new game called "disappear" where they take turns hiding in their wardrobe, but when it's Ben's turn, he disappears for real and Anna can't find him or their parents.
+<|endoftext|>
+Words: sack, ship, reliable
+Summary: Tom and Mia pretend to be pirates and find a coin, shampoo, toilet paper, and a hairbrush, but their toy ship sinks with the treasure. They learn that their ship is not reliable and decide to play a new game.
+Story: 
+Tom and Mia like to play with their toy ship. They put it in the bath and make it sail. They pretend they are pirates and look for treasure. They have a sack to put the treasure in.
+One day, they find a shiny coin in the bath. They think it is gold. They put it in their sack and say, "Arrr, we are rich!" They want to find more treasure. They look around the bathroom.
+They see a bottle of shampoo on the shelf. They think it is a magic potion. They put it in their sack and say, "Arrr, we are powerful!" They want to find more treasure. They look under the sink.
+They find a roll of toilet paper. They think it is a map. They put it in their sack and say, "Arrr, we are clever!" They want to find more treasure. They look in the cupboard.
+They find a hairbrush. They think it is a sword. They put it in their sack and say, "Arrr, we are brave!" They have no more room in their sack. They say, "We have enough treasure. Let's go back to our ship."
+They carry their sack to the bath. They put it on their ship. They try to make it sail. But the ship is too heavy. It sinks in the water. The sack and the treasure get wet. Tom and Mia are sad.
+They say, "Oh no, our ship is not reliable. It can't hold our treasure. We are not good pirates." They take out their treasure and dry it with a towel. They say, "Maybe we should play something else." They look for a new game.
+<|endoftext|>
+Words: raise, marble, lucky
+Features: Dialogue
+Summary: Lila and Tom have a marble race, and although Lila's marble is ahead, Tom's marble wins by finding a hill. They trade marbles, and they continue to play and have fun.
+Story: 
+Lila and Tom were playing with marbles in the park. They had many marbles of different colors and sizes. They liked to roll them on the ground and see who could get the most.
+"Look, I have a big blue marble," Lila said. "It is very shiny and pretty."
+"I have a small red marble," Tom said. "It is very fast and smart."
+They decided to have a race with their marbles. They drew a line on the dirt with a stick. They put their marbles behind the line. They counted to three and then pushed their marbles with their fingers.
+"Go, go, go!" they shouted.
+The marbles rolled on the ground. They bumped into each other and into rocks and leaves. Lila's big blue marble was ahead of Tom's small red marble. Lila was happy. She thought she would win.
+But then, something happened. Tom's small red marble found a small hill on the ground. It went up the hill and then down the hill. It gained more speed and passed Lila's big blue marble. It crossed the finish line first.
+"Wow, wow, wow!" Tom shouted. He raised his arms in the air. He was very happy. He thought he was very lucky.
+Lila was sad. She did not win. She picked up her big blue marble and hugged it.
+"Good race, Lila," Tom said. He smiled at her. He picked up his small red marble and held it out to her. "Do you want to trade marbles? I like your big blue marble. It is very shiny and pretty."
+Lila looked at Tom. She looked at his small red marble. It was very fast and smart. She smiled at him. She nodded her head. She traded her big blue marble for his small red marble.
+"Thank you, Tom," Lila said. She rolled her small red marble on her palm. She felt lucky.
+"Thank you, Lila," Tom said. He held his big blue marble in his hand. He felt lucky too.
+They hugged each other. They were friends. They played with their new marbles. They had fun.
+<|endoftext|>
+Words: dare, turkey, independent
+Features: MoralValue
+Summary: Lily learns a lesson about respecting others and listening to those who know more than her after she disobeys a farmer's warning and is pecked by a turkey.
+Story: 
+Lily was a very independent girl. She liked to do things by herself, without asking for help. She did not like to share her toys, or listen to her mom and dad. She thought she knew everything.
+One day, Lily saw a big turkey in the farm. She wanted to touch it and play with it. She did not care that the turkey was not a toy, or that it could peck her. She did not listen to the farmer, who told her to stay away from the turkey. She dared to go near the turkey, and tried to grab its feathers.
+The turkey did not like that. It was scared and angry. It pecked Lily hard on her hand, and made a loud noise. Lily cried out in pain and ran away. She felt sorry for what she did, and wished she had listened to the farmer.
+Lily learned a lesson that day. She learned that being independent does not mean being rude or reckless. She learned that she should respect other living things, and ask for permission before touching them. She learned that she should listen to the people who care for her, and who know more than her. She learned that being independent also means being responsible and careful.
+<|endoftext|>
+Features: Dialogue
+Words: dance, watch, guilty
+Summary: Sara takes her dad's watch without permission to wear while dancing, but when her dad asks for it, she tells the truth and apologizes. Her dad forgives her and they dance together happily.
+Story: 
+Sara loves to dance. She dances in her room, in the garden, and in the kitchen. She dances when she is happy, when she is sad, and when she is bored. She dances with her dolls, with her dog, and with her mom.
+One day, Sara finds a shiny watch on the table. It is her dad's watch. He got it for his birthday. Sara thinks it is pretty. She wants to wear it. She puts it on her wrist and dances around the room. She feels like a princess.
+But then, she hears the door open. It is her dad. He is home from work. He looks for his watch. He does not see it. He asks Sara, "Have you seen my watch? I need it for a meeting."
+Sara feels guilty. She knows she did a bad thing. She hides the watch behind her back. She says, "No, dad, I have not seen your watch. Maybe it is in your room."
+Her dad goes to his room. He does not find his watch. He comes back to Sara. He says, "Sara, are you sure you have not seen my watch? It is very important to me. Please tell me the truth."
+Sara feels more guilty. She does not want to lie to her dad. She does not want to make him sad. She says, "I'm sorry, dad. I have your watch. I wanted to wear it. I thought it was pretty. I was dancing with it."
+She shows him the watch. He sees it. He is not angry. He is relieved. He says, "Thank you, Sara, for telling me the truth. I'm glad you like my watch. It is pretty. But it is also very special to me. It was a gift from your mom. Please do not take it without asking me. Do you understand?"
+Sara nods. She says, "I understand, dad. I'm sorry. I will not take it again. Can I still dance with you?"
+Her dad smiles. He says, "Of course, Sara. You can always dance with me. I love you."
+He hugs her. He puts on his watch. He takes her hand. They dance together in the room. They feel happy.
+<|endoftext|>
+Random sentence: They start to dance and clap too.
+Story: 
+Lila loves pandas. She has a big panda toy that she hugs every night. She also likes to watch pandas on the TV. She sees them eat bamboo and play in the trees. She thinks they are very cute and funny.
+One day, Lila goes to the zoo with her mom and dad. She is very excited to see the real pandas. She runs to the panda house and looks for them. She sees two pandas sitting on a big rock. They are black and white and fluffy. They look like her toy, but bigger and alive.
+Lila waves at the pandas and says hello. She hopes they will wave back. But the pandas do not see her. They are busy eating bamboo. Lila feels sad. She wants to make friends with the pandas.
+She has an idea. She remembers that pandas like music. She sees a modern speaker near the panda house. It plays songs for the zoo visitors. Lila runs to the speaker and turns it up. She hears a loud and happy song. She starts to dance and clap her hands. She hopes the pandas will hear her and join her.
+The pandas hear the music and the clapping. They look up and see Lila. They see her dancing and clapping. They think she is very cute and funny. They start to dance and clap too. They wave at Lila and say hello. Lila is very happy. She has made friends with the pandas. She claps louder and louder. She smiles and laughs. She loves pandas.
+Summary: Lila loves pandas and goes to the zoo to see them. When the pandas don't notice her, she turns up the music and starts dancing, which gets the pandas' attention and they become friends.
+<|endoftext|>
+Summary: Anna and Ben pick flowers to make a special gift for Anna's parents' marriage, and they are thanked for their thoughtfulness.
+Random sentence: They saw Anna's mom and dad, who were wearing nice clothes.
+Words: bloom, marriage, perfect
+Features: Dialogue
+Story: 
+Anna and Ben were best friends. They liked to play in the garden, where there were many flowers. Anna loved the pink roses, and Ben loved the yellow sunflowers. They would pick some flowers and make crowns for each other.
+One day, they saw a big white tent in the garden. Anna's mom and dad told them that they were going to have a marriage. A marriage is when two people love each other very much and want to be together forever. Anna and Ben were happy for them, and wanted to help.
+They decided to make a special gift for the marriage. They took their baskets and went to the garden. They looked for the most beautiful flowers that were in bloom. Bloom means that the flowers are open and bright. They found roses, sunflowers, daisies, and lilies. They filled their baskets with the flowers.
+They brought the flowers to the tent, where they saw a big cake, some chairs, and a table. They saw Anna's mom and dad, who were wearing nice clothes. Anna's mom had a white dress and a veil, and Anna's dad had a suit and a tie. They looked very happy.
+Anna and Ben ran to them and gave them the flowers. "We made a gift for your marriage!" they said. "We picked the most perfect flowers for you!" Perfect means that something is very good and has no mistakes.
+Anna's mom and dad smiled and hugged them. "Thank you, Anna and Ben! You are very sweet and thoughtful. These are the most perfect flowers we have ever seen. We love you very much."
+They put the flowers on the table, and invited Anna and Ben to join them for the marriage. They all held hands and said nice words to each other. Then they cut the cake and shared it with everyone. It was a very happy day.
+<|endoftext|>
+Words: lend, ghost, mighty
+Features: Twist
+Summary: Lily encounters a friendly ghost who turns into a superhero and rewards her for her kindness and bravery.
+Story: Once upon a time, a little girl named Lily was playing in her backyard. Suddenly, she saw a ghost! The ghost was friendly and said hello to Lily. The ghost asked Lily if she could lend her a pencil. 
+Lily was scared at first, but she was also very brave. She gave the ghost a pencil to use. The ghost was very grateful and said thank you to Lily. 
+But then, something unexpected happened. The ghost turned into a mighty superhero! The superhero said that Lily was very kind and brave, and she deserved a reward. The superhero gave Lily a shiny gold star. 
+Lily was so happy and surprised by the plot twist. She thanked the superhero and said goodbye. From that day on, Lily knew that even ghosts can be friendly and mighty superheroes can appear when you least expect it.
+<|endoftext|>
+Words: clean, police, rough
+Summary: Timmy helps the police find a lost puppy after hearing a loud noise outside while cleaning up his toys.
+Features: Twist
+Story: Once upon a time, there was a little boy named Timmy. He liked to play with his toys and eat cookies. One day, Timmy's mom asked him to clean up his toys. Timmy didn't want to clean, but he knew he had to listen to his mom.
+As Timmy was cleaning, he heard a loud noise outside. He looked out the window and saw the police car driving by. The police car looked very rough and dirty. Timmy wondered why the police car looked like that.
+Suddenly, the police car stopped in front of Timmy's house. Two police officers got out and knocked on the door. They asked Timmy's mom if she had seen a lost puppy. Timmy's mom said no, but Timmy remembered something. He had found a lost puppy in his backyard earlier that day. He ran to get the puppy and gave it to the police officers. They were very happy and thanked Timmy for his help. Timmy felt proud that he could help the police and the lost puppy.
+<|endoftext|>
+Summary: A big cat named Max became friends with a small mouse named Timmy, but Max wanted to eat Timmy until Timmy reminded him that friends don't eat each other. They continued to play together and learned that differences don't have to stop them from being friends.
+Words: disagree, value, fat
+Story: Once upon a time, there was a big fat cat named Max. Max loved to eat fish and sleep in the sun. One day, Max met a little mouse named Timmy. Timmy was very small and scared of Max.
+Max and Timmy became friends and played together every day. But one day, Max wanted to eat Timmy. Timmy disagreed and said, "Max, I am your friend. Friends don't eat each other." Max thought about it and realized that Timmy was right. Timmy was a valuable friend, and Max didn't want to lose him.
+From then on, Max and Timmy played together and Max never tried to eat Timmy again. They learned that even though they were different, they could still be friends and have fun together.
+<|endoftext|>
+Random sentence: The end.
+Features: BadEnding
+Words: dream, mineral, popular
+Summary: Timmy finds a shiny mineral and dreams of its worth, but loses it and learns that special things can be lost forever.
+Story: Once upon a time, there was a little boy named Timmy. Timmy loved to play outside and look for pretty rocks. He found a shiny mineral one day and showed it to all his friends. They thought it was so cool and popular.
+At night, Timmy went to sleep and dreamt about his mineral. He dreamt that it was worth lots of money and he could buy anything he wanted. But when he woke up, he realized it was just a dream.
+One day, Timmy brought his mineral to show and tell at school. But when he got there, he couldn't find it. He looked everywhere, but it was gone. Timmy was so sad that he cried and cried.
+Timmy never found his mineral again. He learned that sometimes even the most special things can be lost forever. The end.
+<|endoftext|>
+Summary: Mittens the kitten learns to be careful around fires after accidentally burning her tail and being rescued by her owner.
+Words: burn, kitten, glad
+Story: Once upon a time, there was a little kitten named Mittens. Mittens was very glad because she had a new toy to play with. It was a fluffy ball that she loved to chase around the room.
+One day, Mittens got too close to the fireplace and her tail accidentally touched the fire. Mittens cried out in pain as her tail started to burn. Her owner quickly picked her up and put out the fire on her tail.
+Mittens was okay, but she learned a valuable lesson that day. She knew to always be careful around fires and to stay away from them. From then on, Mittens was extra glad to have her owner looking out for her.
+<|endoftext|>
+Words: carry, swamp, stupid
+Features: Dialogue, Foreshadowing
+Random sentence: The duck nodded and said, "I'll be careful, thank you for warning me."
+Story: Once upon a time, there was a frog who lived in a swamp. The frog was very happy because he had a big family and lots of friends. One day, he met a duck who was lost and couldn't find her way back to her family. The frog decided to help her and said, "I can carry you on my back and take you home."
+The duck was very grateful and said, "Thank you so much, frog. You are very kind." The frog smiled and said, "No problem, I'm happy to help."
+As they were walking, the frog noticed that the ground was getting very muddy and slippery. He said to the duck, "Be careful, the ground is getting swampy and it's not safe to walk here." The duck nodded and said, "I'll be careful, thank you for warning me."
+Suddenly, the duck slipped and fell into the swamp. The frog quickly jumped in and carried the duck on his back again. The duck said, "You saved me, frog. You are not stupid, you are very brave and smart." The frog smiled and said, "I'm just happy to help my friend." From that day on, the frog and the duck became best friends and helped each other whenever they needed it.
+Summary: A frog helps a lost duck find her way home and saves her when she falls into a swamp, leading to a strong friendship between the two.
+<|endoftext|>
+Summary: Lily helps her mom in the kitchen and listens carefully for the timer, making her mom proud and happy.
+Story: Once upon a time, there was a little girl named Lily. Lily loved to help her mom in the kitchen. One day, her mom was cooking on the stove and asked Lily to listen for the timer. Lily was very thoughtful and remembered to listen carefully. 
+Suddenly, the timer went off and Lily told her mom. Her mom was so happy and proud of her. They took the food off the stove and sat down to eat. It was delicious! 
+After they finished eating, Lily's mom gave her a big hug and said, "You are such a good helper. Thank you for listening and being so thoughtful." Lily smiled and felt very happy. From that day on, she always listened carefully in the kitchen.
+<|endoftext|>
+Features: Dialogue
+Summary: Lily loves to play outside on her porch but when it gets dark and cold, her mom reminds her to come inside and bring her toys with her.
+Story: Once upon a time, there was a little girl named Lily. She loved to play outside on her porch. One day, her mom said, "Lily, it's time to come inside. It's getting dark and it's not warm anymore."
+Lily replied, "But I want to bring my toys inside with me!"
+Her mom smiled and said, "Of course, you can bring your toys inside. We don't want them to get cold."
+Lily quickly gathered all of her toys and brought them inside. As she sat on the warm couch, she said, "Thank you, Mommy. I love playing on the porch, but it's nice to be warm inside too."
+<|endoftext|>
+Features: Conflict
+Words: choose, lumber, modest
+Story: Once upon a time, there was a little bear named Benny. He lived in a big forest with his friends, the squirrels and the rabbits. One day, Benny and his friends wanted to build a house. They needed some wood to build it, so they went to the lumber store.
+At the store, they saw many different types of wood. Benny wanted to choose the biggest and strongest wood, but his friends wanted something more modest. They started to argue and couldn't agree on which wood to get. Benny was sad because he didn't want to fight with his friends.
+Suddenly, they heard a loud noise coming from the forest. It was a big storm! The wind was blowing very hard and the trees were falling down. Benny and his friends realized they needed to work together to find the right wood to build a strong and safe house. They finally chose a modest wood that was strong enough to protect them from the storm. They worked together and built a beautiful house, and they all lived happily ever after. The end.
+Summary: Benny and his friends argue over which wood to use to build a house, but when a storm hits, they work together to find the right wood and build a strong and safe house.
+<|endoftext|>
+Features: Dialogue
+Summary: Lily helps her mom make a sandwich, experiences an earthquake, but is comforted by her mom and they enjoy the sandwich together.
+Story: Once upon a time, there was a little girl named Lily. One day, Lily was playing with her toys when her mom came in and asked, "Lily, do you want to help me make a sandwich?"
+Lily nodded her head and followed her mom to the kitchen. Her mom gave her a knife and said, "Can you spread the peanut butter on the bread?"
+Lily tried her best to spread the peanut butter, but it was hard. Suddenly, there was a big earthquake and everything shook. Lily was scared, but her mom said, "It's okay, Lily. Earthquakes are normal sometimes."
+After the earthquake stopped, Lily and her mom finished making the sandwich. They sat down and ate it together, feeling happy and safe.
+<|endoftext|>
+Random sentence: In the forest, Lily met a talking rabbit who told her a secret.
+Features: Dialogue, Foreshadowing, Twist
+Summary: Lily follows a butterfly to a forest where she meets a talking rabbit who warns her not to go to the old house. Lily ignores the warning and meets a scary monster, but the rabbit saves her and she learns to listen to his advice.
+Story: Once upon a time, there was a happy family who lived in a big house. The family had a little girl named Lily who loved to play outside. One day, Lily was playing in the garden when she saw a butterfly. She ran after the butterfly and followed it to a nearby forest.
+In the forest, Lily met a talking rabbit who told her a secret. "Don't go to the old house," said the rabbit. "It's not safe there." But Lily didn't listen and went to the old house anyway. When she got there, she saw a big, scary monster inside. The monster lied to her and said he was friendly, but Lily knew better.
+Suddenly, the rabbit appeared and scared the monster away. "I told you not to go to the old house," said the rabbit. "But I'm glad you're safe." From that day on, Lily listened to the rabbit and never went to the old house again. She was very happy to be back in her own house with her family.
+<|endoftext|>
+Words: decide, violin, hot
+Summary: Lily wants a violin but it's too expensive, so she keeps playing and practicing. She eventually gets a chance to play a violin in the park and impresses everyone.
+Features: Dialogue, Twist
+Story: Once upon a time, there was a little girl named Lily. She loved playing with her toys and singing songs. One day, she saw a violin in a store window. She thought it was pretty and wanted to play it.
+Lily asked her mommy, "Can I have the violin?" Her mommy said, "Let's go inside and see how much it costs." They went inside and found out it was very expensive. Lily's mommy said, "We can't buy it now, but we can save up and decide later."
+Lily was sad, but she decided to keep singing and playing with her toys. One day, she went to the park and saw a man playing a violin. She asked him if she could try it. The man said yes and gave her the violin. Lily played a beautiful song and everyone in the park clapped. The man was surprised and said, "You're a natural! Keep playing!" Lily was happy and decided to keep practicing.
+<|endoftext|>
+Random sentence: She wanted to play with her friends.
+Words: clean, old, restless
+Features: Dialogue
+Summary: Lily finds and cleans an old toy before going outside to play with her friends. Her mom reminds her to clean up her toys when she's done.
+Story: Once upon a time, there was a little girl named Lily who loved to play outside. One day, she found an old toy in her backyard. It was dirty and dusty, so she decided to clean it.
+Lily got a bucket of water and a sponge. She scrubbed the toy until it was shiny and new again. "Look, Mommy!" she said. "I cleaned this old toy!"
+But Lily was still restless. She wanted to play with her friends. "Can I go outside and play?" she asked her mom. "Yes," her mom said. "But don't forget to clean up your toys when you're done."
+<|endoftext|>
+Words: hurry, factory, hidden
+Features: Dialogue, BadEnding, Twist
+Story: Once upon a time, there was a little girl named Lily. She loved to play hide-and-seek with her friends in the park. One day, while she was playing, she heard a loud noise coming from a big building nearby. She asked her friend, "What's that sound?"
+Her friend replied, "That's the factory. They make lots of things there."
+Lily was curious, so she wanted to see what was inside. She hurried to the factory and found a hidden door. She opened it and went inside. Suddenly, she saw something she wasn't supposed to see. The workers were making bad things! She got scared and ran away.
+When she got home, she told her parents what she saw. They called the police, and the factory was shut down. But Lily couldn't forget what she saw, and she had bad dreams for a long time.
+Summary: Lily hears a loud noise coming from a nearby factory while playing hide-and-seek with her friends in the park. Curious, she goes inside and discovers the workers making bad things. She tells her parents, who call the police and shut down the factory.
+<|endoftext|>
+Summary: Timmy goes to explore a mill but accidentally breaks a part of it, and the owner punishes him by making him clean up the mess. Timmy learns a valuable lesson about being careful and respectful of other people's things.
+Features: Dialogue
+Words: punish, mill, cool
+Story: Once upon a time, there was a little boy named Timmy. Timmy loved to play outside and run around in the sun. One day, Timmy saw a cool mill in the distance. He wanted to go see it, but his mom said he had to finish his dinner first.
+Timmy finished his dinner quickly and asked his mom if he could go see the mill. His mom said yes, but warned him to be careful. Timmy ran to the mill and had a lot of fun exploring it. But then he accidentally broke a part of the mill.
+The owner of the mill saw what happened and was very angry. He punished Timmy by making him clean up the mess he made. Timmy learned that it's important to be careful and respectful of other people's things.
+<|endoftext|>
+Summary: A little bird falls from a branch in the park and is rescued by a kind girl who takes it to a safe place. The bird sings a happy song for the girl afterwards.
+Words: shout, branch, loud
+Story: Once upon a time, there was a big tree in the park. The tree had many branches. One day, a little bird was sitting on one of the branches. The bird was singing a song but suddenly a loud wind blew and the branch broke. The little bird fell down and shouted for help. A kind girl who was playing nearby heard the bird's shout and came to help. She picked up the little bird and took it to a safe place. From then on, the little bird always sang a happy song for the girl.
+<|endoftext|>
+Features: Dialogue
+Words: nod, box, anxious
+Story: Once upon a time, there was a little girl named Lily. She had a big box that she loved to play with. One day, Lily's mommy asked her to clean up her toys. Lily felt anxious because she didn't want to put her box away. 
+Her mommy said, "Lily, can you please put your box in the toy chest?" 
+Lily shook her head and said, "No, I want to keep my box with me." 
+Her mommy smiled and said, "Okay, you can keep your box with you. But can you at least nod your head to show me that you heard me?" 
+Lily nodded her head and hugged her box tightly. She was happy to keep her box with her and her mommy was happy too because Lily had listened to her. The end.
+Summary: Lily loves her big box but doesn't want to put it away when her mommy asks her to clean up her toys. Her mommy allows her to keep the box with her, as long as she nods her head to show she heard her.
+<|endoftext|>
+Summary: Lily and her friends were playing soccer when they decided to make the goal bigger and use some old wood to make the ball bounce more. Lily kicked the ball and scored, realizing that trying something new can help you reach your goal.
+Features: Dialogue, Foreshadowing
+Story: Once upon a time, there was a little girl named Lily. She loved to play outside with her friends. One day, Lily and her friends were playing soccer. They had a goal set up and were taking turns trying to score.
+Lily's friend, Jack, wondered if they could make the goal bigger. Lily thought it was a good idea and they decided to try it out. They found some old wood and made the goal bigger. It was an ancient piece of wood that had been in Jack's backyard for a long time.
+As they played, Lily noticed that the ball kept hitting the wood and bouncing back. She thought it was funny and wondered if they could use the wood to make the ball bounce even more. Jack said they could try it out and they put the wood around the goal.
+As they played, Lily kicked the ball and it bounced off the wood and went into the goal. Everyone cheered and Lily was so happy. She realized that sometimes, trying something new can help you reach your goal.
+<|endoftext|>
+Features: Twist
+Words: stare, lab, heavy
+Story: Once upon a time, there was a little girl named Lily. She loved to go to the park and play on the swings. One day, she saw a big, heavy dog walking towards her. She was scared, so she ran to a lab that was nearby.
+Inside the lab, Lily saw a scientist staring at a big machine. She asked the scientist if she could hide there until the dog went away. The scientist said yes and showed her a place to hide.
+Suddenly, the machine started to shake and make a loud noise. The scientist ran to fix it, but when she turned it off, Lily saw something unexpected. The machine had made a magical portal! The scientist told Lily she could go through it and explore a new world. Lily was so excited and thanked the scientist before jumping into the portal. She had a wonderful adventure and couldn't wait to tell her friends about it.
+Summary: Lily runs to a lab to hide from a big dog and discovers a magical portal that takes her on a wonderful adventure.
+<|endoftext|>
+Words: urge, invitation, honest
+Summary: Timmy receives an invitation to his friend Billy's birthday party but his mom says they might not be able to go. Timmy convinces his mom to rearrange their plans and they end up going to the party, where Timmy has a great time.
+Story: Once upon a time, there was a little boy named Timmy. Timmy loved to play with his toys and his friends. One day, Timmy's friend Billy came over to his house and gave him an invitation to his birthday party. Timmy was so happy and he told his mom about it.
+Timmy's mom was honest with him and said they might not be able to go because they had other plans. But Timmy really wanted to go to Billy's party, so he urged his mom to try and make it work. 
+In the end, Timmy's mom was able to rearrange their plans and they went to the party. Timmy had so much fun playing games and eating cake with his friends. He was happy he urged his mom to go and grateful for the invitation.
+<|endoftext|>
+Features: Dialogue
+Story: Once upon a time, there was a little girl named Lily. She loved to play in the park with her friends. One day, she saw a big slide and she wanted to try it. She climbed up the ladder and slid down the slide. It was so much fun!
+After playing for a while, Lily and her friends got thirsty. They saw a lovely jug of lemonade on a nearby table. They asked the lady if they could have some and she said yes. The lemonade was so tasty and refreshing.
+As they were drinking, Lily's friend said, "This is the best day ever!" Lily agreed and said, "I love playing with you guys." They all smiled and continued to enjoy their day in the park.
+Summary: Lily has a fun day playing in the park with her friends and they enjoy some tasty lemonade.
+<|endoftext|>
+Words: spread, arm, sorry
+Summary: Lily goes to the park with her mom and sees her friend Sarah, but Sarah is angry with her. Lily feels sad and alone until her mom surprises her with cookies, but Lily has an allergic reaction and passes away. Sarah regrets not hugging Lily and promises to always be kind to others.
+Features: Dialogue, BadEnding, Twist
+Random sentence: But then, something unexpected happened.
+Story: Once upon a time, there was a little girl named Lily. She loved to play with her dolls and teddy bears. One day, she went to the park with her mommy. They played on the swings and slides. Suddenly, Lily saw her friend Sarah.
+"Hi Sarah!" Lily said, spreading her arms to give her friend a hug.
+But Sarah didn't want to hug Lily. She was mad because Lily had taken her toy the day before. "I don't want to play with you anymore," Sarah said.
+Lily felt sorry for what she had done. She didn't mean to take Sarah's toy. She tried to apologize, but Sarah didn't listen. Lily felt sad and alone. She went home with her mommy, feeling very unhappy.
+When they got home, Lily's mommy gave her a surprise. She had baked Lily's favorite cookies. Lily was so happy and forgot all about Sarah. But then, something unexpected happened. Lily took a bite of the cookie and felt sick. Her mommy rushed her to the hospital, but it was too late. Lily had an allergic reaction and passed away.
+Sarah heard the news and felt very sorry for what she had said to Lily. She wished she had hugged her friend when she had the chance. From that day on, Sarah promised to always be kind to others and never hold a grudge.
+<|endoftext|>
+Features: Foreshadowing, Twist
+Story: Once upon a time, there was a little boy named Tim. Tim loved to play with his toys and watch cartoons on TV. One day, Tim went to the park with his mommy. He saw a big ball and wanted to play with it. 
+Tim tried to grab the ball, but it was too big for him. He asked his mommy to help him, but she said he had to try by himself. Tim tried again and again. Finally, he was able to grab the ball and started to play with it.
+While Tim was playing, he saw an interesting bird flying in the sky. He stopped playing with the ball and watched the bird. Suddenly, the ball rolled away from him and went down a hill. Tim ran after the ball and tried to catch it. He ran and ran until he reached the bottom of the hill. 
+When he got there, he saw something unexpected. The ball had scored a goal in a soccer game that was happening on the other side of the park! Everyone was cheering and clapping. Tim was so happy that he had helped the team score a goal, even though he didn't know it at the time. From that day on, Tim loved to play soccer and always tried to grab the ball.
+Summary: Tim tries to grab a big ball at the park and eventually succeeds, but then the ball rolls away and scores a goal in a soccer game, making Tim happy and interested in playing soccer.
+<|endoftext|>
+Summary: Lily's plastic doll goes missing at the park, but she finds it with a little boy who wants to keep it. They agree to share the doll and become friends.
+Words: recognize, plastic, modest
+Story: Once upon a time, there was a little girl named Lily. She loved playing with her toys, especially a plastic doll that she carried everywhere she went. One day, Lily went to the park to play with her friends. She left her doll on a bench while she ran around and played. When she came back to get her doll, she saw that it was gone! 
+Lily was very sad and didn't know what to do. She looked around the park but couldn't find her doll anywhere. Just as she was about to give up, she saw a little boy walking towards her with her doll in his hands. Lily recognized her doll right away and was so happy to have it back. 
+But then something unexpected happened. The little boy told Lily that he really liked her doll and wanted to keep it for himself. Lily didn't know what to do, but she knew that she loved her doll very much and didn't want to give it away. She thought for a moment and then had an idea. She suggested that they share the doll and play with it together. The little boy agreed and they became friends. 
+From that day on, Lily and the little boy played together every day with the plastic doll. They were both very modest and didn't fight over the doll. They recognized that sharing was the best way to make everyone happy. And they all lived happily ever after. The end.
+<|endoftext|>
+Features: Dialogue, Conflict
+Words: count, nation, harsh
+Story: Once upon a time, there was a little girl named Lily. She loved to count everything she saw, like the flowers in the garden and the stars in the sky. One day, she asked her mommy, "How many nations are there in the world?"
+Her mommy replied, "There are many nations, my dear. Each nation has its own people and language."
+Lily was curious and wanted to know more. She asked, "Why do some people speak harshly to others from different nations?"
+Her mommy explained, "Sometimes people are afraid of things that are different from what they know. But it's important to be kind to everyone, no matter where they come from. We should celebrate our differences and learn from each other."
+Lily nodded, understanding what her mommy said. She continued to count the flowers in the garden, feeling happy and peaceful.
+Summary: Lily asks her mom how many nations there are in the world and learns about the importance of being kind to people from different nations.
+<|endoftext|>
+Words: work, soup, long
+Features: Twist
+Summary: Timmy's dad makes vegetable soup for lunch instead of Timmy's favorite tomato soup, but Timmy learns to enjoy unexpected things.
+Story: Once upon a time, there was a boy named Timmy. Timmy loved soup, especially the tomato soup his mom made. One day, Timmy's mom went to work and left him home with his dad. His dad decided to make soup for lunch, but he didn't know how to make the tomato soup that Timmy loved. 
+So, his dad decided to try making a different kind of soup. He searched for a long time in the kitchen, trying to find the ingredients he needed. Finally, he found some vegetables and decided to make vegetable soup. 
+When Timmy tasted the soup, he was surprised. It didn't taste like his mom's tomato soup, but it was still really good! Timmy's dad was happy that his soup worked out and they both enjoyed it together. From that day on, Timmy learned that sometimes unexpected things can be really good too.
+<|endoftext|>
+Summary: Timmy and his friend Billy learn that being cool is not just about what you wear, but also about being kind and having fun with your friends.
+Story: Once upon a time, there was a little boy named Timmy. Timmy loved to play outside and wear his favorite cool cap. One day, Timmy went to the park to play with his friends. 
+Timmy's friend, Billy, said, "Wow, Timmy! Your cap is so cool! Where did you get it?" 
+Timmy replied, "My mommy bought it for me. She said it makes me look cool." 
+Billy said, "I want a cool cap too! Can you teach me how to look cool like you?" 
+Timmy said, "Sure! I can teach you how to wear a cool cap and we can learn together." 
+From that day on, Timmy and Billy wore their cool caps together and had fun learning new things. They learned that being cool is not just about what you wear, but also about being kind and having fun with your friends.
+<|endoftext|>
+Words: fill, pastry, independent
+Features: Twist
+Story: Once upon a time, there was a little girl named Lily. She loved to eat pastries, especially ones with chocolate inside. One day, her mom took her to the bakery to get some pastries. Lily was so excited!
+When they got to the bakery, Lily saw a big jar of candy. She asked her mom if she could have some, but her mom said no. Lily was sad, but then she saw something even better - a tray of pastries that were still warm from the oven!
+Her mom let her pick out one pastry to eat, and Lily chose a chocolate one. She was so happy as she took a big bite, but then something unexpected happened. The pastry was filled with something else instead of chocolate - it was filled with vegetables! Lily was surprised, but then she realized that she actually liked the taste. She felt independent because she tried something new and found out that she liked it. From that day forward, Lily wasn't afraid to try new things.
+Summary: Lily loves pastries and wants candy but her mom takes her to the bakery to get a pastry. She picks a chocolate one but it's filled with vegetables. She tries it and likes it, learning to be open to new things.
+<|endoftext|>
+Words: hate, ornament, rude
+Summary: Lily's cousin broke her favorite Christmas ornament, but after her cousin apologized and they made a new ornament together, Lily forgave her and realized she still loved her.
+Story: Once upon a time, there was a little girl named Lily. Lily loved Christmas and all the pretty ornaments on the tree. One day, Lily's cousin came over to play. Her cousin was very rude and didn't want to play with Lily's toys. Lily didn't like that her cousin was being rude. 
+Later that day, Lily's cousin accidentally broke one of her favorite ornaments. Lily was very upset and told her cousin that she hated her for breaking it. Her cousin felt bad and said sorry to Lily. 
+Lily forgave her cousin and they continued to play together. They even made a new ornament to replace the one that was broken. Lily realized that even though she was mad at her cousin, she still loved her. The end.
+<|endoftext|>
+Words: raise, bird, troubled
+Features: Dialogue
+Story: Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she saw a bird with a broken wing on the ground. She felt troubled and wanted to help the bird.
+Lily went to her mommy and said, "Mommy, I saw a bird with a broken wing. Can we help it?" Her mommy said, "Yes, we can raise the bird and help it get better."
+Lily and her mommy gently picked up the bird and put it in a cozy box with some food and water. They took care of the bird every day until its wing was healed. Lily was so happy to see the bird fly again. She said, "Goodbye, birdie! I'm glad we could help you." The bird chirped back, "Thank you, Lily!"
+Summary: Lily finds a bird with a broken wing and with her mother's help, they take care of it until it is healed and can fly again.
+<|endoftext|>
+Words: see, leaf, lonely
+Story: Once upon a time, there was a little bird. The bird lived in a tree. One day, the bird flew down to the ground to find a leaf. The bird wanted to make a nest. 
+As the bird looked for a leaf, it saw a lonely caterpillar. The caterpillar was sad because it had no friends. The bird felt sad too. The bird asked the caterpillar to be its friend. 
+The caterpillar was happy to have a friend. The bird and the caterpillar played together every day. They would see the sun rise and set. They would see the leaves fall from the trees. They were happy to have each other as friends.
+Summary: A bird and a caterpillar become friends and play together every day.
+<|endoftext|>
+Words: frown, pizza, charming
+Random sentence: Lily was happy again and said, "Thank you, that's better!"
+Features: Dialogue
+Summary: Lily loves pizza and goes to a pizza shop with her mom. The lady at the counter forgets to put pepperoni on Lily's pizza, but quickly makes a new one with lots of pepperoni.
+Story: Once upon a time, there was a little girl named Lily. She loved pizza more than anything else in the world. One day, she went to the pizza shop with her mom. The lady at the counter was very charming and smiled at Lily.
+"Hello, what kind of pizza would you like?" the lady asked.
+"I want pepperoni pizza, please," Lily said with a big smile.
+The lady smiled again and said, "Coming right up!" But when Lily's pizza came, she saw that there was no pepperoni on it. She frowned and said, "Where's my pepperoni?"
+The lady apologized and quickly made a new pizza with lots of pepperoni on it. Lily was happy again and said, "Thank you, that's better!"
+<|endoftext|>
+Random sentence: She loved to play with her toys and her friends.
+Story: Once upon a time, there was a girl named Lily. She loved to play with her toys and her friends. One day, Lily's mom invited her to help with the dishwasher. Lily was excited because she loved to help her mom.
+But when they opened the dishwasher, they found a serious problem. All the dishes were broken! They didn't know what to do. Lily's mom was sad because she loved those dishes. Lily wanted to help but she didn't know how.
+Suddenly, Lily had an idea. She ran to her room and grabbed her piggy bank. She had saved up a lot of money from her allowance. She gave the money to her mom and said, "We can buy new dishes!" Her mom was so happy and proud of Lily. They went to the store and bought new dishes together. From that day on, Lily knew that she could help her mom with anything.
+Summary: Lily helps her mom replace broken dishes by giving her piggy bank savings.
+<|endoftext|>
+Features: Dialogue
+Words: become, True, original
+Summary: Lily makes a picture of a flower, but her brother criticizes it. Her mom tells her that her picture is special because it is true to who she is.
+Story: Once upon a time, there was a little girl named Lily. She loved to draw pictures and make things with her hands. One day, she made a beautiful picture of a flower, but her brother said it was not good enough. 
+Lily felt sad and thought her picture wasn't true to her original idea. Her mom came and asked, "What's wrong, Lily?" 
+Lily said, "My picture is not good. It didn't become what I wanted it to be." 
+Her mom smiled and said, "It's okay, Lily. Your picture is true to who you are and that is what makes it special and original. Don't let anyone else tell you otherwise." 
+Lily felt better and hugged her mom. From that day on, she continued to make things that were true to her original ideas and didn't let anyone else's opinions bring her down.
+<|endoftext|>
+Summary: A man with a big mustache falls in love with a woman and they decide to marry. On the day of the wedding, a bird drops a mess on his mustache, but his bride-to-be covers it up with flowers, making it a unique touch that everyone loves.
+Words: marry, mustache, glad
+Features: Foreshadowing, Twist
+Story: Once upon a time, there was a man who had a big mustache. He was always glad and happy, and everyone loved him. One day, he met a woman who made him even happier. They fell in love and decided to marry.
+The day of the wedding arrived, and the man was getting ready. He combed his mustache and put on his best suit. But then, something unexpected happened. As he was walking to the wedding, a bird flew over and dropped a big, gooey mess on his mustache!
+The man was very upset and thought the wedding was ruined. But then, his bride-to-be came up with a clever idea. She took some flowers from her bouquet and used them to cover up the mess on his mustache. Everyone at the wedding thought it was a beautiful and unique touch. The man was very glad that he had married such a clever and creative woman.
+<|endoftext|>
+Words: examine, bandage, light
+Summary: Timmy hurts his knee but still enjoys playing outside with his dog Max and examining a bug in the park.
+Story: Once upon a time, there was a boy named Timmy. He loved to play outside with his dog, Max. One day, Timmy fell down and hurt his knee. His mom put a bandage on it to make it feel better.
+Later that day, Timmy and Max went for a walk in the park. Timmy saw a bug on the ground and wanted to examine it. He picked it up and looked at it closely in the light. Max barked and wagged his tail, happy to be outside with his best friend. 
+Timmy was happy too, even with his bandaged knee. He knew it would get better soon and he could play outside again with Max. The end.
+<|endoftext|>
+Random sentence: Lily wanted to ride the train, but her mommy said they didn't have time.
+Summary: Lily loves dolls and wants to ride a train, but her mommy says they don't have time. Lily plays with her dolls and pretends they are on the train. Later, her mommy surprises her and they get to ride the train.
+Words: dress, rail, amazing
+Story: Once upon a time, there was a little girl named Lily. She loved to play with her dolls and dress them up in pretty clothes. One day, she went to the park with her mommy and saw an amazing train on the rail. It was so big and shiny!
+Lily wanted to ride the train, but her mommy said they didn't have time. So, Lily went back to playing with her dolls. She pretended they were riding the train on the rail and dressed them up in conductor hats.
+As they were leaving the park, Lily saw the amazing train again. This time, her mommy surprised her and they got to ride it! Lily was so happy and couldn't stop smiling. It was the best day ever!
+<|endoftext|>
+Story: Once upon a time, there was a little girl named Lily. She loved to play outside and look at the sky. One day, Lily went to the park with her mommy. While they were playing, Lily's mommy told her it was time to go home. 
+Lily's mommy locked the car so it would be safe. Lily looked up at the sky and saw a big, fluffy cloud that looked like a bunny. She pointed to it and said, "Look mommy, bunny in sky!" 
+Lily and her mommy drove home safely and had a yummy snack. Then, Lily went to bed and dreamed about the bunny in the sky. The end.
+Summary: Lily goes to the park with her mommy, sees a bunny-shaped cloud, and goes home safely.
+<|endoftext|>

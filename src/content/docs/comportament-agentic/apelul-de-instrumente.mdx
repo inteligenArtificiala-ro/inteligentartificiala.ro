@@ -1,0 +1,86 @@
+---
+title: Apelul de instrumente (tool calls)
+description: Cum descrie harnașamentul instrumentele prin scheme JSON, cum le apelează modelul și cum se corectează singur un agent pornind de la erorile reale pe care le primește înapoi.
+sidebar:
+  order: 3
+  label: Apelul de instrumente
+level: intermediar
+tags:
+  - Sisteme agentice
+  - Modele de limbaj mari (LLM)
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+Ca să poată acționa asupra lumii fizice sau digitale, un model de limbaj trebuie să știe ce instrumente are la dispoziție și cum le poate apela. Această capacitate se numește **apel de instrumente** (_tool calling_ sau _function calling_) și este pasul de acțiune din procesul [harnașamentului](/comportament-agentic/harnasamentul/).
+
+## Descrierea instrumentelor
+
+Când trimite promptul către model, harnașamentul include și lista instrumentelor disponibile, descrise prin scheme JSON. Fiecare instrument are un nume unic, o descriere clară a ce face și o listă strictă de parametri tipizați.
+
+```json
+{
+  "name": "replace_file_content",
+  "description": "Înlocuiește un bloc continuu de text dintr-un fișier existent cu un conținut nou.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "filePath": { "type": "string", "description": "Calea absolută a fișierului." },
+      "targetContent": { "type": "string", "description": "Textul exact care trebuie înlocuit." },
+      "replacementContent": { "type": "string", "description": "Noul conținut." }
+    },
+    "required": ["filePath", "targetContent", "replacementContent"]
+  }
+}
+```
+
+## Apelul emis de model
+
+Când decide că trebuie să facă ceva, modelul nu mai scrie text obișnuit, ci întoarce un bloc structurat care spune ce instrument a ales și cu ce argumente exacte.
+
+```json
+{
+  "tool_call": {
+    "name": "replace_file_content",
+    "arguments": {
+      "filePath": "/proiect/src/auth.ts",
+      "targetContent": "const isValid = token.length > 0;",
+      "replacementContent": "const isValid = Boolean(token && token.length >= 32);"
+    }
+  }
+}
+```
+
+Modelul nu execută singur acțiunea. Harnașamentul citește blocul, rulează instrumentul și îi trimite modelului rezultatul, care devine observația de la pasul următor.
+
+## Categorii de instrumente
+
+Într-un mediu agentic pentru programare, instrumentele de bază se împart în patru categorii mari.
+
+- **Inspecție și explorare**: căutarea în cod (`grep`, `ripgrep`), listarea directoarelor, citirea fișierelor și a definițiilor de simboluri.
+- **Modificare de stare**: crearea și rescrierea fișierelor sau editarea lor atomică prin diferențe de text (_diffs_).
+- **Execuție și validare**: rularea comenzilor în terminal, a testelor automate, a linterelor și a compilatoarelor.
+- **Interacțiune**: cereri de confirmare sau întrebări cu variante de răspuns pentru utilizator (`ask_question`).
+
+## Autocorecția și revenirea după erori (self-healing)
+
+Cel mai mare avantaj al apelului de instrumente într-un harnașament automat este **autorepararea** (_self-healing_). Când un programator scrie cod greșit, compilatorul îi arată o eroare, iar programatorul o citește și o repară. Un sistem agentic face la fel.
+
+<Steps>
+1. Agentul modifică o funcție într-un fișier sursă.
+2. Harnașamentul rulează automat verificatorul de tipuri sau testele.
+3. Testul eșuează cu mesajul `TypeError: Cannot read property of undefined`.
+4. Harnașamentul pune mesajul de eroare și fișierul în cauză direct în contextul agentului.
+5. Agentul înțelege eroarea, găsește linia cu problema, face o nouă modificare și rulează din nou testul.
+</Steps>
+
+Pentru că poate reacționa la erori reale, modelul nu mai trebuie să nimerească totul din prima încercare.
+
+## Bibliografie
+
+- Chen, X. et al. (2024). [Teaching Large Language Models to Self-Debug](https://arxiv.org/abs/2304.05128). _ICLR 2024_.
+- JSON Schema (2022). [JSON Schema Specification, draft 2020-12](https://json-schema.org/draft/2020-12).
+- Patil, S. G. et al. (2023). [Gorilla: Large Language Model Connected with Massive APIs](https://arxiv.org/abs/2305.15334). Preprint arXiv:2305.15334.
+- Qin, Y. et al. (2024). [ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs](https://arxiv.org/abs/2307.16789). _ICLR 2024_.
+- Schick, T. et al. (2023). [Toolformer: Language Models Can Teach Themselves to Use Tools](https://arxiv.org/abs/2302.04761). _NeurIPS 2023_.
+- Yang, J. et al. (2024). [SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793). _NeurIPS 2024_.

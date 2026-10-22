@@ -1,0 +1,97 @@
+---
+// Un model Transformer doar cu decodor, ca în LLM-urile actuale (de exemplu SmolLM2 sau Llama): pre-normalizare cu
+// RMSNorm, atenție cauzală cu interogări grupate și RoPE, rețea feed-forward SwiGLU, conexiuni reziduale.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+
+const x = 200;
+const width = 240;
+const center = x + width / 2;
+
+const arrows = [
+  `M${center} 735 V712`,
+  `M${center} 672 V520`,
+  `M${center} 486 V462`,
+  `M${center} 418 V388`,
+  `M${center} 375 V290`,
+  `M${center} 256 V232`,
+  `M${center} 188 V158`,
+  `M${center} 136 V120`,
+  `M${center} 86 V64`,
+  // Conexiunile reziduale ocolesc componentele și se adună la ieșirea lor.
+  `M${center} 540 H${x + width + 30} V375 H${center + 14}`,
+  `M${center} 305 H${x + width + 30} V145 H${center + 14}`,
+];
+---
+
+<figure class='diagram decoder-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='60 30 560 740' role='img' aria-labelledby='decoder-title decoder-desc'>
+      <title id='decoder-title'>Un Transformer doar cu decodor</title>
+      <desc id='decoder-desc'>
+        Tokenurile devin reprezentări vectoriale. Fiecare dintre cele N blocuri aplică RMSNorm, apoi atenție cauzală cu
+        RoPE, și adună rezultatul la intrare. Apoi aplică din nou RMSNorm și rețeaua feed-forward SwiGLU și adună
+        rezultatul. După ultimul bloc urmează un RMSNorm final și un strat liniar care dă scorurile pentru vocabular.
+      </desc>
+      <defs>
+        <marker
+          id='decoder-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <rect class='group' x='175' y='130' width='330' height='440' rx='10'></rect>
+      <text class='title' x='185' y='590'>Bloc decodor</text>
+      <text class='label' x='515' y='350'>N ×</text>
+
+      <g class='arrow' marker-end='url(#decoder-arrow)'>
+        {arrows.map((d) => <path d={d} />)}
+      </g>
+
+      <Box x={x} y={672} width={width} height={40} kind='embedding' lines={['Reprezentări vectoriale']} />
+      <Box x={x} y={486} width={width} height={34} kind='norm' lines={['RMSNorm']} />
+      <Box
+        x={x}
+        y={418}
+        width={width}
+        height={44}
+        kind='attention'
+        lines={['Atenție cauzală', 'cu interogări grupate și RoPE']}
+      />
+      <Box x={x} y={256} width={width} height={34} kind='norm' lines={['RMSNorm']} />
+      <Box x={x} y={188} width={width} height={44} kind='feed-forward' lines={['Rețea feed-forward', 'SwiGLU']} />
+      <Box x={x} y={86} width={width} height={34} kind='norm' lines={['RMSNorm final']} />
+      <Box x={x} y={30} width={width} height={34} kind='output' lines={['Strat liniar → scoruri']} />
+
+      <g class='positional'>
+        <circle class='box neutral' cx={center} cy='375' r='13'></circle>
+        <circle class='box neutral' cx={center} cy='145' r='13'></circle>
+        <text x={center} y='380' text-anchor='middle'>+</text>
+        <text x={center} y='150' text-anchor='middle'>+</text>
+      </g>
+
+      <text class='label' x={center} y='752' text-anchor='middle'>Tokenuri</text>
+      <text class='label' x={x - 12} y='697' text-anchor='end'>aceeași matrice</text>
+      <text class='label' x={x - 12} y='55' text-anchor='end'>aceeași matrice</text>
+      <text class='label' x={x + width + 38} y='460'>flux rezidual</text>
+    </svg>
+  </div>
+  <figcaption>
+    Un Transformer doar cu decodor, în forma folosită de modelele actuale. Săgețile din dreapta sunt conexiunile reziduale.
+    Primul și ultimul strat folosesc aceeași matrice de reprezentări vectoriale.
+  </figcaption>
+</figure>
+
+<style>
+  .decoder-diagram svg {
+    min-width: 26rem;
+    max-width: 34rem;
+  }
+</style>

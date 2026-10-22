@@ -1,0 +1,76 @@
+---
+// Simbioza dintre modelul probabilistic (rețea neuronală) și algoritmii deterministe (căutare, caching, verificare).
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram algorithms-ai-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 10 740 310' role='img' aria-labelledby='algo-ai-title algo-ai-desc'>
+      <title id='algo-ai-title'>Cum lucrează împreună rețelele neuronale și algoritmii clasici</title>
+      <desc id='algo-ai-desc'>
+        Pornind de la o problemă, algoritmul de căutare în grafuri și arbori explorează variantele, iar rețeaua neuronală estimează care stări și acțiuni sunt promițătoare. Memoria cache reutilizează calculele deja făcute, iar regulile și testele verifică variantele înainte de soluția finală.
+      </desc>
+      <defs>
+        <marker
+          id='algo-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <!-- Săgeți flux -->
+      <g class='arrow' marker-end='url(#algo-arrow)'>
+        <!-- Intrare -> Algoritm de căutare -->
+        <path d='M125 160 H168'></path>
+        <!-- Căutare -> Model (evaluare stări / propunere acțiuni) -->
+        <path d='M255 125 V75 H328'></path>
+        <!-- Model -> Căutare (valori euristice & distribuție) -->
+        <path d='M465 105 V155 H377'></path>
+        <!-- Model <-> Caching (KV cache / memorare) -->
+        <path d='M500 75 H558'></path>
+        <!-- Căutare -> Verificare & Execuție -->
+        <path d='M375 195 V245 H428'></path>
+        <!-- Verificare -> Căutare (feedback validare / tăiere ramuri) -->
+        <path d='M430 265 H255 V202'></path>
+        <!-- Căutare -> Soluție finală -->
+        <path d='M375 175 H613'></path>
+      </g>
+
+      <!-- Intrare / Obiectiv -->
+      <Box x={15} y={130} width={110} height={60} kind='neutral' lines={['Problemă / stare', '(obiectiv)']} />
+
+      <!-- Algoritmi de căutare & planificare -->
+      <rect class='group' x={160} y={120} width={220} height={90} rx='8'></rect>
+      <text class='title' x={270} y={140} text-anchor='middle'>Căutare și planificare</text>
+      <Box x={175} y={150} width={190} height={45} kind='highlight' lines={['Grafuri și arbori', '(A*, MCTS, beam search)']} />
+
+      <!-- Model neuronal (Intuiție) -->
+      <rect class='group' x={320} y={30} width={190} height={85} rx='8'></rect>
+      <text class='title' x={415} y={50} text-anchor='middle'>Rețea neuronală</text>
+      <Box x={335} y={60} width={160} height={42} kind='attention' lines={['Euristici și percepție', '(probabilități, valori)']} />
+
+      <!-- Memorare & Caching -->
+      <rect class='group' x={550} y={30} width={175} height={85} rx='8'></rect>
+      <text class='title' x={637} y={50} text-anchor='middle'>Optimizarea memoriei</text>
+      <Box x={565} y={60} width={145} height={42} kind='embedding' lines={['KV cache și paginare', '(stări reutilizate)']} />
+
+      <!-- Verificare deterministă -->
+      <rect class='group' x={420} y={215} width={195} height={85} rx='8'></rect>
+      <text class='title' x={517} y={235} text-anchor='middle'>Filtrare și execuție</text>
+      <Box x={435} y={245} width={165} height={42} kind='norm' lines={['Reguli și constrângeri', '(validare, teste, mediu)']} />
+
+      <!-- Ieșire / Rezultat -->
+      <Box x={605} y={145} width={120} height={60} kind='output' lines={['Soluția finală', 'verificată']} />
+    </svg>
+  </div>
+  <figcaption>
+    Rețeaua neuronală ghidează deciziile prin estimări, iar algoritmii clasici organizează explorarea, gestionează memoria și verifică corectitudinea.
+  </figcaption>
+</figure>

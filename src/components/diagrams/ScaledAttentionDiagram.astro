@@ -1,0 +1,61 @@
+---
+// Atenția prin produs scalar scalat (figura 2, stânga, din „Attention Is All You Need”).
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram scaled-attention-diagram'>
+  <svg viewBox='0 80 460 445' role='img' aria-labelledby='scaled-attention-title scaled-attention-desc'>
+    <title id='scaled-attention-title'>Atenția prin produs scalar scalat</title>
+    <desc id='scaled-attention-desc'>
+      Q și K se înmulțesc, rezultatul se împarte la radical din d indice k, se aplică opțional o mască, apoi softmax. Ponderile
+      obținute se înmulțesc cu V și dau ieșirea.
+    </desc>
+    <defs>
+      <marker
+        id='scaled-attention-arrow'
+        viewBox='0 0 10 10'
+        refX='9'
+        refY='5'
+        markerWidth='6'
+        markerHeight='6'
+        orient='auto-start-reverse'
+      >
+        <path d='M 0 0 L 10 5 L 0 10 z'></path>
+      </marker>
+    </defs>
+
+    <g class='arrow' marker-end='url(#scaled-attention-arrow)'>
+      <path d='M200 497 V456'></path>
+      <path d='M270 497 V456'></path>
+      <path d='M235 420 V386'></path>
+      <path d='M235 350 V316'></path>
+      <path d='M235 280 V246'></path>
+      <path d='M235 210 V176'></path>
+      <path d='M400 497 V176'></path>
+      <path d='M320 140 V108'></path>
+    </g>
+
+    <Box x={160} y={420} width={150} height={36} kind='embedding' lines={['Înmulțire Q · Kᵀ']} />
+    <Box x={160} y={350} width={150} height={36} kind='neutral' lines={['Împărțire la √dₖ']} />
+    <Box x={160} y={280} width={150} height={36} kind='neutral' lines={['Mască (opțional)']} dashed />
+    <Box x={160} y={210} width={150} height={36} kind='norm' lines={['Softmax']} />
+    <Box x={210} y={140} width={220} height={36} kind='embedding' lines={['Înmulțire cu V']} />
+
+    <text class='label' x='148' y='443' text-anchor='end'>scoruri</text>
+    <text class='label' x='148' y='303' text-anchor='end'>doar în decodor</text>
+    <text class='label' x='148' y='233' text-anchor='end'>ponderi de atenție</text>
+
+    <text class='math' x='200' y='516' text-anchor='middle'>Q</text>
+    <text class='math' x='270' y='516' text-anchor='middle'>K</text>
+    <text class='math' x='400' y='516' text-anchor='middle'>V</text>
+    <text class='label' x='320' y='98' text-anchor='middle'>Ieșire</text>
+  </svg>
+  <figcaption>Pașii formulei de atenție, de jos în sus, după figura 2 din articol.</figcaption>
+</figure>
+
+<style>
+  .scaled-attention-diagram svg {
+    max-width: 26rem;
+  }
+</style>

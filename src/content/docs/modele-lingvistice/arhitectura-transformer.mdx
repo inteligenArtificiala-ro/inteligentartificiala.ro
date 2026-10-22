@@ -1,0 +1,214 @@
+---
+title: Arhitectura Transformer
+description: Cum este construit, pas cu pas, un model de limbaj modern, de la tokenuri la scoruri și probabilități. Explicăm RMSNorm, RoPE, atenția cu interogări grupate (GQA), SwiGLU, KV cache și cum se numără parametrii.
+sidebar:
+  order: 3
+level: avansat
+tags:
+  - Modele de limbaj mari (LLM)
+  - Transformer
+---
+
+import DecoderDiagram from '@components/diagrams/DecoderDiagram.astro';
+import Python from '@components/Python.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Pagina [Avem nevoie doar de atenție?](/modele-lingvistice/avem-nevoie-doar-de-atentie/) descrie Transformerul original din 2017, cu codificator și decodor, gândit pentru traducere. Aici ne uităm la arhitectura folosită azi de majoritatea modelelor de limbaj mari, **Transformerul doar cu decodor** (_decoder-only Transformer_). Componentele de bază sunt aceleași, dar aproape fiecare a fost modificată, ca modelul să calculeze mai eficient și să poată fi scalat mai ușor.
+
+Exemplele numerice folosesc configurația publică a modelului SmolLM2 135M, cel din [demo-ul de pe pagina despre LLM-uri](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#un-model-compact-în-browser). Familii de modele mai mari, de exemplu Llama, Qwen sau Mistral, folosesc aceleași componente, cu dimensiuni mai mari.
+
+## Privire de ansamblu
+
+<DecoderDiagram />
+
+Textul trece prin model în patru etape.
+
+<Steps>
+1. Fiecare token este înlocuit cu rândul corespunzător din matricea de reprezentări vectoriale $E$, de dimensiune $V \times d$, unde $V$ este mărimea vocabularului, iar $d$ este dimensiunea modelului.
+2. Vectorii trec, pe rând, prin $N$ blocuri identice ca structură, dar cu ponderi diferite.
+3. După ultimul bloc, o normalizare finală pregătește vectorii pentru ieșire.
+4. Un strat liniar transformă vectorul ultimului token într-un scor pentru fiecare token din vocabular, iar softmax face din aceste scoruri probabilități.
+</Steps>
+
+| Mărime | Simbol | SmolLM2 135M |
+| --- | --- | --- |
+| Mărimea vocabularului | $V$ | 49.152 |
+| Dimensiunea modelului | $d$ | 576 |
+| Numărul de blocuri | $N$ | 30 |
+| Capete de interogare | $h$ | 9 |
+| Perechi de chei și valori | $h_{\text{kv}}$ | 3 |
+| Dimensiunea unui cap | $d_{\text{head}}$ | 64 |
+| Stratul ascuns al rețelei feed-forward | $d_{\text{ff}}$ | 1.536 |
+| Fereastra de context | $n_{\max}$ | 8.192 |
+
+## Fluxul rezidual
+
+Fiecare token are un vector $h$ de dimensiune $d$, care trece prin toate blocurile. O componentă nu înlocuiește vectorul, ci citește o versiune normalizată a lui și îi adaugă rezultatul.
+
+$$
+h \leftarrow h + \operatorname{Attn}(\operatorname{RMSNorm}(h))
+$$
+
+$$
+h \leftarrow h + \operatorname{FFN}(\operatorname{RMSNorm}(h))
+$$
+
+Vectorul care se modifică astfel de la un bloc la altul se numește **flux rezidual** (_residual stream_). Fiecare componentă îi adaugă o corecție, iar componentele următoare citesc suma tuturor corecțiilor de până atunci.
+
+Față de articolul din 2017, normalizarea s-a mutat înaintea componentei. Varianta numită **pre-normalizare** (_pre-norm_) lasă calea directă de la intrare la ieșire fără nicio normalizare, iar gradienții ajung mai ușor la primele straturi. Astfel, stivele adânci se antrenează mai stabil, după cum arată [analiza lui Xiong și a colaboratorilor](https://arxiv.org/abs/2002.04745) din 2020.
+
+## RMSNorm
+
+Normalizarea folosită este **RMSNorm** (_root mean square normalization_), propusă în 2019 de [Zhang și Sennrich](https://arxiv.org/abs/1910.07467).
+
+$$
+\operatorname{RMSNorm}(x) = \frac{x}{\sqrt{\frac{1}{d} \sum_{i=1}^{d} x_i^2 + \varepsilon}} \odot g
+$$
+
+Vectorul $x$ este împărțit la rădăcina medie pătratică a componentelor lui, apoi fiecare componentă este înmulțită cu ponderea corespunzătoare din vectorul învățat $g$. Simbolul $\odot$ înseamnă înmulțire element cu element, iar $\varepsilon$ este o constantă mică, $10^{-5}$ la SmolLM2, care evită împărțirea la zero. Față de normalizarea pe strat din 2017, RMSNorm nu scade media și nu are _bias_. Calculul este mai simplu, iar rezultatele sunt comparabile.
+
+## Atenția cauzală cu interogări grupate
+
+Atenția din fiecare bloc este cea descrisă pe pagina despre articolul din 2017, cu interogări, chei și valori, produs scalar scalat, softmax și masca cauzală. Diferența apare la numărul de chei și valori.
+
+În atenția clasică cu capete multiple (_multi-head attention_), fiecare dintre cele $h$ capete are propriile proiecții pentru interogări, chei și valori. În **atenția cu interogări grupate** (_grouped-query attention_), descrisă de [Ainslie și colaboratorii](https://arxiv.org/abs/2305.13245) în 2023, capetele de interogare sunt împărțite în $h_{\text{kv}}$ grupuri, iar capetele dintr-un grup folosesc în comun aceleași chei și valori.
+
+La SmolLM2, cele 9 capete de interogare formează 3 grupuri de câte 3. Matricea $W^Q$ are dimensiunea $576 \times 576$, iar $W^K$ și $W^V$ au doar $576 \times 192$, adică 3 capete de câte 64 de valori. Calitatea scade foarte puțin, dar cheile și valorile păstrate la generare ocupă de 3 ori mai puțină memorie. Cele două extreme sunt atenția clasică ($h_{\text{kv}} = h$) și **atenția cu o singură interogare comună** (_multi-query attention_, $h_{\text{kv}} = 1$), propusă de [Shazeer](https://arxiv.org/abs/1911.02150) în 2019.
+
+## Codificarea pozițională rotativă
+
+Modelul din 2017 aduna o codificare pozițională la reprezentările vectoriale, o singură dată, la intrare. **Codificarea pozițională rotativă** (_rotary position embedding_, RoPE), propusă de [Su și colaboratorii](https://arxiv.org/abs/2104.09864) în 2021, codifică poziția direct în fiecare strat de atenție, prin rotirea vectorilor de interogare și de cheie.
+
+Componentele unui vector sunt grupate în perechi. Pentru tokenul de pe poziția $m$, fiecare pereche $i$ este rotită în planul ei cu unghiul $m \theta_i$.
+
+$$
+\begin{pmatrix} q'_{2i} \\ q'_{2i+1} \end{pmatrix} =
+\begin{pmatrix} \cos m\theta_i & -\sin m\theta_i \\ \sin m\theta_i & \cos m\theta_i \end{pmatrix}
+\begin{pmatrix} q_{2i} \\ q_{2i+1} \end{pmatrix}
+$$
+
+$$
+\theta_i = b^{-2i / d_{\text{head}}}
+$$
+
+Baza $b$ era 10.000 în articolul original. SmolLM2 folosește 100.000. Primele perechi se rotesc repede de la o poziție la alta, iar ultimele foarte încet, ca acele unui ceas. Implementările diferă prin felul în care grupează componentele în perechi, dar principiul este același.
+
+Proprietatea importantă apare în produsul scalar dintre o interogare de pe poziția $m$ și o cheie de pe poziția $n$. Rotirea cu unghiul $m\theta_i$ și rotirea cu $n\theta_i$ se combină într-o singură rotire cu $(n - m)\theta_i$, așa că scorul de atenție depinde doar de distanța dintre tokenuri, nu de pozițiile lor absolute. Valorile nu sunt rotite, deci informația transmisă rămâne neschimbată.
+
+## Rețeaua feed-forward SwiGLU
+
+Rețeaua feed-forward din fiecare bloc folosește o variantă cu poartă, numită **SwiGLU**, studiată de [Shazeer](https://arxiv.org/abs/2002.05202) în 2020.
+
+$$
+\operatorname{FFN}(x) = \big(\operatorname{SiLU}(x W_{\text{gate}}) \odot x W_{\text{up}}\big) W_{\text{down}}
+$$
+
+$$
+\operatorname{SiLU}(z) = z \cdot \sigma(z)
+$$
+
+unde $\sigma$ este funcția sigmoidă. Vectorul $x$ este proiectat de două ori în dimensiunea $d_{\text{ff}}$. O proiecție trece prin SiLU și devine o „poartă”, care decide cât din cealaltă proiecție trece mai departe. Rezultatul este proiectat înapoi în dimensiunea $d$ prin $W_{\text{down}}$.
+
+Sunt trei matrice în loc de două, așa că $d_{\text{ff}}$ se alege de obicei în jur de $\frac{8}{3} d$, pentru ca numărul de parametri să rămână apropiat de cel al rețelei clasice cu $d_{\text{ff}} = 4d$. La SmolLM2, $d_{\text{ff}} = 1.536 = \frac{8}{3} \cdot 576$. Ca la multe modele actuale, niciun strat liniar nu are _bias_. Rețeaua feed-forward conține aproximativ trei sferturi din parametrii unui bloc.
+
+## Ieșirea modelului
+
+După ultimul bloc, vectorul trece prin RMSNorm-ul final și apoi printr-un strat liniar care dă câte un scor pentru fiecare token din vocabular.
+
+$$
+z = h\, E^\top
+$$
+
+La SmolLM2, acest strat folosește chiar matricea de reprezentări vectoriale $E$ de la intrare, transpusă. Ponderile sunt **legate** (_tied embeddings_), ceea ce economisește aproximativ 28 de milioane de parametri. Scorurile $z$ trec apoi prin softmax, ca în [secțiunea despre generarea textului](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#cum-este-generat-textul).
+
+## Numărul de parametri
+
+Codul de mai jos numără parametrii modelului SmolLM2 135M pornind doar de la valorile din configurația lui.
+
+<Python
+  code={`
+# Configurația publică a modelului SmolLM2-135M-Instruct (config.json).
+vocab_size = 49152
+d_model = 576
+n_layers = 30
+n_heads = 9
+n_kv_heads = 3
+d_head = d_model // n_heads  # 64
+d_ff = 1536
+
+embeddings = vocab_size * d_model
+# W_Q și W_O au h capete, W_K și W_V doar h_kv capete.
+attention = 2 * d_model * n_heads * d_head + 2 * d_model * n_kv_heads * d_head
+feed_forward = 3 * d_model * d_ff  # W_gate, W_up, W_down
+norms = 2 * d_model  # două RMSNorm în fiecare bloc
+block = attention + feed_forward + norms
+total = embeddings + n_layers * block + d_model  # plus RMSNorm-ul final
+
+print(f"Reprezentări vectoriale: {embeddings:,}")
+print(f"Un bloc: {block:,} (atenție {attention:,}, feed-forward {feed_forward:,})")
+print(f"Total: {total:,} parametri")
+print(f"Partea reprezentărilor vectoriale: {embeddings / total:.1%}")
+`}
+/>
+
+Rezultatul, 134.515.008 parametri, explică numele „135M”. La un model atât de mic, tabelul de reprezentări vectoriale are aproximativ o cincime din parametri. La modelele de zeci de miliarde de parametri, partea lui devine mică, pentru că vocabularul crește mult mai încet decât restul modelului.
+
+## Antrenare și inferență
+
+La **antrenare**, toată secvența este prelucrată deodată. Datorită măștii cauzale, fiecare poziție vede doar tokenurile dinaintea ei, așa că o secvență de $n$ tokenuri dă $n$ predicții calculate în paralel, una pentru fiecare token următor.
+
+La **inferență**, adică la generarea textului, lucrurile se petrec în două faze. În faza de **procesare a promptului** (_prefill_), toate tokenurile primite sunt prelucrate deodată, ca la antrenare. În faza de **decodare** (_decoding_), modelul generează câte un singur token pe pas, iar fiecare token nou trece prin toate blocurile.
+
+## Memoria cache pentru chei și valori (KV cache)
+
+La fiecare pas de decodare, tokenul nou are nevoie de cheile și valorile tuturor tokenurilor anterioare, în fiecare strat. Datorită măștii cauzale, acestea nu se schimbă când apar tokenuri noi, așa că pot fi calculate o singură dată și păstrate. Memoria în care sunt păstrate se numește **memorie cache pentru chei și valori** (_KV cache_). Fără ea, fiecare pas ar recalcula tot contextul.
+
+Memoria ocupată crește cu lungimea contextului $n$.
+
+$$
+M = 2 \cdot N \cdot h_{\text{kv}} \cdot d_{\text{head}} \cdot n \cdot b
+$$
+
+unde factorul 2 vine de la chei și valori, iar $b$ este numărul de octeți pentru o valoare, de exemplu 4 pentru numerele pe 32 de biți.
+
+<Python
+  code={`
+n_layers, n_heads, n_kv_heads, d_head = 30, 9, 3, 64
+bytes_per_value = 4  # float32
+
+per_token = 2 * n_layers * n_kv_heads * d_head  # chei și valori, în toate straturile
+print(f"Valori păstrate pentru fiecare token: {per_token:,}")
+for n in [100, 1000, 8192]:
+    size = per_token * n * bytes_per_value
+    print(f"{n:>5} tokenuri: {size / 1e6:7.1f} MB")
+
+without_gqa = 2 * n_layers * n_heads * d_head * 8192 * bytes_per_value
+print(f"Fără interogări grupate, la 8192 de tokenuri: {without_gqa / 1e6:.1f} MB")
+`}
+/>
+
+:::tip[Cât economisește GQA]
+La contextul maxim, cheile și valorile ocupă de aproape trei ori mai mult decât ponderile modelului din demo. Fără atenția cu interogări grupate (GQA), ar ocupa de încă trei ori mai mult. La modelele mari din producție, care servesc mii de utilizatori în același timp, memoria cache pentru chei și valori este adesea principala limită hardware, mai mult decât spațiul ocupat de parametri.
+:::
+
+## Costul computațional
+
+O estimare folosită des, de exemplu în [studiul lui Kaplan și al colaboratorilor](https://arxiv.org/abs/2001.08361) din 2020, spune că prelucrarea unui token costă aproximativ $2P$ operații în virgulă mobilă, unde $P$ este numărul de parametri, deoarece fiecare parametru participă la o înmulțire și la o adunare. Antrenarea costă aproximativ $6P$ operații pe token, pentru că include și calculul gradienților.
+
+Pentru SmolLM2 135M, asta înseamnă circa 270 de milioane de operații pentru fiecare token generat. Antrenarea pe aproximativ 2.000 de miliarde de tokenuri a costat, după aceeași estimare, în jur de $1{,}6 \cdot 10^{21}$ operații.
+
+Estimarea ignoră atenția. Pentru un token nou, scorurile de atenție se calculează față de toate tokenurile anterioare, deci costul acestui pas crește liniar cu lungimea contextului. Pentru o secvență întreagă, costul atenției crește cu pătratul lungimii ei. De aceea, contextele foarte lungi sunt scumpe, iar unele modele limitează o parte din straturi la o fereastră locală de tokenuri.
+
+## Bibliografie
+
+- Ainslie, J. et al. (2023). [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245). _EMNLP 2023_.
+- Ben Allal, L. et al. (2025). [SmolLM2: When Smol Goes Big – Data-Centric Training of a Small Language Model](https://arxiv.org/abs/2502.02737). Preprint arXiv:2502.02737.
+- Kaplan, J. et al. (2020). [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361). Preprint arXiv:2001.08361.
+- Pope, R. et al. (2023). [Efficiently Scaling Transformer Inference](https://arxiv.org/abs/2211.05102). _MLSys 2023_.
+- Shazeer, N. (2019). [Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150). Preprint arXiv:1911.02150.
+- Shazeer, N. (2020). [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202). Preprint arXiv:2002.05202.
+- Su, J. et al. (2021). [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864). Preprint arXiv:2104.09864.
+- Touvron, H. et al. (2023). [LLaMA: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971). Preprint arXiv:2302.13971.
+- Vaswani, A. et al. (2017). [Attention Is All You Need](https://arxiv.org/abs/1706.03762). _NeurIPS 2017_.
+- Xiong, R. et al. (2020). [On Layer Normalization in the Transformer Architecture](https://arxiv.org/abs/2002.04745). _ICML 2020_.
+- Zhang, B. și Sennrich, R. (2019). [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467). _NeurIPS 2019_.

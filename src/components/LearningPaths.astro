@@ -1,0 +1,742 @@
+---
+// Harta traseelor de pe prima pagină: traseele din src/learning-paths.ts, desenate ca liniile unei hărți de metrou.
+// Traseele care au același început merg împreună, în paralel, până unde se despart. Stațiile sunt pagini, colorate
+// după nivel, iar laboratoarele sunt stații pătrate. Traseul ales se schimbă fără JavaScript (butoane radio și :has);
+// scriptul doar marchează paginile deja vizitate (salvate de src/components/starlight/Head.astro) și ține minte
+// traseul ales. Pe ecranele înguste harta este înlocuită de lista paginilor traseului ales.
+import { getCollection } from 'astro:content';
+import { LEVELS, type Level } from '../consts';
+import { LEARNING_PATHS, SHORT_LABELS } from '../learning-paths';
+import { pluralize } from '../utils/format';
+
+const PITCH = 184; // distanța dintre coloane
+// Distanța dintre stații, pe verticală. Cu ea, pe un ecran lat harta are cam înălțimea listei traseelor din stânga.
+const ROW = 83;
+const GAP = 7; // distanța dintre liniile care merg în paralel
+const R = 7; // raza unei stații
+const TOP = 24;
+const LEFT = 24;
+const RUN = 50; // cât sub stație cotește o linie care se desparte
+const TURN = 8; // raza cea mai mică a unei coturi
+const LABEL_CHARS = 26; // caractere pe rândul unei etichete, cât încape într-o coloană
+const LABEL_WIDTH = 168;
+const LINE_HEIGHT = 16;
+
+const docs = new Map((await getCollection('docs')).map((d) => [d.id, d]));
+const levelOrder = Object.keys(LEVELS) as Level[];
+
+interface Station {
+  id: string;
+  href: string;
+  title: string;
+  description: string;
+  level?: Level;
+  /** Pentru un laborator: dosarul lui, ca stația să fie vizitată la oricare dintre paginile laboratorului. */
+  lab?: string;
+  label: string[];
+  depth: number;
+  parent?: Station;
+  children: Station[];
+  /** Numerele traseelor care trec prin stație (de la 1, în ordinea din src/learning-paths.ts). */
+  paths: number[];
+}
+
+const wrap = (text: string): string[] => {
+  const lines: string[] = [];
+  for (const word of text.split(/\s+/)) {
+    const last = lines.at(-1);
+    if (last !== undefined && `${last} ${word}`.length <= LABEL_CHARS) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  return lines;
+};
+
+// Titlul fără explicația englezească din paranteză, apoi eticheta din bara laterală, dacă titlul nu încape.
+const shortLabel = (id: string, title: string, sidebarLabel?: string): string[] => {
+  const candidates = [SHORT_LABELS[id], title, sidebarLabel].filter((c): c is string => Boolean(c));
+  for (const candidate of candidates) {
+    const lines = wrap(candidate.replace(/\s*\([^)]*\)$/, ''));
+    if (lines.length <= 2) return lines;
+  }
+  throw new Error(
+    `Harta traseelor: titlul paginii „${id}” nu încape în două rânduri. Adăugați o etichetă scurtă în SHORT_LABELS (src/learning-paths.ts).`,
+  );
+};
+
+// Arborele traseelor: o stație comună mai multor trasee are aceeași stație înaintea ei pe toate.
+const stations = new Map<string, Station>();
+const roots: Station[] = [];
+const ends: Station[] = [];
+
+LEARNING_PATHS.forEach((path, index) => {
+  const number = index + 1;
+  let parent: Station | undefined;
+  path.pages.forEach((id, depth) => {
+    const doc = docs.get(id);
+    if (!doc) throw new Error(`Traseul „${path.name}”: pagina „${id}” nu există în src/content/docs.`);
+    let station = stations.get(id);
+    if (station && station.parent !== parent) {
+      throw new Error(
+        `Traseul „${path.name}”: pagina „${id}” apare pe trasee diferite după pagini diferite. Traseele pot avea în comun doar începutul.`,
+      );
+    }
+    if (!station) {
+      const { title, description = '', level, sidebar } = doc.data;
+      station = {
+        id,
+        href: `/${id}/`,
+        title,
+        description,
+        level,
+        lab: id.startsWith('laboratoare/') ? `/${id.split('/').slice(0, 2).join('/')}/` : undefined,
+        label: shortLabel(id, title, sidebar.label),
+        depth,
+        parent,
+        children: [],
+        paths: [],
+      };
+      stations.set(id, station);
+      (parent ? parent.children : roots).push(station);
+    }
+    station.paths.push(number);
+    parent = station;
+  });
+  if (parent) ends.push(parent);
+});
+
+for (const [index, end] of ends.entries()) {
+  if (end.children.length > 0 || end.paths.length > 1) {
+    throw new Error(
+      `Traseul „${LEARNING_PATHS[index].name}” este începutul altui traseu. Fiecare traseu trebuie să aibă propria ultimă pagină.`,
+    );
+  }
+}
+
+// Fiecare traseu primește o coloană, în ordinea în care se ajunge la capătul lui parcurgând arborele. Așa, ramurile
+// unei stații ocupă coloane vecine, iar liniile care se despart pleacă spre dreapta fără să se încrucișeze.
+const column = new Map<number, number>();
+const visit = (station: Station) => {
+  if (station.children.length === 0) column.set(station.paths[0], column.size);
+  station.children.forEach(visit);
+};
+roots.forEach(visit);
+
+const ordered: Station[] = [];
+const collect = (station: Station) => {
+  ordered.push(station);
+  station.children.forEach(collect);
+};
+roots.forEach(collect);
+
+const columnOf = (n: number) => column.get(n) ?? 0;
+const stationColumn = (s: Station) => Math.min(...s.paths.map(columnOf));
+const x = (s: Station) => LEFT + stationColumn(s) * PITCH;
+const y = (s: Station) => TOP + s.depth * ROW;
+// Liniile unei stații stau una lângă alta, spre dreapta, în ordinea coloanelor lor.
+const offset = (n: number, s: Station) => (columnOf(n) - stationColumn(s)) * GAP;
+const stationWidth = (s: Station) => (s.paths.length - 1) * GAP;
+
+const route = (n: number, pages: string[]): string => {
+  const path = pages.map((id) => stations.get(id) as Station);
+  let d = `M${x(path[0]) + offset(n, path[0])} ${y(path[0])}`;
+  for (let i = 1; i < path.length; i++) {
+    const [a, b] = [path[i - 1], path[i]];
+    const [x1, x2, y2] = [x(a) + offset(n, a), x(b) + offset(n, b), y(b)];
+    if (x1 === x2) {
+      d += ` V${y2}`;
+      continue;
+    }
+    // Cotul spre coloana nouă trece prin spațiul dintre rânduri. Liniile care pleacă împreună cotesc în arce cu
+    // același centru, ca să rămână paralele.
+    const rank = offset(n, b) / GAP;
+    const last = b.paths.length - 1;
+    const yRun = y(a) + RUN - rank * GAP;
+    const r1 = TURN + (last - rank) * GAP;
+    const r2 = TURN + rank * GAP;
+    d += ` V${yRun - r1} A${r1} ${r1} 0 0 0 ${x1 + r1} ${yRun} H${x2 - r2} A${r2} ${r2} 0 0 1 ${x2} ${yRun + r2} V${y2}`;
+  }
+  return d;
+};
+
+const paths = LEARNING_PATHS.map((path, index) => {
+  const number = index + 1;
+  const list = path.pages.map((id) => stations.get(id) as Station);
+  const labs = list.filter((s) => s.lab).length;
+  const levels = list.flatMap((s) => (s.level ? [levelOrder.indexOf(s.level)] : []));
+  const [low, high] = [Math.min(...levels), Math.max(...levels)].map((i) => LEVELS[levelOrder[i]].toLowerCase());
+  const counts = [pluralize(list.length - labs, 'pagină', 'pagini'), labs > 0 && pluralize(labs, 'laborator', 'laboratoare')]
+    .filter(Boolean)
+    .join(', ');
+  return {
+    ...path,
+    number,
+    list,
+    end: list[list.length - 1],
+    counts,
+    levels: low === high ? low : `${low} → ${high}`,
+    d: route(number, path.pages),
+  };
+});
+
+const labelX = (s: Station) => x(s) + stationWidth(s) + R + 9;
+const width = Math.max(...ordered.map((s) => labelX(s) + LABEL_WIDTH));
+const height = Math.max(...paths.map((p) => y(p.end) + 30 + 12));
+
+// Traseul ales este cel bifat. Liniile și stațiile celorlalte trasee se estompează.
+const selectionCss = paths
+  .map(({ number: n }) => `.learning-paths:has(#traseu-${n}:checked) [data-trasee]:not([data-trasee~='${n}']) { --estompat: 1; }`)
+  .join('\n');
+---
+
+<div class='learning-paths not-content' data-pagefind-ignore>
+  <style is:inline set:html={selectionCss}></style>
+  <div class='asezare'>
+    <fieldset class='trasee'>
+      <legend class='ascuns'>Traseul afișat pe hartă</legend>
+      {
+        paths.map((p) => (
+          <div class='traseu' style={`--linie: var(--sl-color-${p.color})`}>
+            <input type='radio' name='traseu' id={`traseu-${p.number}`} value={p.number} checked={p.number === 1} />
+            <label for={`traseu-${p.number}`}>
+              <span class='insigna' aria-hidden='true'>
+                {p.number}
+              </span>
+              <span class='nume'>{p.name}</span>
+              <span class='meta'>
+                {p.counts}
+                <br />
+                {p.levels}
+              </span>
+            </label>
+            <div class='detalii'>
+              <p class='descriere'>{p.description}</p>
+              <p class='progres' data-progres hidden />
+              <a class='continuare' href={p.list[0].href} data-continuare>
+                <span data-titlu>{p.list[0].title}</span>{' '}
+                <span aria-hidden='true'>→</span>
+              </a>
+              <ol class='statii'>
+                {p.list.map((s) => (
+                  <li data-pagina={s.href} data-prefix={s.lab} data-nivel={s.level} class:list={{ laborator: s.lab }}>
+                    <span class='semn' aria-hidden='true' />
+                    <a href={s.href}>{s.title}</a>
+                    <span class='nivel'>
+                      {[s.level && LEVELS[s.level], s.lab && 'laborator'].filter(Boolean).join(' · ')}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        ))
+      }
+    </fieldset>
+
+    <figure class='harta'>
+      <svg viewBox={`0 0 ${width} ${height}`}>
+        <title>Harta traseelor</title>
+        <defs>
+          <linearGradient id='harta-trasee-intermediar' x1='0' y1='0' x2='0' y2='1'>
+            <stop offset='0.5' class='gol'></stop>
+            <stop offset='0.5' class='plin'></stop>
+          </linearGradient>
+        </defs>
+        <g aria-hidden='true'>
+          {
+            paths.map((p) => (
+              <path class='ruta' d={p.d} data-trasee={p.number} style={`--linie: var(--sl-color-${p.color})`} />
+            ))
+          }
+          {
+            paths.map((p) => (
+              <g class='insigna-harta' data-trasee={p.number} style={`--linie: var(--sl-color-${p.color})`}>
+                <circle cx={x(p.end)} cy={y(p.end) + 30} r='9' />
+                <text x={x(p.end)} y={y(p.end) + 34.5} text-anchor='middle'>
+                  {p.number}
+                </text>
+              </g>
+            ))
+          }
+        </g>
+        {
+          ordered.map((s) => (
+            <a
+              class='statie'
+              href={s.href}
+              data-trasee={s.paths.join(' ')}
+              data-pagina={s.href}
+              data-prefix={s.lab}
+              data-nivel={s.level}
+              aria-label={[s.title, s.level && LEVELS[s.level], s.lab && 'laborator'].filter(Boolean).join(', ')}
+            >
+              <title>{s.description}</title>
+              <rect
+                class='semn'
+                x={x(s) - R}
+                y={y(s) - R}
+                width={stationWidth(s) + 2 * R}
+                height={2 * R}
+                rx={s.lab ? 3 : R}
+              />
+              <text class='eticheta' y={y(s) + 5 - ((s.label.length - 1) * LINE_HEIGHT) / 2}>
+                {s.label.map((line, i) => (
+                  <tspan x={labelX(s)} dy={i === 0 ? 0 : LINE_HEIGHT}>
+                    {line}
+                  </tspan>
+                ))}
+                <tspan class='bifa' dx='5'>
+                  ✓
+                </tspan>
+              </text>
+            </a>
+          ))
+        }
+      </svg>
+    </figure>
+  </div>
+
+  <ul class='legenda'>
+    <li data-nivel='incepator'><span class='semn' aria-hidden='true'></span>{LEVELS.incepator}</li>
+    <li data-nivel='intermediar'><span class='semn' aria-hidden='true'></span>{LEVELS.intermediar}</li>
+    <li data-nivel='avansat'><span class='semn' aria-hidden='true'></span>{LEVELS.avansat}</li>
+    <li class='laborator'><span class='semn' aria-hidden='true'></span>Laborator</li>
+    <li class='legenda-vizitate' hidden><span class='bifa' aria-hidden='true'>✓</span>Pagină vizitată</li>
+  </ul>
+</div>
+
+<style>
+  /* Harta stă lângă hero, în afara .sl-markdown-content, așa că preia de aici fontul textului. Spațiul de dedesubt
+     îl stabilește Hero.astro, după ordinea în care apar cele două. */
+  .learning-paths {
+    container-type: inline-size;
+    margin-block: var(--sl-exquisitus-space-xl) 0;
+    font-family: var(--sl-exquisitus-font-reading);
+    font-size: 1.0625rem;
+    --cerneala: var(--sl-color-white);
+    --hartie: var(--sl-color-bg);
+  }
+
+  .asezare {
+    display: grid;
+    gap: var(--sl-exquisitus-space-xl);
+    align-items: start;
+  }
+
+  .ascuns,
+  .traseu input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Lista traseelor */
+
+  .trasee {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+
+  .traseu {
+    position: relative;
+    border-inline-start: 3px solid transparent;
+    padding-inline-start: var(--sl-exquisitus-space-sm);
+  }
+
+  .traseu + .traseu {
+    margin-top: var(--sl-exquisitus-space-2xs);
+  }
+
+  .traseu:has(input:checked) {
+    border-inline-start-color: var(--linie);
+  }
+
+  .traseu label {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--sl-exquisitus-space-sm);
+    padding-block: var(--sl-exquisitus-space-xs);
+    cursor: pointer;
+  }
+
+  .traseu input:focus-visible + label {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .insigna {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.1rem;
+    border-radius: 50%;
+    background: var(--linie);
+    /* Cerneală închisă în ambele moduri: culorile liniilor au aceeași luminozitate medie. */
+    color: oklch(0.2 0.015 80);
+    font-family: var(--sl-exquisitus-font-register);
+    font-size: var(--sl-text-sm);
+    font-weight: 700;
+  }
+
+  .nume {
+    font-family: var(--sl-exquisitus-font-register);
+    font-size: var(--sl-text-lg);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--sl-color-white);
+  }
+
+  .meta {
+    grid-column: 2;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  .traseu label:hover .nume {
+    color: var(--sl-color-accent-high);
+  }
+
+  .detalii {
+    display: none;
+    padding: 0 0 var(--sl-exquisitus-space-sm) calc(1.5rem + var(--sl-exquisitus-space-sm));
+  }
+
+  .traseu:has(input:checked) .detalii {
+    display: block;
+  }
+
+  .descriere {
+    margin: 0;
+    font-size: var(--sl-text-sm);
+    line-height: 1.6;
+    color: var(--sl-color-gray-2);
+  }
+
+  .progres {
+    margin: var(--sl-exquisitus-space-xs) 0 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  .continuare {
+    display: inline-block;
+    margin-top: var(--sl-exquisitus-space-sm);
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+    color: var(--sl-color-text-accent);
+    text-decoration: none;
+  }
+
+  .continuare:hover,
+  .continuare:focus-visible {
+    text-decoration: underline;
+  }
+
+  /* Lista paginilor traseului ales: ține locul hărții pe ecranele înguste. */
+
+  .statii {
+    margin: var(--sl-exquisitus-space-md) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .statii li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.25rem 1fr;
+    column-gap: var(--sl-exquisitus-space-xs);
+    padding-bottom: var(--sl-exquisitus-space-sm);
+  }
+
+  /* Linia traseului, de la o stație la următoarea. */
+  .statii li:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: 0.75rem;
+    bottom: -0.75rem;
+    left: calc(0.625rem - 2px);
+    width: 4px;
+    background: var(--linie);
+  }
+
+  .statii .semn {
+    position: relative;
+    margin-top: 0.3rem;
+    justify-self: center;
+  }
+
+  .statii a {
+    color: var(--sl-color-white);
+    text-decoration: none;
+    line-height: 1.4;
+  }
+
+  .statii a:hover,
+  .statii a:focus-visible {
+    color: var(--sl-color-accent-high);
+    text-decoration: underline;
+  }
+
+  .statii li[data-vizitata] a::after {
+    content: ' ✓';
+    color: var(--sl-color-gray-3);
+  }
+
+  .nivel {
+    grid-column: 2;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+
+  /* Semnele de nivel din listă și din legendă: gol, pe jumătate plin, plin; pătrat pentru laboratoare. */
+
+  span.semn {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 0.8rem;
+    height: 0.8rem;
+    border: 2px solid var(--cerneala);
+    border-radius: 50%;
+    background: var(--hartie);
+  }
+
+  [data-nivel='intermediar'] > span.semn {
+    background: linear-gradient(var(--hartie) 50%, var(--cerneala) 50%);
+  }
+
+  [data-nivel='avansat'] > span.semn {
+    background: var(--cerneala);
+  }
+
+  .laborator > span.semn {
+    border-radius: 0.15rem;
+  }
+
+  /* Harta */
+
+  .harta {
+    display: none;
+    margin: 0;
+  }
+
+  .harta svg {
+    display: block;
+    width: 100%;
+    max-width: 48rem;
+    height: auto;
+    margin-inline: auto;
+    overflow: visible;
+  }
+
+  .ruta {
+    fill: none;
+    stroke: var(--linie);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: calc(1 - 0.7 * var(--estompat, 0));
+  }
+
+  .insigna-harta {
+    opacity: calc(1 - 0.6 * var(--estompat, 0));
+  }
+
+  .insigna-harta circle {
+    fill: var(--linie);
+  }
+
+  .insigna-harta text {
+    fill: oklch(0.2 0.015 80);
+    font-family: var(--sl-exquisitus-font-register);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .ruta,
+  .insigna-harta,
+  .statie {
+    transition: opacity 0.2s ease;
+  }
+
+  .statie {
+    opacity: calc(1 - 0.6 * var(--estompat, 0));
+  }
+
+  .statie .semn {
+    fill: var(--hartie);
+    stroke: var(--cerneala);
+    stroke-width: 2.5;
+  }
+
+  .statie[data-nivel='intermediar'] .semn {
+    fill: url(#harta-trasee-intermediar);
+  }
+
+  .statie[data-nivel='avansat'] .semn {
+    fill: var(--cerneala);
+  }
+
+  .gol {
+    stop-color: var(--hartie);
+  }
+
+  .plin {
+    stop-color: var(--cerneala);
+  }
+
+  .eticheta {
+    fill: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+    font-size: 14px;
+  }
+
+  .statie:hover .eticheta,
+  .statie:focus-visible .eticheta {
+    fill: var(--sl-color-accent-high);
+    text-decoration: underline;
+  }
+
+  .statie:focus-visible {
+    outline: none;
+  }
+
+  .statie:focus-visible .semn {
+    stroke: var(--sl-color-accent);
+    stroke-width: 3.5;
+  }
+
+  .statie .bifa {
+    display: none;
+    fill: var(--sl-color-gray-3);
+  }
+
+  .statie[data-vizitata] .bifa {
+    display: inline;
+  }
+
+  /* Legenda */
+
+  .legenda {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--sl-exquisitus-space-2xs) var(--sl-exquisitus-space-lg);
+    margin: var(--sl-exquisitus-space-lg) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  .legenda li {
+    display: flex;
+    align-items: center;
+    gap: var(--sl-exquisitus-space-xs);
+  }
+
+  .legenda li[hidden] {
+    display: none;
+  }
+
+  /* Destul loc pentru hartă: lista paginilor dispare, harta apare sub lista traseelor. */
+  @container (min-width: 44rem) {
+    .harta {
+      display: block;
+    }
+
+    .statii {
+      display: none;
+    }
+  }
+
+  /* Și mai mult loc: lista traseelor în stânga, harta în dreapta. */
+  @container (min-width: 60rem) {
+    .asezare {
+      grid-template-columns: 18rem 1fr;
+      gap: var(--sl-exquisitus-space-2xl);
+    }
+
+    .legenda {
+      justify-content: flex-end;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ruta,
+    .insigna-harta,
+    .statie {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Marchează paginile vizitate (lista vine din Head.astro), arată progresul pe fiecare traseu și duce linkul
+  // traseului la prima pagină nevizitată. Ține minte și traseul ales.
+  const root = document.querySelector<HTMLElement>('.learning-paths');
+
+  const read = (key: string): unknown => {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? 'null');
+    } catch {
+      return null;
+    }
+  };
+
+  if (root) {
+    const stored = read('pagini-vizitate');
+    const visited = new Set(Array.isArray(stored) ? stored.filter((p) => typeof p === 'string') : []);
+    const isVisited = ({ dataset: { pagina = '', prefix } }: HTMLElement | SVGElement) =>
+      prefix ? [...visited].some((p) => p.startsWith(prefix)) : visited.has(pagina);
+
+    let any = false;
+    for (const el of root.querySelectorAll<HTMLElement | SVGElement>('[data-pagina]')) {
+      const seen = isVisited(el);
+      el.toggleAttribute('data-vizitata', seen);
+      any ||= seen;
+    }
+    const legend = root.querySelector<HTMLElement>('.legenda-vizitate');
+    if (legend) legend.hidden = !any;
+
+    for (const path of root.querySelectorAll<HTMLElement>('.traseu')) {
+      const items = [...path.querySelectorAll<HTMLLIElement>('.statii li')];
+      const done = items.filter((li) => li.hasAttribute('data-vizitata')).length;
+      if (done === 0) continue;
+
+      const progress = path.querySelector<HTMLElement>('[data-progres]');
+      if (progress) {
+        progress.textContent = `Vizitate: ${done} din ${items.length}`;
+        progress.hidden = false;
+      }
+
+      const next = items.find((li) => !li.hasAttribute('data-vizitata'));
+      const target = (next ?? items[0]).querySelector('a');
+      const link = path.querySelector<HTMLAnchorElement>('[data-continuare]');
+      const title = link?.querySelector('[data-titlu]');
+      if (target && link && title) {
+        link.setAttribute('href', target.getAttribute('href') ?? '');
+        title.textContent = target.textContent;
+      }
+    }
+
+    const chosen = read('traseu-ales');
+    if (typeof chosen === 'number') {
+      const input = root.querySelector<HTMLInputElement>(`input[name='traseu'][value='${chosen}']`);
+      if (input) input.checked = true;
+    }
+    root.addEventListener('change', ({ target }) => {
+      if (!(target instanceof HTMLInputElement) || target.name !== 'traseu') return;
+      try {
+        localStorage.setItem('traseu-ales', target.value);
+      } catch {
+        // Fără localStorage (fereastră privată, date blocate), traseul ales nu este ținut minte.
+      }
+    });
+  }
+</script>

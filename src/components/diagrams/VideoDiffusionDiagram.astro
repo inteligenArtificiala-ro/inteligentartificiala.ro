@@ -1,0 +1,76 @@
+---
+// Generarea video prin difuzie: comprimarea clipului în spațiu și timp, peticele de spațiu-timp și generarea pornind
+// de la zgomot în forma reprezentării latente. Dimensiunile sunt cele ale unui VAE 3D de tipul celor din HunyuanVideo și Wan.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram video-diffusion-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 10 740 310' role='img' aria-labelledby='video-diffusion-title video-diffusion-desc'>
+      <title id='video-diffusion-title'>Generarea video prin difuzie în spațiu și timp</title>
+      <desc id='video-diffusion-desc'>
+        Sus, la antrenare: un clip real de 121 de cadre, de 1280 pe 720 de pixeli, este comprimat de un VAE 3D de 4 ori în
+        timp și de 8 ori pe fiecare dimensiune a imaginii, într-o reprezentare latentă de 31 pe 90 pe 160 pe 16 valori.
+        Reprezentarea este tăiată în petice de spațiu-timp, aproximativ 111.600 de tokenuri. Jos, la generare: pornim de la
+        zgomot cu aceeași formă, Transformerul de difuzie, ghidat de text, îl curăță în zeci de pași, iar decodorul VAE 3D
+        produce clipul nou.
+      </desc>
+      <defs>
+        <marker
+          id='video-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <!-- Antrenare: comprimarea clipului -->
+      <rect class='group' x={15} y={20} width={710} height={130} rx='8'></rect>
+      <text class='title' x={30} y={40}>Comprimarea unui clip real (la antrenare)</text>
+
+      <Box x={25} y={60} width={145} height={64} kind='neutral' lines={['Clip real', '121 de cadre', '1280 × 720']} />
+      <Box x={205} y={60} width={145} height={64} kind='output' lines={['Codificator VAE 3D', '÷4 în timp', '÷8 în spațiu']} />
+      <Box x={385} y={60} width={145} height={64} kind='embedding' lines={['Latent', '31 × 90 × 160 × 16']} />
+      <Box x={565} y={60} width={145} height={64} kind='highlight' lines={['Petice 1 × 2 × 2', '≈ 111.600', 'de tokenuri']} />
+
+      <!-- Generare -->
+      <rect class='group' x={15} y={170} width={710} height={140} rx='8'></rect>
+      <text class='title' x={30} y={190}>Generarea unui clip nou</text>
+
+      <Box x={25} y={210} width={145} height={64} kind='neutral' lines={['Zgomot', 'în forma', 'latentului']} dashed />
+      <Box x={205} y={210} width={145} height={64} kind='attention' lines={['Transformer', 'de difuzie', '(ghidat de text)']} />
+      <Box x={385} y={210} width={145} height={64} kind='output' lines={['Decodor VAE 3D', '×4 în timp', '×8 în spațiu']} />
+      <Box x={565} y={210} width={145} height={64} kind='norm' lines={['Clip nou', '121 de cadre']} />
+
+      <g class='arrow' marker-end='url(#video-arrow)'>
+        <path d='M170 92 H203'></path>
+        <path d='M350 92 H383'></path>
+        <path d='M530 92 H563'></path>
+
+        <path d='M170 242 H203'></path>
+        <path d='M300 274 V292 H255 V276'></path>
+        <path d='M350 242 H383'></path>
+        <path d='M530 242 H563'></path>
+      </g>
+
+      <text class='label' x={308} y={302}>zeci de pași</text>
+    </svg>
+  </div>
+  <figcaption>
+    Modelul nu vede niciodată pixelii. Lucrează pe petice de spațiu-timp, iar atenția leagă fiecare petic de toate
+    celelalte, din același cadru și din restul clipului.
+  </figcaption>
+</figure>
+
+<style>
+  .video-diffusion-diagram svg {
+    min-width: 38rem;
+    max-width: 48rem;
+  }
+</style>

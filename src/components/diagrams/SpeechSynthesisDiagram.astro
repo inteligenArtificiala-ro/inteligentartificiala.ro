@@ -1,0 +1,77 @@
+---
+// Două feluri de a construi sinteza vorbirii: lanțul clasic (model acustic și vocoder) și modelele care generează
+// tokenurile unui codec audio neuronal.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram speech-synthesis-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 10 740 320' role='img' aria-labelledby='speech-synthesis-title speech-synthesis-desc'>
+      <title id='speech-synthesis-title'>Sinteza vorbirii: lanțul clasic și tokenurile audio</title>
+      <desc id='speech-synthesis-desc'>
+        Sus, lanțul clasic: textul normalizat intră într-un model acustic, care produce o spectrogramă mel, iar vocoderul
+        transformă spectrograma în forma de undă, cu 24.000 de eșantioane pe secundă. Jos, abordarea cu tokenuri: o
+        înregistrare scurtă a vocii țintă este transformată de codecul audio în tokenuri, un model de limbaj generează
+        tokenurile audio ale textului rostit cu acea voce, iar decodorul codecului le transformă înapoi în sunet.
+      </desc>
+      <defs>
+        <marker
+          id='speech-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <!-- Lanțul clasic -->
+      <rect class='group' x={15} y={20} width={710} height={130} rx='8'></rect>
+      <text class='title' x={30} y={40}>Lanțul clasic (2017–2022)</text>
+
+      <Box x={25} y={60} width={105} height={64} kind='neutral' lines={['Text', 'normalizat']} />
+      <Box x={170} y={60} width={105} height={64} kind='attention' lines={['Model acustic', '(Tacotron 2)']} />
+      <Box x={315} y={60} width={105} height={64} kind='embedding' lines={['Spectrogramă', 'mel', '(80 de benzi)']} />
+      <Box x={460} y={60} width={105} height={64} kind='feed-forward' lines={['Vocoder', '(HiFi-GAN,', 'DiffWave)']} />
+      <Box x={605} y={60} width={105} height={64} kind='norm' lines={['Formă de undă', '(24.000 / s)']} />
+
+      <!-- Tokenuri audio -->
+      <rect class='group' x={15} y={170} width={710} height={150} rx='8'></rect>
+      <text class='title' x={30} y={190}>Tokenuri audio (din 2023)</text>
+
+      <Box x={25} y={206} width={105} height={46} kind='neutral' lines={['Text']} />
+      <Box x={25} y={262} width={105} height={46} kind='neutral' lines={['3 s din', 'vocea țintă']} dashed />
+      <Box x={170} y={262} width={105} height={46} kind='output' lines={['Codificator', 'codec']} />
+      <Box x={315} y={220} width={105} height={64} kind='attention' lines={['Model de', 'limbaj', '(VALL-E)']} />
+      <Box x={460} y={220} width={105} height={64} kind='output' lines={['Decodor', 'codec', '(75 cadre / s)']} />
+      <Box x={605} y={220} width={105} height={64} kind='norm' lines={['Vorbire cu', 'vocea țintă']} />
+
+      <g class='arrow' marker-end='url(#speech-arrow)'>
+        <path d='M130 92 H168'></path>
+        <path d='M275 92 H313'></path>
+        <path d='M420 92 H458'></path>
+        <path d='M565 92 H603'></path>
+
+        <path d='M130 229 H300 V238 H313'></path>
+        <path d='M130 285 H168'></path>
+        <path d='M275 285 H300 V266 H313'></path>
+        <path d='M420 252 H458'></path>
+        <path d='M565 252 H603'></path>
+      </g>
+    </svg>
+  </div>
+  <figcaption>
+    Sus, sunetul este reconstruit dintr-o spectrogramă. Jos, sunetul devine un șir de tokenuri, generat ca un text.
+  </figcaption>
+</figure>
+
+<style>
+  .speech-synthesis-diagram svg {
+    min-width: 38rem;
+    max-width: 48rem;
+  }
+</style>

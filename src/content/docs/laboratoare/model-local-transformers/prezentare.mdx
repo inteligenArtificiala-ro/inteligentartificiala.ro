@@ -1,0 +1,103 @@
+---
+title: Un model de limbaj local cu Transformers
+description: Laborator practic în care descărcăm de pe Hugging Face Hub un model de limbaj cu ponderi deschise și îl rulăm pe propriul calculator, în Python, cu bibliotecile Transformers și PyTorch.
+sidebar:
+  order: 1
+  label: Introducere
+level: incepator
+tags:
+  - Modele de limbaj mari (LLM)
+---
+
+import Colab from '@components/Colab.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Pe pagina despre [modelele de limbaj mari](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) putem vorbi cu un model mic care rulează direct în browser. În acest laborator facem același lucru în Python, pe propriul calculator, cu oricare dintre modelele cu [ponderi deschise](/concepte-de-baza/chatgpt-gemini-claude-grok-deepseek/#ponderi-deschise-și-modele-închise) publicate pe [Hugging Face Hub](https://huggingface.co/models).
+
+Instrumentul folosit este **Transformers**, biblioteca open-source a companiei Hugging Face. Ea descarcă modelul, îi încarcă ponderile în PyTorch și oferă aceeași interfață pentru mii de arhitecturi diferite. Biblioteca are o [documentație oficială](https://huggingface.co/docs/transformers/index) foarte bună, pe care nu o traducem aici. Laboratorul arată codul minim care pune un model în funcțiune, explică ce se întâmplă în fiecare pas și trimite la secțiunea potrivită din documentație pentru detalii.
+
+Toate exemplele au fost rulate cu Transformers 5.20 și PyTorch 2.14. Rezultatele afișate pe pagini vin din aceste rulări.
+
+## Etapele laboratorului
+
+<Steps>
+1. **Introducere** (această pagină): instalarea și primul model, rulat cu `pipeline` în câteva linii de cod.
+2. [**Tokenizatorul, modelul și generarea**](/laboratoare/model-local-transformers/tokenizator-si-generare/): aceiași pași, făcuți de mână, adică tokenizarea, șablonul de chat, parametrii generării, afișarea textului pe măsură ce apare și o conversație cu mai multe replici.
+3. [**Memorie, dispozitive și cuantizare**](/laboratoare/model-local-transformers/memorie-si-dispozitive/): de câtă memorie are nevoie un model, cum alegem placa grafică și cum îl micșorăm prin cuantizare.
+4. [**Un model de raționament local**](/laboratoare/model-local-transformers/model-de-rationament/): un model care „gândește” înainte să răspundă, cu raționamentul separat de răspuns și cu un buget de gândire controlat din cod.
+</Steps>
+
+## Cerințe de sistem
+
+- **Python** 3.10 sau mai nou.
+- **Pachete Python**: `torch`, `transformers` și `accelerate` (folosit pentru plasarea automată a modelului pe placa grafică).
+- **Spațiu pe disc**: modelul SmolLM2-360M-Instruct, folosit în primele pagini, ocupă aproximativ 700 MB. Modelul Qwen3-1.7B, de pe ultima pagină, ocupă aproximativ 4 GB.
+- **Hardware**: orice calculator cu cel puțin 8 GB de memorie RAM. O placă grafică NVIDIA (CUDA) sau un cip Apple Silicon (MPS) face generarea mult mai rapidă, dar modelele mici rulează și pe procesor (CPU).
+
+## Instalare
+
+Pentru a crea un mediu virtual și a instala pachetele, rulați comenzile de mai jos:
+
+```bash
+mkdir model-local && cd model-local
+python3 -m venv .venv
+source .venv/bin/activate
+pip install torch transformers accelerate
+```
+
+Pe Linux și Windows, varianta de PyTorch potrivită pentru placa grafică se alege de pe [pagina de instalare PyTorch](https://pytorch.org/get-started/locally/). Alte metode de instalare a bibliotecii Transformers sunt descrise în [ghidul de instalare](https://huggingface.co/docs/transformers/installation).
+
+## Rularea în Google Colab
+
+Laboratorul poate rula și în [Google Colab](https://colab.research.google.com), un serviciu Google care rulează notebookuri Jupyter în browser, fără nicio instalare pe calculatorul propriu. Fiecare pagină a laboratorului are un **notebook** cu tot codul ei, în ordine, care se deschide în Colab cu butonul **Deschidere în Google Colab**. Prima celulă instalează pachetele, iar celulele următoare se rulează de sus în jos. Modelele se descarcă în mașina virtuală a Colab și se șterg odată cu ea, la sfârșitul sesiunii.
+
+<Colab notebook='laboratoare/model-local-transformers/notebooks/01-prezentare.ipynb' />
+
+## Primul model
+
+Cel mai scurt drum de la nimic la un răspuns este funcția `pipeline`, care ascunde toți pașii intermediari. Salvați codul de mai jos în fișierul `primul_model.py`:
+
+```python
+from transformers import pipeline
+
+# La prima rulare, fișierele modelului (aproximativ 700 MB) se descarcă de pe Hugging Face Hub.
+generator = pipeline("text-generation", model="HuggingFaceTB/SmolLM2-360M-Instruct")
+
+messages = [{"role": "user", "content": "What is the capital of France? Answer in one sentence."}]
+result = generator(messages, max_new_tokens=40)
+print(result[0]["generated_text"][-1]["content"])
+```
+
+Apoi rulați:
+
+```bash
+python primul_model.py
+```
+
+```text
+The capital of France is Paris.
+```
+
+[SmolLM2-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct) este un model mic, cu 362 de milioane de parametri, publicat de Hugging Face sub licența Apache 2.0. A fost antrenat în principal pe text în engleză, așa că îi scriem în engleză. Răspunde rapid chiar și pe un laptop, dar greșește des, după cum vom vedea pe pagina următoare.
+
+Funcția `pipeline` poate face mult mai mult decât generare de text, de exemplu clasificare, traducere sau recunoașterea vorbirii. Sarcinile disponibile sunt descrise în [ghidul despre pipeline](https://huggingface.co/docs/transformers/pipeline_tutorial).
+
+## Unde ajung fișierele modelului
+
+La prima rulare, Transformers descarcă ponderile, configurația și tokenizatorul în directorul `~/.cache/huggingface/hub`. La rulările următoare, fișierele sunt citite de acolo, fără conexiune la internet. Directorul poate fi mutat cu variabila de mediu `HF_HOME`, iar modelele descărcate pot fi listate și șterse cu comanda `hf cache`. Toate opțiunile sunt descrise în [ghidul despre memoria cache](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+
+:::note[Modele cu acces restricționat]
+Unele modele, de exemplu cele din familia Llama, pot fi descărcate doar după acceptarea licenței pe pagina modelului și după autentificare, cu comanda `hf auth login`. Pașii sunt descriși în [documentația despre modelele cu acces restricționat](https://huggingface.co/docs/hub/models-gated). Modelele folosite în acest laborator nu au nevoie de autentificare.
+:::
+
+## Alegerea unui model
+
+Pe [Hugging Face Hub](https://huggingface.co/models), modelele pot fi filtrate după sarcină (pentru conversație, _Text Generation_), după licență și după mărime. **Pagina fiecărui model** (_model card_) spune pentru ce a fost antrenat, ce limbi cunoaște, sub ce licență poate fi folosit și, de obicei, ce parametri de generare recomandă autorii. Merită citită înainte de a folosi modelul.
+
+Pentru început, sunt potrivite modelele mici, cu sub 2 miliarde de parametri, care încap ușor în memorie. Codul din laborator funcționează la fel pentru modele mai mari. Se schimbă doar numele modelului și, după cum arată pagina despre [memorie](/laboratoare/model-local-transformers/memorie-si-dispozitive/), cantitatea de memorie necesară.
+
+## Bibliografie
+
+- Ben Allal, L. et al. (2025). [SmolLM2: When Smol Goes Big – Data-Centric Training of a Small Language Model](https://arxiv.org/abs/2502.02737). Preprint arXiv:2502.02737.
+- Paszke, A. et al. (2019). [PyTorch: An Imperative Style, High-Performance Deep Learning Library](https://arxiv.org/abs/1912.01703). _NeurIPS 2019_.
+- Wolf, T. et al. (2020). [HuggingFace’s Transformers: State-of-the-art Natural Language Processing](https://arxiv.org/abs/1910.03771). _EMNLP 2020_.

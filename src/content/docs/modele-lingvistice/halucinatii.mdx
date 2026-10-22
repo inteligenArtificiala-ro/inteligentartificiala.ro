@@ -1,0 +1,231 @@
+---
+title: Halucinațiile în modelele de limbaj
+description: "De ce inventează modelele de limbaj mari fapte care nu există și le prezintă cu toată siguranța, ce tipuri de halucinații există, cum le măsurăm și cum le putem reduce."
+sidebar:
+  order: 7
+  label: Halucinații
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+  - Halucinații
+  - Evaluare AI
+---
+
+import HallucinationDiagram from '../../../components/diagrams/HallucinationDiagram.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Asistenții conversaționali și modelele de limbaj mari dau adesea răspunsuri bine scrise, clare și formulate pe un ton sigur, care conțin totuși greșeli grave: biografii inventate, studii științifice care nu există, articole de lege inexistente sau calcule greșite, justificate cu multă convingere. Fenomenul se numește **halucinație** (_hallucination_) sau, cu un termen din neuropsihologie mai apropiat de ce observăm, **confabulație** (_confabulation_).
+
+Termenul este o metaforă care îi atribuie modelului o trăsătură umană. Modelul nu are conștiință și nici o percepție a realității pe care să o deformeze. La nivel fizic, este un sistem statistic care calculează distribuții de probabilitate peste secvențe de tokenuri.
+
+Cercetătorul Andrej Karpathy a observat că modelele de limbaj sunt, prin chiar felul în care sunt construite, „mașini de visat” (_dream machines_). Halucinația nu este un defect de fabricație și nici o problemă de hardware. Este felul firesc în care funcționează orice model autoregresiv lăsat fără constrângeri. Când modelul spune lucruri adevărate despre lume, o face pentru că distribuția lui statistică este ținută strâns în frâu de datele de antrenare, de context și de algoritmii care îi ghidează generarea.
+
+<HallucinationDiagram />
+
+## Definiție
+
+În inteligența artificială generativă, o **halucinație** este un text sau alt conținut generat care este fals, nu are sprijin în contextul primit sau se contrazice singur, dar este bine formulat și prezentat cu aparentă siguranță.
+
+Ca să înțelegem de unde vine fenomenul, putem compara două spații diferite.
+
+1. **Spațiul verosimilității lingvistice** ($P(\text{text})$) măsoară cât de natural, de fluent și de potrivit sună un enunț, după regulile gramaticale și asocierile statistice învățate din limba naturală.
+2. **Spațiul adevărului factual** ($V(\text{afirmație}) \in \{0, 1\}$) arată dacă evenimentul, data sau relația descrisă corespunde realității sau documentelor verificate.
+
+Un model de limbaj este optimizat doar pentru primul spațiu: alege tokenurile care au o probabilitate mare să urmeze. Dacă o afirmație falsă este bine construită și folosește vocabularul tipic al unui domeniu de specialitate, modelul îi va da un scor mare, indiferent dacă este adevărată sau nu.
+
+## Tipuri de halucinații
+
+În cercetarea despre procesarea limbajului natural, halucinațiile sunt împărțite în mai multe categorii, după cauză și după felul în care se manifestă.
+
+| Tip de halucinație | Denumire în engleză | Descriere | Exemplu tipic |
+| :--- | :--- | :--- | :--- |
+| **Halucinație factuală (extrinsecă)** | _factual / extrinsic hallucination_ | Afirmații care contrazic realitatea sau inventează lucruri care nu există | Un premiu Nobel inexistent atribuit unei persoane reale sau un studiu științific inventat |
+| **Halucinație de fidelitate (intrinsecă)** | _faithfulness / intrinsic hallucination_ | Afirmații care contrazic direct documentul sau contextul din prompt | În rezumatul unui contract, modelul scrie că termenul este de 30 de zile, deși documentul prevede 90 de zile |
+| **Halucinație de raționament** | _reasoning hallucination_ | Pași logici greșiți sau deducții matematice eronate, ascunse în explicații pas cu pas | Afirmația că 15 este număr prim sau teoreme false strecurate într-o demonstrație |
+| **Complacere** | _sycophancy_ | Modelul confirmă presupunerile greșite ale utilizatorului, ca să păstreze un ton cooperant | Utilizatorul întreabă „De ce a scris Eminescu romanul Enigma Otiliei?”, iar modelul explică motivele fără să corecteze greșeala de autor |
+
+Diferența dintre halucinațiile factuale și cele de fidelitate contează mult când construim aplicații. Halucinațiile factuale pot fi reduse mult dacă adăugăm documentele potrivite în context. Halucinațiile de fidelitate apar însă chiar și atunci când informația corectă se află în fața modelului, ceea ce arată limitele auto-atenției pe contexte lungi.
+
+## De ce halucinează modelele de limbaj
+
+Halucinațiile nu sunt simple „scăpări de memorie”. Ele vin direct din matematica pe care se sprijină arhitectura Transformer și din felul în care sunt adunate și prelucrate datele.
+
+### 1. Obiectivul de predicție a următorului token
+
+La [preantrenare](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/), modelul este antrenat să minimizeze **entropia încrucișată** (_cross-entropy_):
+
+$$
+\mathcal{L}(\theta) = - \sum_{t=1}^n \log P_\theta(x_t \mid x_1, \ldots, x_{t-1})
+$$
+
+unde $x_t$ este tokenul curent, iar $x_1, \ldots, x_{t-1}$ sunt tokenurile dinaintea lui.
+
+Cu alte cuvinte, modelul învață să facă textul cât mai probabil. Pierderea scade dacă, după cuvintele „Doctorul a prescris un tratament cu…”, modelul prezice un termen medical plauzibil. Modelul nu este recompensat pentru că ar verifica, într-o bază de date farmacologică, dacă substanța se potrivește bolii, ci doar pentru că alege un termen care apare des în contexte asemănătoare.
+
+### 2. Comprimarea cu pierderi a cunoștințelor în memoria parametrică
+
+Seturile uriașe de date folosite la antrenare (mii de miliarde de tokenuri din cărți, articole și pagini web) ocupă zeci de terabytes pe disc. Matricele de ponderi ale modelului sunt mult mai mici, de ordinul a câteva zeci sau sute de gigabytes.
+
+Antrenarea face, așadar, o **comprimare cu pierderi** (_lossy compression_). Scriitorul Ted Chiang a comparat ChatGPT cu un „JPEG neclar al internetului”, într-un eseu publicat în 2023 în _The New Yorker_.
+
+O imagine JPEG comprimată păstrează formele mari și culorile generale, dar pierde detaliile fine. La fel, un model de limbaj reține conceptele, asocierile de idei și tiparele gramaticale, dar pierde precizia la cifre, la ani exacți sau la legăturile unice dintre entități. Când trebuie să reconstituie un detaliu mărunt, modelul „interpolează” probabilistic între punctele pe care le cunoaște și generează detalii inventate, dar perfect potrivite ca stil.
+
+### 3. Efectul de avalanșă în generarea autoregresivă
+
+Textul este generat pas cu pas, câte un token pe rând:
+
+$$
+x_t \sim \operatorname{softmax}\left(\frac{\mathbf{z}_t}{T}\right)
+$$
+
+unde $\mathbf{z}_t$ este vectorul de scoruri nenormalizate (_logits_), iar $T$ este temperatura de eșantionare.
+
+Să presupunem că, la un pas $t$, modelul alege un token greșit, de exemplu un an greșit pentru un eveniment istoric. Cauza poate fi o temperatură mai mare decât zero sau pur și simplu incertitudinea statistică a modelului. Tokenul ales intră imediat în [fereastra de context](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#limitări).
+
+La pașii următori, $t+1, t+2, \ldots, n$, [auto-atenția cauzală](/modele-lingvistice/avem-nevoie-doar-de-atentie/) calculează fiecare token nou pe baza tuturor tokenurilor de dinainte, inclusiv a celui greșit. Ca textul să rămână coerent, modelul nu semnalează greșeala, ci adaugă în continuare detalii imaginare care susțin afirmația greșită de la început. Această **acumulare a erorilor** (_error accumulation_) explică de ce o mică abatere de la adevăr la începutul unui paragraf se transformă repede într-o poveste inventată cap-coadă.
+
+### 4. Date contradictorii și distribuția cu coadă lungă
+
+Textele adunate de pe internet conțin foarte multe mituri, parodii, opinii contradictorii și informații depășite. Dacă o idee greșită este repetată de mii de ori pe bloguri și forumuri, modelul îi va da o probabilitate mai mare decât unui adevăr științific menționat într-un singur articol academic.
+
+În plus, faptele din coada lungă a distribuției (_long-tail_), de exemplu numele primarului unei comune mici sau data lansării unui produs de nișă, apar de foarte puține ori în datele de antrenare. Reprezentările vectoriale ale acestor entități sunt instabile și difuze, așa că modelul le confundă foarte ușor.
+
+### 5. Presiunea ajustării fine și lipsa unui „nu știu”
+
+La [ajustarea fină supervizată (SFT)](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/), modelele sunt antrenate pe exemple de conversații scrise de adnotatori umani. În majoritatea acestor seturi de date, răspunsul ideal este complet, direct și politicos.
+
+Modelele sunt rareori antrenate să refuze sau să spună simplu „Nu știu, datele mele nu conțin această informație”. De aceea, asistentul este împins să dea mereu un răspuns complet, chiar și atunci când certitudinea lui internă este foarte mică.
+
+## Riscuri și impact în aplicațiile reale
+
+:::danger[Riscuri reale în producție]
+Halucinațiile devin periculoase atunci când modelele de limbaj sunt folosite în procese care iau decizii singure sau în domenii sensibile.
+
+1. **Domeniul juridic**: un caz cunoscut este procesul _Mata v. Avianca_ din Statele Unite (2023). Avocații au depus un memoriu scris cu ajutorul unui asistent conversațional. Documentul cita mai multe decizii ale unor instanțe federale americane care erau complet inventate, cu tot cu extrase de text și numere de dosar fictive. Judecătorul i-a sancționat pe avocați pentru inducerea în eroare a instanței.
+2. **Securitatea software și slopsquatting**: modelele antrenate pe cod sursă inventează adesea nume de pachete externe care sună logic (de exemplu, un pachet imaginar `react-auth-token-validator`). Atacatorii urmăresc numele inventate care apar des, le înregistrează în repozitorii publice precum npm sau PyPI și publică sub ele module cu malware. Când un dezvoltator copiază codul generat de AI și rulează instalarea, sistemul lui este infectat. Tehnica este cunoscută ca **halucinare de pachete** (_package hallucination_) sau _slopsquatting_.
+3. **Sănătatea și medicina**: într-o consultație medicală, un model poate recomanda doze toxice sau combinații letale de medicamente, dacă a preluat asocierile statistice din discuții nevalidate.
+4. **Educația și informarea publică**: modelul poate prezenta relatări istorice deformate sau citate false. Tonul lui neutru și convingător îi descurajează adesea pe oameni să verifice în sursele primare.
+:::
+
+## Măsurarea și evaluarea halucinațiilor
+
+Ca să evalueze și să compare modelele, cercetătorii măsoară exactitatea factuală cu metode cantitative.
+
+### Metoda faptelor atomice și FactScore
+
+O metodă este să împărțim textul generat în afirmații simple, numite **fapte atomice** (_atomic facts_). De exemplu, propoziția de mai jos se descompune în patru fapte.
+
+> „Mihai Eminescu a fost un poet român născut la Botoșani în 1850.”
+
+Cele patru fapte atomice sunt următoarele.
+
+<Steps>
+1. Mihai Eminescu a fost poet.
+2. Mihai Eminescu a fost de naționalitate română.
+3. Mihai Eminescu s-a născut la Botoșani.
+4. Mihai Eminescu s-a născut în anul 1850.
+</Steps>
+
+Fiecare fapt este verificat separat, într-o sursă de încredere, precum Wikipedia sau un graf de cunoștințe. Scorul FactScore este procentul de fapte confirmate ca adevărate din totalul afirmațiilor generate.
+
+### Un LLM ca arbitru (LLM-as-a-judge)
+
+În sarcinile mai dificile de rezumare și căutare, un LLM este folosit ca arbitru. Primește documentul sursă și textul generat de un alt model, analizează fiecare propoziție și semnalează contradicțiile, extrapolările nejustificate sau detaliile adăugate din memorie.
+
+### Benchmarkuri standardizate
+
+- **TruthfulQA** este un set de 817 întrebări din 38 de domenii (sănătate, finanțe, conspirații, istorie), construit special ca să verifice dacă modelele repetă mituri populare sau dau răspunsuri adevărate.
+- **HaluEval** este o colecție de 35.000 de perechi de texte adnotate, folosită pentru a măsura cât de bine recunosc și evită sistemele halucinațiile în răspunsuri la întrebări, dialoguri și rezumate.
+- **RAGAS / ARES** sunt cadre automate de evaluare pentru sistemele RAG. Ele măsoară două lucruri: fidelitatea față de context (_faithfulness_) și cât de relevant este răspunsul pentru întrebarea inițială.
+
+## Metode de reducere și prevenire
+
+Într-un model pur probabilistic, eliminarea completă a halucinațiilor rămâne, teoretic, o problemă nerezolvată. În practică, riscul poate fi redus mult, cu mai multe niveluri de protecție.
+
+```
+                  Niveluri de protecție împotriva halucinațiilor
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. Ancorare în date externe: RAG și baze de date vectoriale                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 2. Instrumente deterministe: calculatoare, rularea codului Python, baze SQL │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 3. Raționament cu verificare: tokenuri de reflecție și autocorecție         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 4. Ingineria promptului: restricții clare și permisiunea de a spune „nu”    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 5. Controlul decodării: temperatură scăzută (T → 0) și filtrare top-k       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Generarea augmentată prin regăsire (RAG)
+
+În practică, cea mai eficientă metodă este să mutăm sarcina din memoria parametrică a modelului în memoria de lucru. Cu [generarea augmentată prin regăsire (RAG)](/modele-lingvistice/generare-augmentata-prin-regasire-rag/), sistemul caută mai întâi documentele relevante într-o bază de date și le pune direct în promptul trimis modelului.
+
+Răspunsul este astfel condiționat de fragmentele regăsite. Modelului îi rămâne doar să sintetizeze și să formuleze, nu să scoată datele din ponderi comprimate.
+
+### 2. Apelul de instrumente deterministe
+
+Modelele de limbaj nu sunt făcute pentru calcule aritmetice precise sau pentru interogări structurate. Prin [apelul de instrumente (tool calling)](/modele-lingvistice/generare-augmentata-prin-regasire-rag/), modelul trimite o cerere structurată către un mediu exterior, de exemplu un interpretor Python, un calculator de precizie sau o bază de date relațională.
+
+Rezultatul exact se întoarce în context, așa că modelul nu mai trebuie să aproximeze probabilistic calculele.
+
+### 3. Raționament la inferență și autocorecție
+
+Modelele recente de raționament folosesc mai mult calcul în momentul generării (la inferență). În loc să răspundă imediat cu primul token care pare potrivit, modelul generează întâi un lanț intern de gândire.
+
+În această etapă internă, modelul explorează mai multe ipoteze, verifică dacă fiecare pas se leagă logic de cel dinainte, caută contradicții și revine asupra unei decizii dacă o deducție se dovedește falsă. Procesul seamănă cu felul în care un expert uman își reverifică atent raționamentul, doar că este automat.
+
+### 4. Ingineria prompturilor și permisiunea explicită de a refuza
+
+Felul în care sunt scrise instrucțiunile de sistem influențează direct cât de des halucinează modelul. Un prompt de sistem bine gândit conține reguli clare despre ce informații are voie modelul să folosească.
+
+```
+Răspunde exclusiv pe baza paragrafelor furnizate mai sus.
+Nu folosi cunoștințe din afara acestui context.
+Dacă informația necesară pentru a răspunde la întrebare nu se regăsește în text,
+răspunde textual: „Documentul nu conține suficiente date pentru a răspunde”.
+Nu încerca să deduci sau să aproximezi date care lipsesc.
+```
+
+:::tip[De ce ajută permisiunea de a refuza]
+Când îi dăm modelului o cale de ieșire clară și îi spunem explicit că are voie să răspundă „nu știu”, scade presiunea obiectivului de predicție. Altfel, acest obiectiv îl împinge să genereze o continuare verosimilă, dar inventată.
+:::
+
+### 5. Alinierea cu recompense verificabile (RLVR)
+
+În programare, în matematica formală sau în jocurile de logică, corectitudinea poate fi verificată automat, cu compilatoare, teste unitare sau demonstratoare de teoreme.
+
+Antrenarea cu [recompense verificabile](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/) penalizează sever orice eroare, factuală sau de sintaxă, în timpul învățării prin consolidare. Modelul învață să prefere soluțiile sigure și demonstrabile în locul afirmațiilor spectaculoase, dar neverificate.
+
+### 6. Monitorizarea entropiei și a încrederii interne
+
+În timpul generării, sistemul care servește modelul poate urmări entropia distribuției softmax pentru fiecare token:
+
+$$
+H(x_t) = -\sum_{i=1}^{|V|} p_i \log p_i
+$$
+
+unde $p_i$ este probabilitatea pe care modelul o dă tokenului $i$ din vocabularul $V$.
+
+O entropie mare pe tokenurile care fac parte din entități numite (nume proprii, sume, date calendaristice) arată că modelul este nehotărât și oscilează între mai multe continuări. În astfel de momente, sistemul poate interveni automat: îi semnalează utilizatorului că încrederea este scăzută, scurtează răspunsul sau trimite o interogare unui motor de căutare, pentru verificare.
+
+## Bibliografie
+
+- Chiang, T. (2023). [ChatGPT Is a Blurry JPEG of the Web](https://www.newyorker.com/tech/annals-of-technology/chatgpt-is-a-blurry-jpeg-of-the-web). _The New Yorker_.
+- Es, S. et al. (2024). [Ragas: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217). _EACL 2024_.
+- Farquhar, S. et al. (2024). [Detecting hallucinations in large language models using semantic entropy](https://doi.org/10.1038/s41586-024-07421-0). _Nature_, 630(8017), 625–630.
+- Huang, L. et al. (2023). [A Survey on Hallucination in Large Language Models: Principles, Taxonomy, Challenges, and Open Questions](https://arxiv.org/abs/2311.05232). Preprint arXiv:2311.05232.
+- Ji, Z. et al. (2023). [Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629). _ACM Computing Surveys_, 55(12), 1–38.
+- Kalai, A. T. et al. (2025). [Why Language Models Hallucinate](https://arxiv.org/abs/2509.04664). Preprint arXiv:2509.04664.
+- Kandpal, N. et al. (2023). [Large Language Models Struggle to Learn Long-Tail Knowledge](https://arxiv.org/abs/2211.08411). _ICML 2023_.
+- Lewis, P. et al. (2020). [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401). _NeurIPS 2020_.
+- Li, J. et al. (2023). [HaluEval: A Large-Scale Hallucination Evaluation Benchmark for Large Language Models](https://arxiv.org/abs/2305.11747). _EMNLP 2023_.
+- Lin, S., Hilton, J. și Evans, O. (2022). [TruthfulQA: Measuring How Models Mimic Human Falsehoods](https://arxiv.org/abs/2109.07958). _ACL 2022_.
+- _Mata v. Avianca, Inc._ (2023). Nr. 1:22-cv-01461 (PKC), Curtea Districtuală a Statelor Unite pentru Districtul de Sud al New York-ului, 22 iunie 2023.
+- Maynez, J. et al. (2020). [On Faithfulness and Factuality in Abstractive Summarization](https://arxiv.org/abs/2005.00661). _ACL 2020_.
+- Min, S. et al. (2023). [FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation](https://arxiv.org/abs/2305.14251). _EMNLP 2023_.
+- Saad-Falcon, J. et al. (2024). [ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems](https://arxiv.org/abs/2311.09476). _NAACL 2024_.
+- Sharma, M. et al. (2024). [Towards Understanding Sycophancy in Language Models](https://arxiv.org/abs/2310.13548). _ICLR 2024_.
+- Spracklen, J. et al. (2024). [We Have a Package for You! A Comprehensive Analysis of Package Hallucinations by Code Generating LLMs](https://arxiv.org/abs/2406.10279). Preprint arXiv:2406.10279.
+- Zhang, M. et al. (2023). [How Language Model Hallucinations Can Snowball](https://arxiv.org/abs/2305.13534). Preprint arXiv:2305.13534.
+- Zheng, L. et al. (2023). [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685). _NeurIPS 2023_.

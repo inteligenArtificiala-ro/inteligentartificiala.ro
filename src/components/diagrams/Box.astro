@@ -1,0 +1,28 @@
+---
+// Un dreptunghi cu text centrat, pentru diagramele SVG. Se folosește doar în interiorul unui <svg>.
+export interface BoxProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Clasa de culoare din src/styles/diagrams.css: attention, feed-forward, norm, embedding, output, neutral. */
+  kind: string;
+  lines: string[];
+  dashed?: boolean;
+}
+
+type Props = BoxProps;
+
+const { x, y, width, height, kind, lines, dashed } = Astro.props;
+const lineHeight = 16;
+const firstBaseline = y + height / 2 - ((lines.length - 1) * lineHeight) / 2 + 5;
+---
+
+<rect class:list={['box', kind, { dashed }]} x={x} y={y} width={width} height={height} rx='6'></rect>
+{
+  lines.map((line, index) => (
+    <text x={x + width / 2} y={firstBaseline + index * lineHeight} text-anchor='middle'>
+      {line}
+    </text>
+  ))
+}

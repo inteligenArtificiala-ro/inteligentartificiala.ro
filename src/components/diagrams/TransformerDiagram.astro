@@ -1,0 +1,126 @@
+---
+// Arhitectura Transformer din „Attention Is All You Need” (figura 1 din articol), simplificată.
+import '../../styles/diagrams.css';
+import Box, { type BoxProps } from './Box.astro';
+
+const encoderX = 150;
+const decoderX = 470;
+const width = 220;
+
+const boxes: BoxProps[] = [
+  { x: encoderX, y: 860, width, height: 40, kind: 'embedding', lines: ['Reprezentări vectoriale'] },
+  { x: encoderX, y: 700, width, height: 44, kind: 'attention', lines: ['Atenție cu capete multiple'] },
+  { x: encoderX, y: 640, width, height: 30, kind: 'norm', lines: ['Adunare și normalizare'] },
+  { x: encoderX, y: 570, width, height: 44, kind: 'feed-forward', lines: ['Rețea feed-forward'] },
+  { x: encoderX, y: 510, width, height: 30, kind: 'norm', lines: ['Adunare și normalizare'] },
+
+  { x: decoderX, y: 860, width, height: 40, kind: 'embedding', lines: ['Reprezentări vectoriale'] },
+  { x: decoderX, y: 700, width, height: 44, kind: 'attention', lines: ['Atenție mascată', 'cu capete multiple'] },
+  { x: decoderX, y: 640, width, height: 30, kind: 'norm', lines: ['Adunare și normalizare'] },
+  { x: decoderX, y: 570, width, height: 44, kind: 'attention', lines: ['Atenție încrucișată', 'cu capete multiple'] },
+  { x: decoderX, y: 510, width, height: 30, kind: 'norm', lines: ['Adunare și normalizare'] },
+  { x: decoderX, y: 440, width, height: 44, kind: 'feed-forward', lines: ['Rețea feed-forward'] },
+  { x: decoderX, y: 380, width, height: 30, kind: 'norm', lines: ['Adunare și normalizare'] },
+  { x: decoderX, y: 300, width, height: 40, kind: 'neutral', lines: ['Strat liniar'] },
+  { x: decoderX, y: 230, width, height: 40, kind: 'output', lines: ['Softmax'] },
+];
+
+const arrows = [
+  // Codificator: fluxul principal și cele două conexiuni reziduale.
+  'M260 916 V900',
+  'M260 860 V828',
+  'M260 802 V744',
+  'M260 700 V670',
+  'M260 640 V614',
+  'M260 570 V540',
+  'M260 757 H140 V655 H150',
+  'M260 627 H140 V525 H150',
+  // Ieșirea codificatorului ajunge în atenția încrucișată a decodorului, ca chei și valori.
+  'M260 510 V470 H440 V592 H470',
+  // Decodor: fluxul principal și cele trei conexiuni reziduale.
+  'M580 916 V900',
+  'M580 860 V828',
+  'M580 802 V744',
+  'M580 700 V670',
+  'M580 640 V614',
+  'M580 570 V540',
+  'M580 510 V484',
+  'M580 440 V410',
+  'M580 380 V340',
+  'M580 300 V270',
+  'M580 230 V212',
+  'M580 757 H720 V655 H690',
+  'M580 627 H720 V525 H690',
+  'M580 497 H720 V395 H690',
+];
+---
+
+<figure class='diagram transformer-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 180 780 765' role='img' aria-labelledby='transformer-title transformer-desc'>
+      <title id='transformer-title'>Arhitectura Transformer</title>
+      <desc id='transformer-desc'>
+        În stânga, în codificator, tokenurile de intrare devin reprezentări vectoriale, primesc codificarea pozițională
+        și trec printr-un bloc repetat de N ori, cu atenție cu capete multiple și o rețea feed-forward, fiecare urmată
+        de adunare și normalizare. În dreapta, în decodor, tokenurile generate până acum trec prin atenție mascată,
+        atenție încrucișată, care primește cheile și valorile de la codificator, și o rețea feed-forward. La final, un
+        strat liniar și softmax dau probabilitățile următorului token.
+      </desc>
+      <defs>
+        <marker
+          id='transformer-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <rect class='group' x='130' y='495' width='260' height='275' rx='10'></rect>
+      <rect class='group' x='450' y='365' width='280' height='405' rx='10'></rect>
+      <text class='title' x='140' y='488'>Codificator</text>
+      <text class='title' x='730' y='357' text-anchor='end'>Decodor</text>
+      <text class='label' x='120' y='640' text-anchor='end'>N ×</text>
+      <text class='label' x='740' y='570'>N ×</text>
+
+      <g class='arrow' marker-end='url(#transformer-arrow)'>
+        {arrows.map((d) => <path d={d} />)}
+      </g>
+
+      {boxes.map((box) => <Box {...box} />)}
+
+      <g class='positional'>
+        <circle class='box neutral' cx='260' cy='815' r='13'></circle>
+        <circle class='box neutral' cx='580' cy='815' r='13'></circle>
+        <text x='260' y='820' text-anchor='middle'>+</text>
+        <text x='580' y='820' text-anchor='middle'>+</text>
+      </g>
+      <text class='label' x='235' y='811' text-anchor='end'>Codificare</text>
+      <text class='label' x='235' y='827' text-anchor='end'>pozițională</text>
+      <text class='label' x='605' y='811'>Codificare</text>
+      <text class='label' x='605' y='827'>pozițională</text>
+
+      <text class='label math' x='350' y='462' text-anchor='middle'>K, V</text>
+      <text class='label math' x='588' y='634'>Q</text>
+
+      <text class='label' x='260' y='935' text-anchor='middle'>Tokenurile de intrare</text>
+      <text class='label' x='580' y='935' text-anchor='middle'>Tokenurile generate până acum</text>
+      <text class='label' x='580' y='200' text-anchor='middle'>Probabilitățile următorului token</text>
+    </svg>
+  </div>
+  <figcaption>
+    Arhitectura Transformer, simplificată după figura 1 din articol. Blocurile din chenarele punctate se repetă de N ori
+    (în articol, N = 6). Săgețile laterale sunt conexiunile reziduale.
+  </figcaption>
+</figure>
+
+<style>
+  .transformer-diagram svg {
+    min-width: 36rem;
+    max-width: 44rem;
+  }
+</style>

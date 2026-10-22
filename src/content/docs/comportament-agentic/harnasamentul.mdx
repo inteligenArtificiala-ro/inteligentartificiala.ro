@@ -1,0 +1,43 @@
+---
+title: Harnașamentul (harness)
+description: Harnașamentul este sistemul software din jurul modelului. Construiește contextul, rulează acțiunile cerute de model și îi trimite înapoi rezultatele, până când sarcina este gata.
+sidebar:
+  order: 2
+  label: Harnașamentul
+level: incepator
+tags:
+  - Sisteme agentice
+  - Modele de limbaj mari (LLM)
+---
+
+import AgentHarnessDiagram from '@components/diagrams/AgentHarnessDiagram.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Un [model de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) nu poate acționa singur. **Harnașamentul** (_harness_ sau _scaffolding_) este sistemul construit în jurul modelului, care controlează tot ciclul de viață al agentului: ține dialogul cu utilizatorul, construiește contextul pe care îl primește modelul, îi dă acces la instrumente și impune limitele de securitate.
+
+<AgentHarnessDiagram />
+
+## Procesul de acțiune și observare
+
+Harnașamentul rulează un proces continuu, inspirat de abordarea ReAct (_Reasoning + Acting_), propusă de [Yao și colaboratorii](https://arxiv.org/abs/2210.03629) în 2022.
+
+<Steps>
+1. **Obiectivul inițial**: utilizatorul formulează o cerință, de exemplu _„Repară testul care eșuează în modulul de autentificare și verifică dacă proiectul se compilează în continuare”_.
+2. **Construirea contextului**: harnașamentul adună istoricul conversației, instrucțiunile de sistem (_system prompt_), regulile specifice proiectului și descrierile instrumentelor disponibile, apoi le trimite modelului.
+3. **Planificare și raționament (_Thought_)**: modelul analizează situația și își stabilește următorul pas, de exemplu _„Mai întâi rulez testele, ca să văd mesajul exact de eroare”_.
+4. **Apel de instrument (_Action / Tool Call_)**: în loc să scrie un mesaj pentru utilizator, modelul produce un apel structurat, de regulă în format JSON, către un anumit instrument (de exemplu, comanda care rulează testele).
+5. **Execuție în mediu**: harnașamentul preia apelul, verifică permisiunile (sau îi cere utilizatorului confirmarea, dacă acțiunea este riscantă) și rulează comanda în sistemul de operare sau într-un container separat.
+6. **Observație și feedback (_Observation_)**: harnașamentul colectează ce a produs comanda (textul din consolă, codurile de stare, erorile de compilare) și adaugă totul în contextul modelului, ca rezultat al apelului.
+7. **Iterație sau finalizare**: modelul citește rezultatul. Dacă a apărut o eroare, face un nou apel, ca să investigheze mai departe sau să modifice fișierul cu problema. Procesul se repetă până când sarcina este gata sau până când modelul are nevoie de o lămurire de la utilizator.
+</Steps>
+
+Pasul 4 este momentul în care modelul acționează, concret, asupra mediului. Pagina [Apelul de instrumente](/comportament-agentic/apelul-de-instrumente/) explică cum sunt descrise instrumentele și cum arată un astfel de apel.
+
+Pașii de mai sus sunt cei ai unui singur agent, care lucrează pe rând. Când o sarcină are părți care nu depind una de alta, harnașamentul le poate rula în paralel, cu mai multe instanțe ale modelului. Pagina [Orchestrare și sisteme multi-agent](/comportament-agentic/orchestrare-si-sisteme-multi-agent/) arată cum se face împărțirea.
+
+## Bibliografie
+
+- Jimenez, C. E. et al. (2024). [SWE-bench: Can Language Models Resolve Real-World GitHub Issues?](https://arxiv.org/abs/2310.06770) _ICLR 2024_.
+- Schluntz, E. și Zhang, B. (2024). [Building effective agents](https://www.anthropic.com/research/building-effective-agents). Blogul Anthropic.
+- Yang, J. et al. (2024). [SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793). _NeurIPS 2024_.
+- Yao, S. et al. (2023). [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629). _ICLR 2023_.

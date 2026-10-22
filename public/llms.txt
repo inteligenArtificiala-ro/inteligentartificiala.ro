@@ -1,0 +1,62 @@
+# Inteligență Artificială (inteligentartificiala.ro)
+
+> Documentație în limba română despre inteligența artificială, de la concepte de bază și rețele neuronale până la modele de limbaj mari (LLM), sisteme agentice, modele de difuzie și control continuu cu PPO.
+
+Paginile pornesc de la intuiție, apoi trec la matematică și la cod care rulează. Laboratoarele practice au codul sursă public pe GitHub.
+
+## Concepte de bază
+
+- [Ce este inteligența artificială](https://inteligentartificiala.ro/concepte-de-baza/ce-este-inteligenta-artificiala/): Inteligența artificială nu este o singură tehnologie, ci o familie de metode, de la modele mici antrenate pe date până la sisteme agentice construite pe modele de limbaj mari (LLM).
+- [Ce este învățarea automată (Machine Learning)](https://inteligentartificiala.ro/concepte-de-baza/ce-este-invatarea-automata/): Cum învață un sistem reguli direct din date: învățarea supervizată, nesupervizată și prin consolidare, antrenarea prin coborâre pe gradient, supraînvățarea și un exemplu interactiv de regresie.
+- [Ce sunt ChatGPT, Gemini, Claude, Grok și DeepSeek?](https://inteligentartificiala.ro/concepte-de-baza/chatgpt-gemini-claude-grok-deepseek/): Ce au în comun acești asistenți conversaționali construiți pe LLM-uri, cine îi dezvoltă, prin ce diferă și ce deosebește modelele închise de cele cu ponderi deschise.
+- [Rolul algoritmilor în inteligența artificială](https://inteligentartificiala.ro/concepte-de-baza/rolul-algoritmilor-in-ai/): Căutarea în grafuri (A*, grafuri de calcul, GraphRAG), căutarea în arbori (Minimax, MCTS, căutarea la inferență), programarea dinamică, memoria cache pentru chei și valori (KV cache) și algoritmii de decodare.
+- [Utilitatea plăcilor grafice (GPU)](https://inteligentartificiala.ro/concepte-de-baza/utilitatea-placilor-grafice/): De ce depinde AI-ul de plăcile grafice: calculul paralel, înmulțirea matricelor, momentul AlexNet, nucleele specializate și precizia redusă, memoria rapidă și antrenarea pe mii de plăci.
+
+## Rețele neuronale
+
+- [Ce sunt rețelele neuronale](https://inteligentartificiala.ro/retele-neuronale/ce-sunt-retelele-neuronale/): Neuronul artificial, funcția de activare ReLU, straturile și propagarea directă, apoi antrenarea ponderilor prin coborâre pe gradient.
+
+## Învățare prin consolidare (Reinforcement Learning)
+
+- [Ce este învățarea prin consolidare](https://inteligentartificiala.ro/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/): Cum învață un agent din recompensele primite de la mediu: stări, acțiuni, strategia de decizie (policy), recompensa cumulată, funcțiile de valoare, explorarea și principalele familii de metode.
+- [Gradientul strategiei și REINFORCE](https://inteligentartificiala.ro/invatare-prin-consolidare/gradientul-politicii-reinforce/): Formula gradientului strategiei, algoritmul REINFORCE, linia de bază care reduce varianța și un automat cu trei manete (multi-armed bandit) simulat direct în pagină.
+
+## Modele de limbaj mari (LLM)
+
+- [Ce sunt modelele de limbaj mari](https://inteligentartificiala.ro/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/): Tokenurile, generarea textului token cu token, temperatura, etapele antrenării, limitele modelelor și un demo cu SmolLM2 (135M) care rulează în browser.
+- [Arhitectura Transformer](https://inteligentartificiala.ro/modele-lingvistice/arhitectura-transformer/): Cum este construit un model de limbaj modern: fluxul rezidual, RMSNorm, atenția cu interogări grupate (GQA), codificarea pozițională rotativă (RoPE), SwiGLU, memoria cache pentru chei și valori (KV cache), numărul de parametri și costul computațional.
+- [Avem nevoie doar de atenție?](https://inteligentartificiala.ro/modele-lingvistice/avem-nevoie-doar-de-atentie/): Articolul din 2017 care a introdus arhitectura Transformer: interogări, chei și valori, atenția prin produs scalar scalat, masca cauzală, atenția cu capete multiple (multi-head) și codificarea pozițională.
+- [Învățare prin consolidare pentru LLM-uri](https://inteligentartificiala.ro/modele-lingvistice/invatare-prin-consolidare-pentru-llm/): Cum sunt aliniate modelele de limbaj după preantrenare: modelul de recompensă și RLHF, PPO, GRPO, recompensele verificabile și alternative precum DPO.
+- [Raționamentul în modelele de limbaj](https://inteligentartificiala.ro/modele-lingvistice/rationament-si-gandire/): Cum ajung modelele de limbaj să pară că gândesc: calculul pe token și tokenurile de gândire, lanțul de gânduri (chain of thought) și votul majoritar, modelele de raționament antrenate cu GRPO (o1, DeepSeek-R1), bugetul de gândire, raționamentul în pași agentici și fidelitatea raționamentului.
+- [Generare augmentată prin regăsire (RAG) și apel de instrumente](https://inteligentartificiala.ro/modele-lingvistice/generare-augmentata-prin-regasire-rag/): Diferența dintre memoria parametrică (ponderile) și memoria de lucru (contextul), etapele RAG (fragmentare, reprezentări vectoriale, regăsire) și apelul de instrumente, prin care modelul poate acționa.
+- [Halucinațiile în modelele de limbaj](https://inteligentartificiala.ro/modele-lingvistice/halucinatii/): De ce inventează modelele de limbaj fapte: predicția următorului token, comprimarea cu pierderi și acumularea erorilor. Tipurile de halucinații, măsurarea lor (FactScore, TruthfulQA) și metodele de reducere.
+
+## Comportament agentic
+
+- [Ce este comportamentul agentic](https://inteligentartificiala.ro/comportament-agentic/ce-este-comportamentul-agentic/): Ce deosebește un sistem agentic de un asistent conversațional și de ce modelul de limbaj are nevoie de un harnașament (harness) ca să acționeze.
+- [Harnașamentul (harness)](https://inteligentartificiala.ro/comportament-agentic/harnasamentul/): Programul care construiește contextul modelului, execută acțiunile cerute și pune rezultatele înapoi în context, într-un ciclu de acțiune și observare inspirat de ReAct.
+- [Apelul de instrumente (tool calls)](https://inteligentartificiala.ro/comportament-agentic/apelul-de-instrumente/): Cum sunt descrise instrumentele prin scheme JSON, cum arată apelul emis de model, ce categorii de instrumente există și cum se corectează agentul pe baza erorilor.
+- [Sistemul 1 și Sistemul 2](https://inteligentartificiala.ro/comportament-agentic/sistemul-1-si-sistemul-2/): Cele două moduri de gândire descrise de Daniel Kahneman, aplicate la inteligența artificială: LLM-ul ca Sistem 2, modelele System One precum Jev și felul în care cele două colaborează.
+- [Orchestrare și sisteme multi-agent](https://inteligentartificiala.ro/comportament-agentic/orchestrare-si-sisteme-multi-agent/): Cum împarte un sistem agentic o sarcină mare: planul împărțit în sarcini, pași secvențiali și paraleli, subagenți specializați, compactarea contextului și sarcini asincrone cu trezire reactivă.
+- [Exemple de sisteme agentice](https://inteligentartificiala.ro/comportament-agentic/exemple-de-sisteme-agentice/): Google Antigravity, Claude Code, asistenții OpenAI, Cursor și agenții autonomi de mentenanță, ca exemple ale aceleiași arhitecturi agentice.
+- [Provocări și bune practici](https://inteligentartificiala.ro/comportament-agentic/provocari-si-bune-practici/): Izolarea mediului de execuție, bugetele de pași și de costuri și alegerea unui set mic de instrumente bine descrise.
+
+## Modele de difuzie
+
+- [Ce sunt modelele de difuzie](https://inteligentartificiala.ro/modele-de-difuzie/ce-sunt-modelele-de-difuzie/): Procesul direct care adaugă zgomot gaussian, rețeaua care învață să-l elimine (DDPM), generarea pas cu pas (DDIM), memorarea, potrivirea fluxului (flow matching) și un exemplu de difuzie pe desene de 7 × 7 pixeli care rulează în browser.
+- [Generarea imaginilor](https://inteligentartificiala.ro/modele-de-difuzie/generarea-imaginilor/): Difuzia latentă (Stable Diffusion), codificatorul de text (CLIP, T5) și atenția încrucișată, Transformerul de difuzie (DiT), ghidarea fără clasificator, editarea imaginilor, modelele autoregresive pentru imagini și recunoașterea imaginilor generate (C2PA, SynthID).
+- [Generarea vocii](https://inteligentartificiala.ro/modele-de-difuzie/generarea-vocii/): Eșantioanele și spectrograma mel, modelul acustic și vocoderul, codecurile audio neuronale și modelele de limbaj pentru sunet (VALL-E), difuzia și potrivirea fluxului pentru vorbire, recunoașterea vorbirii (Whisper) și clonarea vocii.
+- [Generarea video](https://inteligentartificiala.ro/modele-de-difuzie/generarea-video/): Coerența în timp, comprimarea cu un VAE 3D, peticele de spațiu-timp procesate de un Transformer de difuzie, sunetul generat odată cu imaginea, modelele lumii și clipurile false (deepfake) cu persoane reale.
+
+## Laboratoare practice cu cod sursă
+
+- [Laboratoare practice](https://inteligentartificiala.ro/laboratoare/): Prezentarea celor patru laboratoare, cu nivelul, cerințele, paginile de citit înainte și codul sursă al fiecăruia. Fiecare laborator are notebookuri Jupyter care se deschid în Google Colab: https://github.com/inteligentArtificiala-ro/inteligentartificiala.ro/tree/main/public/laboratoare
+- [Un model de limbaj local cu Transformers](https://inteligentartificiala.ro/laboratoare/model-local-transformers/prezentare/): Rularea locală, în Python, a unui model cu ponderi deschise de pe Hugging Face Hub, cu bibliotecile Transformers și PyTorch: pipeline, tokenizatorul, șablonul de chat, parametrii generării, memoria și cuantizarea pe 4 biți, apoi un model de raționament (Qwen3) cu buget de gândire controlat din cod. Documentația oficială: https://huggingface.co/docs/transformers/index
+- [Imagini și sunete cu modele de difuzie](https://inteligentartificiala.ro/laboratoare/difuzie-imagini-si-sunete/prezentare/): Generarea de imagini și sunete cu modele de difuzie cu ponderi deschise, în Python, cu bibliotecile Diffusers și Transformers: un pipeline Stable Diffusion 1.5, procesul de difuzie scris de mână pe un U-Net DDPM care generează pisici (DDPM și DDIM, procesul direct), Stable Diffusion desfăcut în componente (CLIP, U-Net, VAE) cu ghidarea fără clasificator scrisă de mână, generarea de la imagine la imagine și sunete din text cu AudioLDM 2 (spectrograma mel și vocoderul HiFi-GAN). Documentația oficială: https://huggingface.co/docs/diffusers/index
+- [Un model de limbaj de la zero (mvGPT)](https://inteligentartificiala.ro/laboratoare/model-lingvistic-de-la-zero/prezentare/): Construirea și antrenarea în PyTorch a unui model Transformer de tip GPT cu 14,6 milioane de parametri, de la date și tokenizare până la ajustarea fină supervizată (SFT). Cod sursă: https://github.com/inteligentArtificiala-ro/laborator-lm-de-la-zero. Proiect asemănător, mai amplu: nanochat (Andrej Karpathy), https://github.com/karpathy/nanochat
+- [Control continuu cu PPO în MuJoCo (HalfCheetah)](https://inteligentartificiala.ro/laboratoare/control-continuu-ppo-halfcheetah/prezentare/): Robotul HalfCheetah din MuJoCo învață să alerge cu algoritmul PPO, în PyTorch: acțiuni continue pentru 6 articulații motorizate, strategie gaussiană diagonală, rețea actor-critic și estimarea generalizată a avantajului (GAE). Cod sursă: https://github.com/inteligentArtificiala-ro/control-continuu-ppo
+
+## Repozitorii oficiale GitHub
+
+- Organizație GitHub: https://github.com/inteligentArtificiala-ro
+- Repozitoriu site: https://github.com/inteligentArtificiala-ro/inteligentartificiala.ro

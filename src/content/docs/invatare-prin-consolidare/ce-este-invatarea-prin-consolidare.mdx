@@ -1,0 +1,99 @@
+---
+title: Învățare prin consolidare
+description: În învățarea prin consolidare, un agent învață să ia decizii din recompensele primite de la mediu. Explicăm stările, acțiunile, strategia de decizie (policy), recompensa cumulată și funcțiile de valoare.
+sidebar:
+  order: 1
+level: intermediar
+tags:
+  - Învățare prin consolidare
+---
+
+import AgentEnvironmentDiagram from '@components/diagrams/AgentEnvironmentDiagram.astro';
+
+**Învățarea prin consolidare** (_reinforcement learning_, RL) este ramura [învățării automate](/concepte-de-baza/ce-este-invatarea-automata/) în care un sistem învață din consecințele propriilor decizii. Nu primește răspunsul corect pentru fiecare exemplu, ca în **învățarea supervizată** (_supervised learning_), ci doar un semnal numeric care arată cât de bună a fost o decizie. Semnalul poate veni și cu întârziere. De exemplu, o mutare dintr-un joc se dovedește bună sau proastă abia la final.
+
+Metodele din această familie au jucat table aproape de nivelul celor mai buni jucători (TD-Gammon, la începutul anilor 1990), au învățat să joace zeci de jocuri Atari direct din pixeli (DQN, 2015) și au învins un campion mondial la go (AlphaGo, 2016). Sunt folosite și în controlul roboților și, mai recent, la antrenarea [modelelor de limbaj mari](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/).
+
+## Definiție
+
+Problema are doi participanți. **Agentul** (_agent_) ia decizii, iar **mediul** (_environment_) răspunde la ele. La fiecare pas $t$, agentul observă **starea** (_state_) $s_t$ și alege o **acțiune** (_action_) $a_t$. Mediul trece în starea $s_{t+1}$ și îi dă agentului o **recompensă** (_reward_) $r_{t+1}$, un număr real.
+
+<AgentEnvironmentDiagram />
+
+Dacă starea următoare și recompensa depind doar de starea și de acțiunea curente, nu și de ce s-a întâmplat înainte, problema este un **proces de decizie Markov** (_Markov decision process_, MDP). Majoritatea metodelor pornesc de la această formulare. O succesiune completă de stări, acțiuni și recompense, de la început până la o stare finală, se numește **episod** (_episode_).
+
+## Recompensa cumulată
+
+Agentul nu urmărește doar recompensa imediată, ci suma recompenselor viitoare. **Recompensa cumulată** (_return_) de la pasul $t$ se calculează astfel.
+
+$$
+G_t = r_{t+1} + \gamma\, r_{t+2} + \gamma^2 r_{t+3} + \ldots = \sum_{k=0}^{\infty} \gamma^k r_{t+k+1}
+$$
+
+unde $\gamma \in [0, 1]$ este **factorul de actualizare** (_discount factor_). Cu $\gamma$ apropiat de 0, agentul ține cont aproape numai de recompensele imediate. Cu $\gamma$ apropiat de 1, recompensele îndepărtate contează aproape la fel de mult. Pentru episoade de lungime finită se poate folosi și $\gamma = 1$.
+
+## Strategia de decizie (Policy)
+
+Felul în care agentul își alege acțiunile se numește **strategie de decizie** (_policy_). O strategie stocastică dă, pentru fiecare stare, o distribuție de probabilitate peste acțiunile posibile.
+
+$$
+\pi(a \mid s) = P(a_t = a \mid s_t = s)
+$$
+
+Scopul învățării este să găsim o strategie care maximizează recompensa cumulată așteptată, socotită de la începutul episodului.
+
+$$
+J(\pi) = \mathbb{E}_{\pi}\left[ G_0 \right]
+$$
+
+Când strategia este o rețea neuronală cu parametrii $\theta$, o notăm $\pi_\theta$. Rețeaua primește starea și dă probabilitățile acțiunilor, la fel cum un [model de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) primește un context și dă probabilitățile tokenului următor.
+
+## Funcții de valoare
+
+O **funcție de valoare** (_value function_) estimează cât de bună este o situație, adică ce recompensă cumulată poate aștepta agentul de acolo înainte, dacă urmează strategia $\pi$.
+
+$$
+V^{\pi}(s) = \mathbb{E}_{\pi}\left[ G_t \mid s_t = s \right]
+$$
+
+$$
+Q^{\pi}(s, a) = \mathbb{E}_{\pi}\left[ G_t \mid s_t = s,\ a_t = a \right]
+$$
+
+$V^{\pi}(s)$ este valoarea unei stări. $Q^{\pi}(s, a)$ este valoarea alegerii acțiunii $a$ în starea $s$, după care agentul continuă să urmeze strategia $\pi$. Diferența dintre ele se numește **avantaj** (_advantage_).
+
+$$
+A^{\pi}(s, a) = Q^{\pi}(s, a) - V^{\pi}(s)
+$$
+
+Un avantaj pozitiv arată că acțiunea $a$ este mai bună decât media acțiunilor pe care strategia le-ar alege în acea stare. Avantajul apare în aproape toate metodele moderne, inclusiv în cele folosite pentru LLM-uri.
+
+## Explorare și exploatare
+
+:::note[Explorăm sau exploatăm?]
+Un agent care alege mereu ce i s-a părut cel mai bun până acum riscă să nu descopere niciodată o acțiune mai bună (sub-explorare). Unul care încearcă mereu acțiuni noi nu profită de ce a învățat deja (sub-exploatare). Echilibrul dintre **explorare** (_exploration_) și **exploatare** (_exploitation_) este una dintre problemele centrale ale domeniului.
+:::
+
+O strategie stocastică explorează de la sine, pentru că alege uneori și acțiuni mai puțin probabile.
+
+## Familii de metode
+
+Metodele **bazate pe valoare** (_value-based_) învață o funcție de valoare, de obicei $Q$, iar strategia alege acțiunea cu valoarea cea mai mare. Q-learning și DQN fac parte din această familie.
+
+Metodele bazate pe **gradientul strategiei** (_policy gradient_) ajustează direct parametrii strategiei $\pi_\theta$, în direcția care crește recompensa cumulată așteptată. Cel mai simplu algoritm de acest tip este [REINFORCE](/invatare-prin-consolidare/gradientul-politicii-reinforce/).
+
+Metodele **actor-critic** le combină pe cele două. Un actor (strategia) alege acțiunile, iar un critic (o funcție de valoare învățată) estimează avantajele. PPO, folosit și la antrenarea LLM-urilor, este o metodă actor-critic.
+
+:::tip[Lectură de referință]
+Cartea [„Reinforcement Learning: An Introduction”](http://incompleteideas.net/book/the-book-2nd.html) de Richard Sutton și Andrew Barto, ediția a doua din 2018, este manualul de referință al domeniului și poate fi citită gratuit online.
+:::
+
+## Bibliografie
+
+- Mnih, V. et al. (2015). [Human-level control through deep reinforcement learning](https://doi.org/10.1038/nature14236). _Nature_, 518(7540), 529–533.
+- Puterman, M. L. (1994). _Markov Decision Processes: Discrete Stochastic Dynamic Programming_. Wiley.
+- Schulman, J. et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). Preprint arXiv:1707.06347.
+- Silver, D. et al. (2016). [Mastering the game of Go with deep neural networks and tree search](https://doi.org/10.1038/nature16961). _Nature_, 529(7587), 484–489.
+- Sutton, R. S. și Barto, A. G. (2018). [_Reinforcement Learning: An Introduction_](http://incompleteideas.net/book/the-book-2nd.html) (ed. a 2-a). MIT Press.
+- Tesauro, G. (1995). [Temporal difference learning and TD-Gammon](https://doi.org/10.1145/203330.203343). _Communications of the ACM_, 38(3), 58–68.
+- Watkins, C. J. C. H. și Dayan, P. (1992). [Q-learning](https://doi.org/10.1007/BF00992698). _Machine Learning_, 8(3–4), 279–292.

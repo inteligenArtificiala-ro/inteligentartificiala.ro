@@ -1,0 +1,206 @@
+---
+title: Modelul GPT
+description: Un Transformer doar cu decodor, scris clasă cu clasă în PyTorch. Configurația, atenția cauzală cu capete multiple (multi-head), rețeaua feed-forward cu GELU, blocul, ponderile legate și cele 14,6 milioane de parametri.
+sidebar:
+  order: 3
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+  - Transformer
+---
+
+import Python from '@components/Python.astro';
+import SourceFile from '@components/SourceFile.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Modelul laboratorului este un **Transformer doar cu decodor** (_decoder-only Transformer_), forma folosită de modelele GPT. Componentele sunt toate cele din [GPT-2](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf), publicat de OpenAI în 2019: reprezentări învățate ale pozițiilor, normalizare pe strat, atenție cu capete multiple (multi-head) și o rețea feed-forward cu funcția GELU. Pagina [Arhitectura Transformer](/modele-lingvistice/arhitectura-transformer/) descrie variantele care le-au înlocuit în modelele actuale, de exemplu RMSNorm, RoPE și SwiGLU. Variantele clasice sunt mai ușor de urmărit, iar la această mărime diferența de calitate este mică.
+
+Tot modelul se află în fișierul `model.py`.
+
+## Configurația
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['pick_device', 'GPTConfig']} />
+
+| Mărime | Câmp | Valoare |
+| --- | --- | --- |
+| Mărimea vocabularului | `vocab_size` | 10.000 |
+| Fereastra de context | `block_size` | 256 de tokenuri |
+| Numărul de blocuri | `n_layer` | 6 |
+| Capete de atenție | `n_head` | 6 |
+| Dimensiunea modelului | `n_embd` | 384, adică 6 capete de câte 64 |
+| Probabilitatea de _dropout_ | `dropout` | 0,1 |
+
+**_Dropout_**-ul pune la zero, la întâmplare, 10% din valori la fiecare pas de antrenare. Modelul nu se poate baza pe nicio valoare anume, așa că învață reprezentări care nu depind de câteva valori izolate și memorează mai greu datele de antrenare. La generare, _dropout_-ul este oprit.
+
+Funcția `pick_device` caută întâi o placă grafică NVIDIA (CUDA), apoi procesorul grafic al unui cip Apple Silicon (MPS). Dacă nu găsește niciuna, folosește procesorul obișnuit.
+
+## Atenția cauzală
+
+Fiecare bloc începe cu [atenția cu capete multiple](/modele-lingvistice/avem-nevoie-doar-de-atentie/#atenția-cu-capete-multiple-multi-head), aplicată cu [masca cauzală](/modele-lingvistice/avem-nevoie-doar-de-atentie/#masca-cauzală).
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['CausalSelfAttention']} />
+
+Intrarea `x` are forma `(B, T, C)`, cu `B` secvențe dintr-un lot, câte `T` tokenuri, fiecare cu un vector de `C = 384` de valori. Atenția are patru straturi liniare: trei calculează interogările, cheile și valorile, iar al patrulea, `o_proj`, face proiecția de ieșire de la final. Vectorii de 384 de valori sunt împărțiți în 6 capete de câte 64, prin `view` și `transpose`, iar fiecare cap calculează atenția separat.
+
+Calculul propriu-zis este făcut de `F.scaled_dot_product_attention`, care aplică formula atenției prin produs scalar scalat. Parametrul `is_causal=True` adaugă masca cauzală, astfel încât fiecare poziție vede doar tokenurile de până la ea. PyTorch alege pentru această funcție cea mai rapidă implementare disponibilă pe dispozitiv.
+
+Mai jos, același calcul este scris pas cu pas în NumPy, pentru 4 tokenuri, vectori de 8 valori și 2 capete.
+
+<Python
+  packages={['numpy']}
+  code={String.raw`
+import numpy as np
+
+rng = np.random.default_rng(seed=0)
+T, C, n_head = 4, 8, 2
+hs = C // n_head  # dimensiunea unui cap
+x = rng.normal(size=(T, C))
+W_q, W_k, W_v, W_o = (rng.normal(size=(C, C)) * 0.3 for _ in range(4))
+
+def split_heads(m):
+    # (T, C) -> (n_head, T, hs), ca view(...).transpose(1, 2) din model.py
+    return m.reshape(T, n_head, hs).transpose(1, 0, 2)
+
+q, k, v = split_heads(x @ W_q), split_heads(x @ W_k), split_heads(x @ W_v)
+scores = q @ k.transpose(0, 2, 1) / np.sqrt(hs)
+mask = np.tril(np.ones((T, T), dtype=bool))  # masca cauzală
+scores = np.where(mask, scores, -np.inf)
+weights = np.exp(scores - scores.max(axis=-1, keepdims=True))
+weights /= weights.sum(axis=-1, keepdims=True)
+
+y = (weights @ v).transpose(1, 0, 2).reshape(T, C)  # capetele se alătură la loc
+out = y @ W_o
+
+np.set_printoptions(precision=2, suppress=True)
+print("Ponderile de atenție ale capului 0:")
+print(weights[0])
+print("Ponderile de atenție ale capului 1:")
+print(weights[1])
+print("Forma ieșirii:", out.shape)
+`}
+/>
+
+Deasupra diagonalei, ponderile sunt zero, deci niciun token nu vede tokenurile de după el. Cele două capete împart altfel atenția, pentru că au proiecții diferite.
+
+## Rețeaua feed-forward și GELU
+
+După atenție, fiecare token trece separat printr-o rețea feed-forward cu un strat ascuns de 4 ori mai larg, de 1.536 de neuroni.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['gelu', 'MLP']} />
+
+Funcția de activare este **GELU** (_Gaussian error linear unit_), propusă în 2016 de [Hendrycks și Gimpel](https://arxiv.org/abs/1606.08415).
+
+$$
+\operatorname{GELU}(x) = x \cdot \Phi(x) = \frac{x}{2}\left(1 + \operatorname{erf}\frac{x}{\sqrt{2}}\right)
+$$
+
+unde $\Phi(x)$ este probabilitatea ca o variabilă cu distribuție normală standard să fie cel mult $x$, iar $\operatorname{erf}$ este funcția eroare. PyTorch are deja `F.gelu`, dar aici funcția este scrisă explicit, ca formula să se vadă în cod. Spre deosebire de ReLU, GELU este netedă și lasă să treacă puțin și din valorile negative apropiate de zero.
+
+<Python
+  code={String.raw`
+import math
+
+def gelu(x):
+    return 0.5 * x * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+for x in [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3]:
+    print(f"x = {x:>4}: GELU {gelu(x):7.3f}, ReLU {max(0, x):4}")
+`}
+/>
+
+## Blocul
+
+Un bloc leagă cele două componente prin conexiuni reziduale, cu normalizarea pe strat înaintea fiecăreia.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['Block']} />
+
+Este vorba de schema de **pre-normalizare** (_pre-norm_), descrisă în secțiunea despre [fluxul rezidual](/modele-lingvistice/arhitectura-transformer/#fluxul-rezidual). Atenția și rețeaua feed-forward citesc o versiune normalizată a vectorului `x` și adaugă rezultatul la el, fără să-l înlocuiască.
+
+## Modelul complet
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['GPT']} />
+
+Metoda `forward` urmează pașii obișnuiți ai unui decodor Transformer.
+
+<Steps>
+1. **Reprezentarea vectorială** (_embedding_) înlocuiește fiecare ID de token cu vectorul lui (`embed_tokens`), la care se adună vectorul poziției (`embed_positions`). Spre deosebire de codificarea pozițională fixă din Transformerul original, din 2017, aici fiecare dintre cele 256 de poziții are o reprezentare învățată. De aceea, modelul nu poate citi mai mult de 256 de tokenuri.
+2. **Trecerea prin blocuri** duce vectorii, pe rând, prin cele 6 blocuri Transformer, fiecare cu auto-atenție și o rețea feed-forward (MLP).
+3. **Normalizarea finală și proiecția** pregătesc ieșirea. După o ultimă normalizare pe strat, `lm_head` produce, pentru fiecare poziție, câte un scor nenormalizat (_logit_) pentru fiecare dintre cele 10.000 de tokenuri.
+4. **Calculul pierderii** prin entropie încrucișată are loc doar dacă modelul primește și ținte. Țintele egale cu -1 sunt ignorate, lucru pe care îl folosim la [ajustarea fină](/laboratoare/model-lingvistic-de-la-zero/ajustare-fina-supervizata/).
+</Steps>
+
+:::tip[Ponderi legate și inițializare scalată]
+Două detalii din constructor merită atenție.
+- **Ponderile legate** (_tied embeddings_) fac ca `lm_head` și `embed_tokens` să folosească aceeași matrice de ponderi. Scorul unui token la ieșire se calculează astfel cu exact același vector care îl reprezintă la intrare. Așa economisim peste 3,8 milioane de parametri.
+- **Inițializarea reziduală scalată** pornește ponderile dintr-o distribuție normală cu deviația standard 0,02. Proiecțiile `o_proj` și `down_proj`, care adaugă valori în fluxul rezidual în fiecare bloc, pornesc cu o deviație standard înmulțită în plus cu $\frac{1}{\sqrt{2 \cdot N_{\text{blocuri}}}} \approx \frac{1}{\sqrt{12}}$. Astfel, varianța semnalului nu crește necontrolat.
+:::
+
+Metoda `generate` este explicată pe pagina despre [generarea textului](/laboratoare/model-lingvistic-de-la-zero/generarea-textului/).
+
+## Numărul de parametri
+
+Numărul de parametri se poate calcula doar din configurație, fără să construim modelul.
+
+<Python
+  code={String.raw`
+vocab_size, block_size, n_layer, n_embd = 10_000, 256, 6, 384
+
+def linear(n_in, n_out):
+    return n_in * n_out + n_out  # ponderi și bias
+
+layer_norm = 2 * n_embd  # o scalare și un bias pentru fiecare dimensiune
+tokens = vocab_size * n_embd
+positions = block_size * n_embd
+attention = 4 * linear(n_embd, n_embd)  # q, k, v și o
+mlp = linear(n_embd, 4 * n_embd) + linear(4 * n_embd, n_embd)
+block = 2 * layer_norm + attention + mlp
+# lm_head nu adaugă nimic: folosește matricea din embed_tokens.
+total = tokens + positions + n_layer * block + layer_norm
+
+print(f"Tokenuri: {tokens:,}, poziții: {positions:,}")
+print(f"Un bloc: {block:,} (atenție {attention:,}, feed-forward {mlp:,})")
+print(f"Total: {total:,} parametri")
+print(f"Fără ponderi legate ar fi: {total + vocab_size * n_embd:,}")
+`}
+/>
+
+Rezultatul, 14.585.856 de parametri, este numărul afișat și de `model.num_params()`. Ponderile legate economisesc 3,84 milioane de parametri, mai mult de o cincime din model.
+
+## Verificarea locală
+
+Un model abia creat poate fi verificat înainte de antrenare. Rulați codul de mai jos în directorul laboratorului: el trece prin model un lot de tokenuri aleatoare.
+
+```python
+import math
+
+import torch
+
+from model import GPT, GPTConfig
+
+torch.manual_seed(0)
+model = GPT(GPTConfig())
+print(f"{model.num_params():,} parametri")
+
+idx = torch.randint(10_000, (2, 256))  # 2 secvențe de câte 256 de tokenuri aleatoare
+targets = torch.randint(10_000, (2, 256))
+logits, loss = model(idx, targets)
+print(tuple(logits.shape))
+print(f"pierdere {loss.item():.3f}, ln(10000) = {math.log(10_000):.3f}")
+```
+
+```text
+14,585,856 parametri
+(2, 256, 10000)
+pierdere 9.300, ln(10000) = 9.210
+```
+
+Ieșirea are câte 10.000 de scoruri pentru fiecare dintre cele 2 × 256 de poziții. Pierderea inițială, pe ținte aleatoare, este apropiată de $\ln 10.000 \approx 9{,}21$, adică valoarea pe care o obține un model care dă aceeași probabilitate tuturor tokenurilor. Pagina despre [preantrenare](/laboratoare/model-lingvistic-de-la-zero/preantrenare/) explică de ce și cum scade această valoare.
+
+## Bibliografie
+
+- Ba, J. L., Kiros, J. R. și Hinton, G. E. (2016). [Layer Normalization](https://arxiv.org/abs/1607.06450). Preprint arXiv:1607.06450.
+- Hendrycks, D. și Gimpel, K. (2016). [Gaussian Error Linear Units (GELUs)](https://arxiv.org/abs/1606.08415). Preprint arXiv:1606.08415.
+- Press, O. și Wolf, L. (2017). [Using the Output Embedding to Improve Language Models](https://arxiv.org/abs/1608.05859). _EACL 2017_.
+- Radford, A. et al. (2018). [Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf). Raport tehnic OpenAI.
+- Radford, A. et al. (2019). [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf). Raport tehnic OpenAI.
+- Vaswani, A. et al. (2017). [Attention Is All You Need](https://arxiv.org/abs/1706.03762). _NeurIPS 2017_.

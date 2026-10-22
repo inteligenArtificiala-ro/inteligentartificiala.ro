@@ -1,0 +1,62 @@
+---
+title: Laboratoare practice
+description: Patru laboratoare cu cod sursă deschis, în Python și PyTorch, care rulează și în Google Colab. Rulăm local un model de limbaj, generăm imagini și sunete prin difuzie, antrenăm de la zero un model de tip GPT și învățăm un robot simulat să alerge cu PPO.
+sidebar:
+  label: Prezentare generală
+---
+
+Paginile teoretice explică ideile. În laboratoare, aceleași idei devin cod care rulează pe propriul calculator. Fiecare laborator explică pas cu pas codul, scris în Python și PyTorch, și se încheie cu un rezultat pe care îl putem verifica: un model care răspunde la întrebări, imagini și sunete generate din text, un model care scrie povești sau un robot simulat care aleargă.
+
+Toate laboratoarele folosesc Python 3.10 sau mai nou, cu pachetele instalate într-un mediu virtual creat cu `venv`. Rulează pe o placă grafică NVIDIA (CUDA), pe un cip Apple Silicon (MPS) sau, mai lent, pe procesor (CPU). Pagina despre [utilitatea plăcilor grafice](/concepte-de-baza/utilitatea-placilor-grafice/) explică de ce diferența de viteză este atât de mare.
+
+Toate laboratoarele pot rula și în [Google Colab](https://colab.research.google.com), un serviciu Google care rulează notebookuri Jupyter în browser. Notebookurile laboratoarelor sunt păstrate în [repozitoriul site-ului](https://github.com/inteligentArtificiala-ro/inteligentartificiala.ro/tree/main/public/laboratoare) și se deschid în Colab direct din paginile laboratoarelor, cu butonul **Deschidere în Google Colab**.
+
+În laboratoarele de antrenare, exemplele scurte rulează direct în pagină, cu Python în browser (WebAssembly), fără nicio instalare. Antrenarea propriu-zisă rulează local, iar paginile arată rezultatele de referință, ca să le putem compara cu ce obținem pe propriul calculator. Codul acestor laboratoare este public, în [organizația proiectului de pe GitHub](https://github.com/inteligentArtificiala-ro), și poate fi clonat cu Git sau descărcat fișier cu fișier.
+
+Laboratoarele sunt ordonate după nivel. Primele două se pot parcurge fără cunoștințe despre rețele neuronale, iar ultimul presupune paginile despre învățarea prin consolidare.
+
+## Un model de limbaj local cu Transformers
+
+Descărcăm de pe [Hugging Face Hub](https://huggingface.co/models) un model de limbaj cu **ponderi deschise** (_open weights_) și îl rulăm în Python, cu bibliotecile Transformers și PyTorch. Laboratorul pornește de la funcția `pipeline`, care pune un model în funcțiune în câteva linii de cod. Apoi refacem de mână pașii pe care ea îi ascunde: tokenizarea, șablonul de chat și generarea. Ultimele pagini arată de câtă memorie are nevoie un model, cum îl micșorăm prin **cuantizare** (_quantization_) și cum rulăm local un model de raționament.
+
+- **Nivel**: începător.
+- **Cerințe**: un calculator cu cel puțin 8 GB de memorie RAM și între 700 MB și 4 GB de spațiu pe disc pentru modele.
+- **Înainte de laborator**: pagina despre [modelele de limbaj mari](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/).
+- **Google Colab**: câte un notebook pentru fiecare pagină.
+
+Laboratorul începe cu [instalarea și primul model](/laboratoare/model-local-transformers/prezentare/).
+
+## Imagini și sunete cu modele de difuzie
+
+Generăm imagini și sunete cu modele de difuzie cu ponderi deschise, în Python, cu biblioteca **Diffusers** a companiei Hugging Face și cu Transformers. Laboratorul pornește de la un pipeline care generează o imagine dintr-o descriere în câteva linii de cod. Apoi scriem de mână procesul de difuzie, pe un model care generează pisici, și desfacem Stable Diffusion în componente: codificatorul de text, U-Net-ul, autoencoderul VAE și **ghidarea fără clasificator** (_classifier-free guidance_). Ultima pagină generează sunete dintr-o descriere, cu AudioLDM 2, și arată spectrograma mel din care vocoderul face sunetul.
+
+- **Nivel**: începător.
+- **Cerințe**: o placă grafică NVIDIA cu cel puțin 8 GB de memorie sau un cip Apple Silicon și aproximativ 8 GB de spațiu pe disc pentru modele.
+- **Înainte de laborator**: pagina despre [modelele de difuzie](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/).
+- **Google Colab**: câte un notebook pentru fiecare pagină.
+
+Laboratorul începe cu [instalarea și prima imagine](/laboratoare/difuzie-imagini-si-sunete/prezentare/).
+
+## Un model de limbaj de la zero
+
+Construim și antrenăm de la zero **mvGPT** (_Minimum Viable GPT_), un model de tip GPT cu 14,6 milioane de parametri. Codul, scris în Python și PyTorch, trece prin pregătirea datelor din setul TinyStories, tokenizare, preantrenare, generarea textului și **ajustarea fină supervizată** (_supervised fine-tuning_, SFT). Laboratorul însoțește, cu explicații în limba română, primele trei episoade ale seriei video [Minimum Viable GPT](https://mvgpt.nenuadrian.com). Un proiect asemănător, mai amplu, este [nanochat](https://github.com/karpathy/nanochat), scris de Andrej Karpathy.
+
+- **Nivel**: intermediar.
+- **Cerințe**: circa 1 GB de spațiu pe disc. Preantrenarea și ajustarea fină durează câte 10 minute pe un laptop modern.
+- **Înainte de laborator**: paginile despre [rețelele neuronale](/retele-neuronale/ce-sunt-retelele-neuronale/) și despre [mecanismul de atenție](/modele-lingvistice/avem-nevoie-doar-de-atentie/).
+- **Cod sursă**: repozitoriul [inteligentArtificiala-ro/laborator-lm-de-la-zero](https://github.com/inteligentArtificiala-ro/laborator-lm-de-la-zero).
+- **Google Colab**: un notebook care rulează tot laboratorul.
+
+Laboratorul începe cu [prezentarea modelului și pregătirea mediului de lucru](/laboratoare/model-lingvistic-de-la-zero/prezentare/).
+
+## Control continuu cu PPO în MuJoCo
+
+Robotul **HalfCheetah**, un robot bidimensional inspirat de ghepard, cu 6 articulații acționate de motoare, învață de la zero să alerge în simulatorul fizic **MuJoCo**. Motoarele primesc valori continue, nu comenzi dintr-o listă finită, așa că problema este una de **control continuu** (_continuous control_). Agentul este antrenat cu **PPO** (_Proximal Policy Optimization_), implementat în PyTorch, cu o rețea actor-critic, o strategie gaussiană și estimarea generalizată a avantajului (GAE). Laboratorul se încheie cu evaluarea strategiei antrenate și cu un videoclip al robotului care aleargă.
+
+- **Nivel**: avansat.
+- **Cerințe**: un procesor cu 4–8 nuclee, un cip Apple Silicon sau o placă grafică NVIDIA. O antrenare completă, de 1 milion de pași, durează cam 15–25 de minute.
+- **Înainte de laborator**: paginile despre [învățarea prin consolidare](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/) și despre [gradientul strategiei și REINFORCE](/invatare-prin-consolidare/gradientul-politicii-reinforce/).
+- **Cod sursă**: repozitoriul [inteligentArtificiala-ro/control-continuu-ppo](https://github.com/inteligentArtificiala-ro/control-continuu-ppo).
+- **Google Colab**: un notebook care rulează tot laboratorul.
+
+Laboratorul începe cu [prezentarea robotului și a simulatorului](/laboratoare/control-continuu-ppo-halfcheetah/prezentare/).

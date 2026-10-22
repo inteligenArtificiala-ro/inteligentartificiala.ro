@@ -1,0 +1,115 @@
+---
+title: Algoritmul PPO și GAE
+description: "Cum funcționează PPO: raportul de probabilități, funcția obiectiv tăiată (clipped surrogate objective), estimarea generalizată a avantajului (GAE) și bufferul de traiectorii."
+sidebar:
+  order: 4
+  label: Algoritmul PPO și GAE
+level: avansat
+tags:
+  - Învățare prin consolidare
+  - Control continuu
+---
+
+import Python from '@components/Python.astro';
+import SourceFile from '@components/SourceFile.astro';
+
+Am văzut la [limitările algoritmului REINFORCE](/invatare-prin-consolidare/gradientul-politicii-reinforce/#limitări) că metodele bazate pe gradientul strategiei au o problemă serioasă: sunt instabile. Dacă un pas de optimizare este prea mare, noua strategie poate deveni dintr-odată catastrofală. La HalfCheetah, o astfel de actualizare îl face pe robot să se răstoarne pe spate. Odată ce robotul a căzut, toate traiectoriile următoare conțin doar eșecuri, iar algoritmul nu își mai poate reveni.
+
+Algoritmul **PPO** (_Proximal Policy Optimization_), propus în 2017 de John Schulman și colegii săi de la OpenAI, rezolvă problema cu o idee intuitivă: **limitează automat cât se poate schimba strategia la fiecare iterație**.
+
+## Raportul de probabilități
+
+Fie $\pi_{\theta_{\text{vechi}}}$ strategia cu care am colectat cele mai recente traiectorii din mediu și $\pi_\theta$ noua strategie, pe care vrem să o optimizăm. Definim **raportul de probabilități** (_probability ratio_) $r_t(\theta)$ astfel:
+
+$$
+r_t(\theta) = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{\text{vechi}}}(a_t \mid s_t)} = \exp\left( \log \pi_\theta(a_t \mid s_t) - \log \pi_{\theta_{\text{vechi}}}(a_t \mid s_t) \right)
+$$
+
+La începutul fiecărui ciclu de optimizare, $\theta = \theta_{\text{vechi}}$, deci raportul este exact $r_t(\theta) = 1$. Dacă noua strategie face acțiunea $a_t$ mai probabilă decât înainte, $r_t(\theta) > 1$. Dacă o face mai puțin probabilă, $r_t(\theta) < 1$.
+
+## Funcția obiectiv tăiată (clipped surrogate objective)
+
+Dacă am maximiza direct produsul $r_t(\theta) \hat{A}_t$, schimbările mari ale lui $r_t(\theta)$ ar putea destabiliza strategia. De aceea, PPO folosește o **funcție obiectiv tăiată** (_clipped surrogate objective_), în care raportul este trunchiat la un interval în jurul lui 1:
+
+$$
+\mathcal{L}^{CLIP}(\theta) = \hat{\mathbb{E}}_t \left[ \min\left( r_t(\theta)\hat{A}_t, \, \operatorname{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\hat{A}_t \right) \right]
+$$
+
+unde $\epsilon$ are de regulă valoarea $0{,}2$. Operatorul `clip` ține raportul în intervalul $[1-\epsilon, 1+\epsilon]$, adică $[0{,}8, \, 1{,}2]$.
+
+Funcția `min` alege varianta mai pesimistă dintre obiectivul netrunchiat și cel trunchiat. Să luăm pe rând cele două cazuri, după semnul avantajului $\hat{A}_t$:
+
+1. **Avantaj pozitiv ($\hat{A}_t > 0$)**: acțiunea a fost mai bună decât media. Vrem să-i creștem probabilitatea ($r_t > 1$). Însă dacă $r_t > 1+\epsilon$ (adică $r_t > 1{,}2$), termenul trunchiat devine $(1+\epsilon)\hat{A}_t$, care este mai mic decât $r_t \hat{A}_t$. Funcția `min` alege valoarea plafonată, iar gradientul devine zero. Astfel, strategia nu mai are niciun câștig dacă face un pas prea mare într-o singură iterație.
+2. **Avantaj negativ ($\hat{A}_t < 0$)**: acțiunea a fost mai slabă decât media. Vrem să-i scădem probabilitatea ($r_t < 1$). Dacă $r_t < 1-\epsilon$ (adică $r_t < 0{,}8$), termenul trunchiat devine $(1-\epsilon)\hat{A}_t$. Cum avantajul este negativ, acest termen este mai mic decât $r_t \hat{A}_t$, așa că funcția `min` îl alege pe el, iar gradientul devine din nou zero. Strategia nu câștigă nimic dacă scade prea mult probabilitatea acțiunii într-o singură iterație.
+
+### Vizualizare interactivă
+
+Celula de mai jos rulează direct în browser și calculează valoarea funcției obiectiv pentru rapoarte de probabilitate între $0{,}5$ și $1{,}5$.
+
+<Python
+  packages={['numpy']}
+  code={String.raw`
+import numpy as np
+
+epsilon = 0.2
+ratios = np.array([0.5, 0.7, 0.9, 1.0, 1.1, 1.3, 1.5])
+
+def ppo_loss(ratio, adv):
+    obj1 = ratio * adv
+    obj2 = np.clip(ratio, 1.0 - epsilon, 1.0 + epsilon) * adv
+    return np.minimum(obj1, obj2)
+
+print("r_t:                ", ratios)
+print("-----------------------------------------------------------------")
+print("Avantaj pozitiv (+1):", np.round(ppo_loss(ratios, adv=1.0), 3))
+print("Obiectiv netrunchiat:", np.round(ratios * 1.0, 3))
+print("-----------------------------------------------------------------")
+print("Avantaj negativ (-1):", np.round(ppo_loss(ratios, adv=-1.0), 3))
+print("Obiectiv netrunchiat:", np.round(ratios * -1.0, 3))
+`}
+/>
+
+Observăm că, pentru $\hat{A}_t = +1$, odată ce $r_t$ depășește $1{,}2$, obiectivul se plafonează la $1{,}2$. Pentru $\hat{A}_t = -1$, când $r_t$ scade sub $0{,}8$, obiectivul se plafonează la $-0{,}8$.
+
+## Estimarea generalizată a avantajului (GAE)
+
+Ca să știm cât de bună a fost o acțiune față de ce ne așteptam în medie în starea respectivă, avem nevoie de o estimare bună a [avantajului](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/#funcții-de-valoare) $A(s_t, a_t)$.
+
+Cea mai simplă estimare este eroarea de diferență temporală (_temporal difference_, TD) la un singur pas:
+
+$$
+\delta_t^V = r_{t+1} + \gamma V(s_{t+1}) - V(s_t)
+$$
+
+Are o varianță mică, dar depinde mult de cât de precis este criticul $V(s)$. La polul opus, recompensa cumulată Monte Carlo, calculată pe toată traiectoria, este nedeplasată (_unbiased_), dar are o varianță foarte mare.
+
+**Estimarea generalizată a avantajului** (_Generalized Advantage Estimation_, GAE) face o interpolare între cele două extreme, cu ajutorul unui parametru de netezire suplimentar, $\lambda \in [0, 1]$:
+
+$$
+\hat{A}_t^{GAE(\gamma, \lambda)} = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}^V = \delta_t^V + \gamma \lambda \hat{A}_{t+1}^{GAE(\gamma, \lambda)}
+$$
+
+- Când $\lambda = 0$, obținem eroarea TD la un singur pas, adică $\hat{A}_t = \delta_t^V$ (varianță minimă).
+- Când $\lambda = 1$, obținem suma Monte Carlo a recompenselor minus valoarea stării (fără deplasare).
+
+:::tip[Ce valori alegem în practică pentru $\gamma$ și $\lambda$]
+În sarcini de control continuu precum HalfCheetah, combinația $\gamma = 0{,}99$ și $\lambda = 0{,}95$ oferă un echilibru bun între stabilitate și viteza de învățare. Avem nevoie de un $\gamma$ mare pentru că robotul trebuie să planifice mișcări cu efecte pe termen lung. Valoarea $\lambda = 0{,}95$ netezește avantajele fără deplasarea mare pe care o are estimarea TD la un singur pas.
+:::
+
+Datorită recurenței de mai sus, GAE se calculează foarte eficient, cu o singură trecere prin traiectorie, în ordine inversă (de la ultimul pas, $T-1$, până la pasul 0).
+
+## Bufferul de traiectorii
+
+Stocarea traiectoriilor și calculul avantajelor GAE se fac în clasa `RolloutBuffer` din fișierul `buffer.py`:
+
+<SourceFile path="laboratoare/control-continuu-ppo-halfcheetah/cod/buffer.py" symbols={['RolloutBuffer.compute_gae', 'RolloutBuffer.get_generator']} />
+
+După calculul avantajelor, datele colectate din toate mediile paralele sunt amestecate și împărțite în mini-loturi pentru optimizarea parametrilor. Pagina despre [antrenare și evaluare](/laboratoare/control-continuu-ppo-halfcheetah/antrenare-si-evaluare/) explică acest pas în detaliu.
+
+## Bibliografie
+
+- Engstrom, L. et al. (2020). [Implementation Matters in Deep Policy Gradients: A Case Study on PPO and TRPO](https://arxiv.org/abs/2005.12729). _ICLR 2020_.
+- Huang, S. et al. (2022). [The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/). ICLR Blog Track.
+- Schulman, J. et al. (2015). [Trust Region Policy Optimization](https://arxiv.org/abs/1502.05477). _ICML 2015_.
+- Schulman, J. et al. (2016). [High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438). _ICLR 2016_.
+- Schulman, J. et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). Preprint arXiv:1707.06347.

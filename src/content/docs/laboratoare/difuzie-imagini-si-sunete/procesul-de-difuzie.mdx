@@ -1,0 +1,158 @@
+---
+title: Procesul de difuzie, pas cu pas
+description: Procesul invers al unui model de difuzie, scris de mână cu Diffusers pe un U-Net care generează pisici. Zgomotul estimat la fiecare pas, estimarea imaginii curate, DDPM față de DDIM și procesul direct, verificat pe formula lui.
+sidebar:
+  order: 2
+level: intermediar
+tags:
+  - Modele de difuzie
+---
+
+import Colab from '@components/Colab.astro';
+
+Pagina despre [modelele de difuzie](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/) descrie procesul invers prin formule: rețeaua estimează zgomotul din imagine, din el obținem o estimare a imaginii curate, apoi facem un pas spre o imagine cu mai puțin zgomot. Pe această pagină scriem procesul invers în Python, pe un model real. Folosim [google/ddpm-cat-256](https://huggingface.co/google/ddpm-cat-256), unul dintre modelele publicate de autorii articolului DDPM, convertit pentru Diffusers. Este un U-Net cu aproximativ 114 milioane de parametri, antrenat pe fotografiile cu pisici din setul de date LSUN, care generează imagini de 256 × 256 pixeli. Modelul nu primește niciun text: pornește doar de la zgomot.
+
+<Colab notebook='laboratoare/difuzie-imagini-si-sunete/notebooks/02-procesul-de-difuzie.ipynb' />
+
+## Programul de zgomot
+
+Diffusers separă rețeaua de **metoda de eșantionare** (_scheduler_). Rețeaua, aici un `UNet2DModel`, primește o imagine cu zgomot și pasul $t$ și estimează zgomotul. Metoda de eșantionare păstrează programul de zgomot și calculează, din estimarea rețelei, imaginea de la pasul următor. Codul de mai jos încarcă doar metoda de eșantionare și afișează, pentru câțiva pași, coeficienții din formula procesului direct, $x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1 - \bar\alpha_t}\, \varepsilon$.
+
+```python
+from diffusers import DDPMScheduler
+
+# Metoda de eșantionare DDPM, cu programul de zgomot folosit la antrenarea modelului.
+scheduler = DDPMScheduler.from_pretrained("google/ddpm-cat-256")
+print(f"beta_schedule = {scheduler.config.beta_schedule}, T = {scheduler.config.num_train_timesteps}")
+
+for t in [0, 250, 500, 750, 999]:
+    alpha_bar = scheduler.alphas_cumprod[t]  # ᾱ_t
+    print(f"t = {t:3d}: {alpha_bar.sqrt():.3f} × imaginea + {(1 - alpha_bar).sqrt():.3f} × zgomotul")
+```
+
+```text
+beta_schedule = linear, T = 1000
+t =   0: 1.000 × imaginea + 0.010 × zgomotul
+t = 250: 0.722 × imaginea + 0.692 × zgomotul
+t = 500: 0.279 × imaginea + 0.960 × zgomotul
+t = 750: 0.057 × imaginea + 0.998 × zgomotul
+t = 999: 0.006 × imaginea + 1.000 × zgomotul
+```
+
+Diffusers numără pașii de la 0 la 999, nu de la 1 la 1.000, ca în articole. Programul este cel liniar din articolul DDPM: la jumătatea drumului, la $t = 500$, din imagine a mai rămas un coeficient de 0,279, iar la ultimul pas, unul de 0,006, adică aproape nimic. Valorile $\bar\alpha_t$ sunt fixate dinainte, în fișierul `scheduler_config.json` al modelului, și nu se învață.
+
+## Procesul invers, scris de mână
+
+Codul de mai jos pornește de la zgomot pur, $x_T$, și face 50 de pași cu metoda **DDIM**, a cărei regulă este descrisă pe pagina despre [generare](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/#generarea-de-la-zgomot-la-imagine). La câțiva pași, codul salvează două imagini într-o grilă: imaginea cu zgomot, $x_t$, și estimarea imaginii curate, $\hat x_0$, calculată de metoda de eșantionare din zgomotul estimat de rețea.
+
+```python
+import torch
+from diffusers import DDIMScheduler, UNet2DModel
+from PIL import Image
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+model_id = "google/ddpm-cat-256"
+unet = UNet2DModel.from_pretrained(model_id).to(device)
+scheduler = DDIMScheduler.from_pretrained(model_id)  # aceeași rețea, cu metoda de eșantionare DDIM
+scheduler.set_timesteps(50)
+
+
+def to_image(x):
+    # Un tensor cu valori între -1 și 1 devine o imagine cu pixeli între 0 și 255.
+    x = (x[0].clamp(-1, 1) + 1) / 2
+    return Image.fromarray((x.permute(1, 2, 0).cpu().numpy() * 255).round().astype("uint8"))
+
+
+generator = torch.Generator("cpu").manual_seed(0)
+x = torch.randn((1, 3, 256, 256), generator=generator).to(device)  # x_T, zgomot pur
+shown = [0, 10, 20, 30, 40, 49]  # pașii afișați în grilă
+grid = Image.new("RGB", (len(shown) * 256, 2 * 256))
+for i, t in enumerate(scheduler.timesteps):
+    with torch.no_grad():
+        noise_pred = unet(x, t).sample  # zgomotul estimat de rețea, ε̂
+    step = scheduler.step(noise_pred, t, x)
+    if i in shown:
+        grid.paste(to_image(x), (256 * shown.index(i), 0))  # sus: x_t
+        grid.paste(to_image(step.pred_original_sample), (256 * shown.index(i), 256))  # jos: x̂_0
+    x = step.prev_sample  # x_{t-1}, cu ceva mai puțin zgomot
+
+grid.save("pasi.png")
+to_image(x).save("pisica.png")
+```
+
+Fișierul `pisica.png` conține pisica generată, iar `pasi.png` drumul până la ea. Rândul de sus arată imaginea cu zgomot de la începutul fiecărui pas. Rândul de jos arată ce crede rețeaua că se află sub zgomot. La primul pas, estimarea este o pată încețoșată, aproape fără detalii. Este [media tuturor imaginilor posibile](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/#generarea-de-la-zgomot-la-imagine) care s-ar putea ascunde sub acel zgomot. Pe măsură ce zgomotul scade, estimarea se fixează pe o singură pisică: întâi apar forma și culorile, apoi blana și ochii.
+
+Codul are doar câteva linii esențiale.
+
+- **`scheduler.set_timesteps(50)`** alege 50 de pași din cei 1.000 ai antrenării, aici 980, 960, …, 20, 0.
+- **`unet(x, t).sample`** este estimarea zgomotului, $\varepsilon_\theta(x_t, t)$. Rețeaua primește pasul $t$, ca să știe cât zgomot are de eliminat.
+- **`scheduler.step`** aplică regula DDIM și întoarce atât imaginea de la pasul următor, `prev_sample`, cât și estimarea imaginii curate, `pred_original_sample`.
+
+Merită schimbat `manual_seed(0)` în alte valori, pentru alte pisici, și numărul de pași, de exemplu 10 sau 200. Cu mai puțini pași, generarea este mai rapidă, dar imaginea pierde din detalii.
+
+## DDPM și DDIM
+
+Aceeași rețea poate fi folosită cu metode de eșantionare diferite, fără nicio antrenare suplimentară. Codul de mai jos generează câte o pisică prin DDPM, cu toți cei 1.000 de pași, și prin DDIM, cu 50 de pași, pornind de la același zgomot, și măsoară cât durează fiecare. Pentru că pipeline-urile `DDPMPipeline` și `DDIMPipeline` fac aceiași pași ca mai sus, codul este mai scurt.
+
+```python
+import time
+
+import torch
+from diffusers import DDIMPipeline, DDIMScheduler, DDPMPipeline
+from PIL import Image
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+ddpm = DDPMPipeline.from_pretrained("google/ddpm-cat-256").to(device)
+# Aceeași rețea, cu metoda de eșantionare DDIM.
+ddim = DDIMPipeline(unet=ddpm.unet, scheduler=DDIMScheduler.from_config(ddpm.scheduler.config))
+
+grid = Image.new("RGB", (2 * 256, 256))
+for column, (name, pipe, steps) in enumerate([("DDPM", ddpm, 1000), ("DDIM", ddim, 50)]):
+    start = time.time()
+    generator = torch.Generator("cpu").manual_seed(0)
+    image = pipe(num_inference_steps=steps, generator=generator).images[0]
+    print(f"{name}: {steps} de pași în {time.time() - start:.1f} secunde")
+    grid.paste(image, (256 * column, 0))
+grid.save("ddpm_ddim.png")
+```
+
+Fiecare pas înseamnă o trecere prin rețea, așa că timpul crește aproape proporțional cu numărul de pași, iar DDPM durează de aproximativ 20 de ori mai mult. Pe procesor, cei 1.000 de pași DDPM durează mult, așa că pentru acest exemplu merită folosită o placă grafică, de exemplu cea din Google Colab.
+
+Cele două pisici sunt diferite, deși pornesc de la același zgomot. DDPM adaugă la fiecare pas puțin zgomot nou, ales la întâmplare, deci drumul lui se îndepărtează treptat de cel al lui DDIM, care este determinist. Imaginea DDIM este, în schimb, practic aceeași cu pisica generată de codul scris de mână: același zgomot de pornire, aceeași rețea și aceiași pași. Alte metode de eșantionare, precum `DPMSolverMultistepScheduler` sau `EulerDiscreteScheduler`, se schimbă la fel și sunt comparate în [documentația despre metodele de eșantionare](https://huggingface.co/docs/diffusers/using-diffusers/schedulers).
+
+## Procesul direct
+
+Procesul direct nu are nevoie de rețea: este doar formula programului de zgomot. Metoda `add_noise` o aplică direct pentru orice pas $t$, fără pașii de dinainte, exact ca la antrenare. Codul de mai jos adaugă zgomot pisicii generate mai sus, salvată în `pisica.png`, și compară rezultatul cu formula scrisă de mână.
+
+```python
+import numpy as np
+import torch
+from diffusers import DDPMScheduler
+from PIL import Image
+
+scheduler = DDPMScheduler.from_pretrained("google/ddpm-cat-256")
+# Pisica generată mai sus, cu pixelii aduși între -1 și 1.
+x0 = torch.from_numpy(np.array(Image.open("pisica.png"))).permute(2, 0, 1)[None].float() / 127.5 - 1
+noise = torch.randn(x0.shape, generator=torch.Generator().manual_seed(0))  # ε
+
+grid = Image.new("RGB", (5 * 256, 256))
+for column, t in enumerate([0, 250, 500, 750, 999]):
+    x_t = scheduler.add_noise(x0, noise, torch.tensor([t]))
+    alpha_bar = scheduler.alphas_cumprod[t]
+    by_hand = alpha_bar.sqrt() * x0 + (1 - alpha_bar).sqrt() * noise  # x_t = √ᾱ_t · x_0 + √(1 − ᾱ_t) · ε
+    print(f"t = {t:3d}: diferența maximă față de formula scrisă de mână este {(x_t - by_hand).abs().max():.1e}")
+    pixels = ((x_t[0].clamp(-1, 1) + 1) * 127.5).permute(1, 2, 0).round().byte().numpy()
+    grid.paste(Image.fromarray(pixels), (256 * column, 0))
+grid.save("procesul_direct.png")
+```
+
+Diferențele afișate sunt zero sau de ordinul erorilor de rotunjire, deci `add_noise` este chiar formula de pe pagina despre [procesul direct](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/#procesul-direct-cum-se-adaugă-zgomotul). În grilă, pisica dispare treptat, cu coeficienții afișați la începutul paginii: la $t = 500$ încă se mai ghicește, iar la $t = 999$ a rămas doar zgomot.
+
+Antrenarea unui astfel de model folosește exact aceste piese: o imagine din setul de date, un pas $t$ ales la întâmplare, `add_noise` și o eroare pătratică între zgomotul adevărat și cel estimat de rețea. Diffusers are un [tutorial de antrenare](https://huggingface.co/docs/diffusers/tutorials/basic_training) care antrenează de la zero un `UNet2DModel` pe un set mic de imagini.
+
+## Bibliografie
+
+- Ho, J., Jain, A. și Abbeel, P. (2020). [Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239). _NeurIPS 2020_.
+- Ronneberger, O., Fischer, P. și Brox, T. (2015). [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597). _MICCAI 2015_.
+- Song, J., Meng, C. și Ermon, S. (2021). [Denoising Diffusion Implicit Models](https://arxiv.org/abs/2010.02502). _ICLR 2021_.
+- Yu, F. et al. (2015). [LSUN: Construction of a Large-scale Image Dataset using Deep Learning with Humans in the Loop](https://arxiv.org/abs/1506.03365). Preprint arXiv:1506.03365.

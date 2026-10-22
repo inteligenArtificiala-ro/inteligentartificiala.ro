@@ -1,0 +1,121 @@
+---
+// Trei niveluri de calcul: răspunsul direct, modelul de raționament (tokenuri de gândire) și sistemul agentic (planul, instrumentele și revenirea la plan).
+import '../../styles/diagrams.css';
+import Box, { type BoxProps } from './Box.astro';
+
+const width = 200;
+const top = 60;
+const step = 66;
+const boxHeight = 44;
+
+const columns = [
+  {
+    x: 30,
+    title: 'Răspuns direct',
+    note: 'Un apel, fără ciornă',
+    boxes: [
+      { kind: 'neutral', lines: ['Prompt'] },
+      { kind: 'embedding', lines: ['Modelul: L straturi,', 'calcul fix pe token'] },
+      { kind: 'output', lines: ['Răspunsul'] },
+    ],
+  },
+  {
+    x: 280,
+    title: 'Model de raționament',
+    note: 'Un apel, cu o ciornă lungă',
+    boxes: [
+      { kind: 'neutral', lines: ['Prompt'] },
+      { kind: 'embedding', lines: ['Tokenuri de gândire,', 'scrise în context'] },
+      { kind: 'norm', lines: ['Verificări, reveniri,', 'variante noi'] },
+      { kind: 'output', lines: ['Răspunsul final'] },
+    ],
+    // Săgeata de întoarcere: ce a scris modelul devine intrare pentru tokenurile următoare.
+    loop: [2, 1],
+  },
+  {
+    x: 530,
+    title: 'Sistem agentic',
+    note: 'Multe apeluri și instrumente',
+    boxes: [
+      { kind: 'neutral', lines: ['Sarcina'] },
+      { kind: 'embedding', lines: ['Plan împărțit', 'în pași'] },
+      { kind: 'attention', lines: ['Apel de instrument'] },
+      { kind: 'feed-forward', lines: ['Rezultatul', '(observație)'] },
+      { kind: 'output', lines: ['Răspunsul final'] },
+    ],
+    loop: [3, 1],
+  },
+];
+
+const rowY = (index: number) => top + index * step;
+
+const boxes: BoxProps[] = columns.flatMap(({ x, boxes }) =>
+  boxes.map(({ kind, lines }, index) => ({ x, y: rowY(index), width, height: boxHeight, kind, lines })),
+);
+const arrows = columns.flatMap(({ x, boxes, loop }) => {
+  const center = x + width / 2;
+  const down = boxes
+    .slice(1)
+    .map((_, index) => `M${center} ${rowY(index) + boxHeight} V${rowY(index + 1)}`);
+  if (!loop) return down;
+  const [from, to] = loop;
+  const right = x + width;
+  return [...down, `M${right} ${rowY(from) + boxHeight / 2} h18 V${rowY(to) + boxHeight / 2} h-16`];
+});
+---
+
+<figure class='diagram reasoning-levels-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='10 20 760 395' role='img' aria-labelledby='reasoning-levels-title reasoning-levels-desc'>
+      <title id='reasoning-levels-title'>Trei niveluri la care un model de limbaj poate „gândi”</title>
+      <desc id='reasoning-levels-desc'>
+        În stânga, răspunsul direct: promptul trece prin cele L straturi ale modelului și iese răspunsul, cu un calcul
+        fix pentru fiecare token. În mijloc, modelul de raționament: după prompt, modelul scrie tokenuri de gândire în
+        context, face verificări și reveniri, iar ce a scris devine intrare pentru pașii următori, până la răspunsul
+        final. În dreapta, sistemul agentic: sarcina este împărțită într-un plan, modelul apelează instrumente, citește
+        rezultatele și revine la plan, de câte ori este nevoie, până la răspunsul final.
+      </desc>
+      <defs>
+        <marker
+          id='reasoning-levels-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      {
+        columns.map(({ x, title, note }) => (
+          <>
+            <text class='title' x={x + width / 2} y='45' text-anchor='middle'>
+              {title}
+            </text>
+            <text class='label' x={x + width / 2} y={rowY(5) + 4} text-anchor='middle'>
+              {note}
+            </text>
+          </>
+        ))
+      }
+      <g class='arrow' marker-end='url(#reasoning-levels-arrow)'>
+        {arrows.map((d) => <path d={d} />)}
+      </g>
+      {boxes.map((box) => <Box {...box} />)}
+    </svg>
+  </div>
+  <figcaption>
+    De la stânga la dreapta, crește calculul folosit pentru un singur răspuns. În mijloc, „gândirea” este text scris în
+    context. În dreapta, ea se întinde pe mai multe apeluri ale modelului și pe rezultatele instrumentelor.
+  </figcaption>
+</figure>
+
+<style>
+  .reasoning-levels-diagram svg {
+    min-width: 38rem;
+    max-width: 48rem;
+  }
+</style>

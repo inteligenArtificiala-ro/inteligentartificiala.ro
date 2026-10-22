@@ -1,0 +1,87 @@
+---
+title: Generarea video
+description: Cum generează un model un clip video pornind de la un text, prin coerența de la un cadru la altul, comprimarea în spațiu și timp și peticele de spațiu-timp procesate de un Transformer de difuzie. Sunetul generat odată cu imaginea și clipurile false cu persoane cunoscute.
+sidebar:
+  order: 4
+level: intermediar
+tags:
+  - Modele de difuzie
+---
+
+import VideoDiffusionDiagram from '@components/diagrams/VideoDiffusionDiagram.astro';
+
+În februarie 2024, OpenAI a prezentat Sora, un model care genera clipuri realiste de până la un minut pornind de la o descriere. În mai puțin de doi ani au apărut zeci de modele asemănătoare: Veo (Google), Kling (Kuaishou), Runway Gen-4, dar și modele cu ponderi deschise, precum HunyuanVideo (Tencent) și Wan (Alibaba). În 2025, Veo 3 și Sora 2 au început să genereze și sunetul: dialog sincronizat cu mișcarea buzelor, zgomote de fundal și muzică.
+
+Cele mai multe dintre modelele despre care se știu detalii sunt [modele de difuzie](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/). Ele lucrează pe aceleași principii ca [generatoarele de imagini](/modele-de-difuzie/generarea-imaginilor/), cu o dimensiune în plus: timpul.
+
+## De ce este un clip mai greu decât o imagine
+
+- **Dimensiunea**: un clip de 5 secunde, cu 24 de cadre pe secundă, la rezoluția 1280 × 720, are 120 de cadre de câte $1280 \times 720 \times 3 = 2.764.800$ de valori, adică peste 330 de milioane de valori. Este de peste 100 de ori mai mult decât o imagine de 1024 × 1024.
+- **Coerența în timp** (_temporal consistency_): un personaj trebuie să aibă aceeași față și aceleași haine în fiecare cadru, iar un obiect ascuns pentru o clipă în spatele altuia trebuie să reapară la fel.
+- **Mișcarea și fizica**: apa curge în jos, o minge care cade sare, umbrele urmează lumina. Modelul nu are o simulare fizică în interior și învață toate acestea doar din exemple.
+- **Datele**: clipurile cu descrieri bune sunt mult mai puține decât imaginile cu descrieri. Sora, de exemplu, a fost antrenată pe clipuri ale căror descrieri detaliate au fost scrise de un alt model, la fel ca la DALL·E 3.
+
+Cea mai simplă idee, ca un generator de imagini să deseneze fiecare cadru separat, nu funcționează. Fiecare cadru arată bine luat separat, dar detaliile se schimbă de la un cadru la altul, iar clipul pâlpâie. Primele modele video de difuzie, precum Video Diffusion Models (Google, 2022), Make-A-Video (Meta, 2022) și Stable Video Diffusion (Stability AI, 2023), au pornit de la rețeaua unui generator de imagini și i-au adăugat straturi de atenție care leagă fiecare cadru de celelalte.
+
+## Comprimarea în spațiu și timp
+
+Ca la [difuzia latentă](/modele-de-difuzie/generarea-imaginilor/#difuzia-în-spațiul-latent) pentru imagini, clipul este mai întâi comprimat de un autoencoder. Pentru video, autoencoderul este un **VAE 3D**, care comprimă nu doar fiecare cadru, ci și timpul, pentru că două cadre consecutive seamănă foarte mult între ele. Modelele HunyuanVideo și Wan comprimă clipul de 4 ori în timp și de 8 ori pe fiecare dimensiune a imaginii, cu 16 valori pentru fiecare poziție.
+
+Un clip de 121 de cadre, la 1280 × 720, are $121 \times 720 \times 1280 \times 3 = 334.540.800$ de valori. Reprezentarea lui latentă are $31 \times 90 \times 160 \times 16 = 7.142.400$ de valori, de aproape 47 de ori mai puține. Primul cadru este codificat separat, de aceea 121 de cadre devin $1 + 120 / 4 = 31$. Așa, același autoencoder poate codifica și o singură imagine, ca pe un clip cu un cadru.
+
+## Petice de spațiu-timp
+
+Raportul tehnic al lui Sora a popularizat ideea de **petice de spațiu-timp** (_spacetime patches_). Reprezentarea latentă este tăiată în blocuri mici, fiecare acoperind o zonă din imagine și un interval scurt de timp. Fiecare bloc devine un token, la fel cum un cuvânt devine un token într-un model de limbaj. Cu petice de 1 × 2 × 2 (un cadru latent, 2 × 2 poziții), reprezentarea de mai sus devine $31 \times 45 \times 80 = 111.600$ de tokenuri.
+
+<VideoDiffusionDiagram />
+
+Tokenurile trec printr-un [Transformer de difuzie](/modele-de-difuzie/generarea-imaginilor/#arhitectura-rețelei). Prin [atenție](/modele-lingvistice/avem-nevoie-doar-de-atentie/), fiecare petic poate aduna informație de la toate celelalte, din același cadru și din restul clipului. De aici vine coerența în timp: zona în care se află fața personajului din cadrul 100 poate să se uite direct la aceeași față din cadrul 1. Pentru că un clip este doar un șir de tokenuri, același model se poate antrena pe clipuri de durate, rezoluții și formate diferite, verticale pentru telefon sau orizontale, și chiar pe imagini statice, tratate ca un clip cu un singur cadru.
+
+Prețul este costul. Atenția compară fiecare token cu fiecare alt token, deci pentru 111.600 de tokenuri calculează aproximativ $111.600^2 \approx 12{,}5$ miliarde de perechi în fiecare strat de atenție, la fiecare pas al procesului invers. Cu zeci de pași și cu [ghidarea fără clasificator](/modele-de-difuzie/generarea-imaginilor/#ghidarea-fără-clasificator), care dublează numărul de treceri, un clip de câteva secunde poate cere minute de calcul pe [plăci grafice](/concepte-de-baza/utilitatea-placilor-grafice/) foarte puternice. De aceea, clipurile generate durează de obicei între 5 și 20 de secunde, iar serviciile comerciale taxează după durata clipului.
+
+## Text, imagine și sunet
+
+Modelele video pot porni de la mai multe tipuri de intrare.
+
+- **De la text la video** (_text-to-video_): clipul este generat doar din descriere.
+- **De la imagine la video** (_image-to-video_): primul cadru este dat, iar modelul generează mișcarea care urmează. Așa sunt „animate” fotografiile, inclusiv fotografiile vechi de familie. Aceeași funcție poate pune însă o persoană reală, dintr-o fotografie, în situații care nu au avut loc niciodată.
+- **De la video la video** (_video-to-video_): un clip existent este transformat, de exemplu i se schimbă stilul sau un obiect, sau este continuat cu cadre noi.
+- **Sunetul**: Veo 3 (Google, 2025) și Sora 2 (OpenAI, 2025) generează sunetul odată cu imaginea, inclusiv vorbirea sincronizată cu mișcarea buzelor. Detaliile arhitecturii lor nu sunt publice.
+
+Un pas mai departe sunt **modelele lumii** (_world models_), precum Genie 3 (Google DeepMind, 2025). Ele generează în timp real o lume prin care utilizatorul se poate deplasa, iar cadrele următoare depind de acțiunile lui, ca într-un joc video desenat pe loc.
+
+## Limitele modelelor video
+
+- **Fizica**: obiectele pot apărea sau dispărea din senin, un pahar care cade se poate sparge greșit, iar un om care face o mișcare complicată poate căpăta o mână în plus. Raportul tehnic al lui Sora dădea chiar exemplul paharului.
+- **Coerența pe durate lungi**: după câteva zeci de secunde, sau după o schimbare de cadru, personajele și decorul se pot schimba subtil.
+- **Detaliile mici**: textul, cifrele de pe un ceas și degetele rămân puncte slabe, la fel ca la imagini.
+- **Costul**: un clip generat cere de zeci sau de sute de ori mai mult calcul decât o imagine.
+
+## Clipurile false cu persoane reale
+
+Cele mai multe clipuri false care circulă nu sunt generate de la zero. De obicei, se pornește de la o înregistrare reală a unei persoane publice, de exemplu un interviu sau o emisiune. Peste ea se pune o [voce clonată](/modele-de-difuzie/generarea-vocii/#clonarea-vocii), iar buzele sunt modificate ca să se potrivească noului text (**sincronizarea buzelor**, _lip sync_). Alteori, fața este înlocuită cu a altei persoane (**înlocuirea feței**, _face swap_). Astfel de clipuri se numesc **deepfake** și pot fi făcute astăzi cu aplicații accesibile oricui.
+
+În România au circulat pe Facebook, YouTube și Instagram reclame cu clipuri false în care persoane cunoscute (oficiali ai statului, politicieni, prezentatori TV și oameni de afaceri) păreau să recomande platforme de investiții cu câștiguri garantate. Instituții precum Banca Națională a României și Directoratul Național de Securitate Cibernetică (DNSC) au avertizat public, de mai multe ori, asupra lor.
+
+Unele servicii marchează clipurile pe care le generează. Veo adaugă filigranul invizibil SynthID, iar clipurile Sora 2 au un filigran vizibil și metadate C2PA, descrise pe pagina despre [recunoașterea imaginilor generate](/modele-de-difuzie/generarea-imaginilor/#cum-recunoaștem-o-imagine-generată). Un filigran vizibil poate fi însă decupat, iar metadatele se pierd la reîncărcare, așa că lipsa lor nu dovedește că un clip este real.
+
+:::caution[Cum ne ferim de clipurile false]
+- **Promisiunea**: semnalul de alarmă este oferta, nu calitatea clipului. Nicio persoană publică și nicio instituție nu recomandă într-o reclamă o platformă cu câștiguri garantate.
+- **Sursa**: verificați pe site-ul oficial sau pe conturile oficiale ale persoanei ori ale instituției dacă mesajul există.
+- **Semnele vizuale**: un clip fals se poate trăda prin buze care nu se potrivesc perfect cu sunetul, o voce monotonă sau cu un accent ciudat, marginile feței care tremură, dinți neclari sau un clipit nefiresc. Pe măsură ce modelele se îmbunătățesc, aceste semne dispar.
+- **Datele personale**: nu instalați la cererea cuiva aplicații de control de la distanță, precum AnyDesk sau TeamViewer, și nu dați nimănui datele cardului sau codurile primite prin SMS. Prin acest pas golesc înșelătoriile cu investiții conturile victimelor.
+- **Raportarea**: raportați reclama pe platforma pe care a apărut și semnalați înșelătoria la poliție sau la [DNSC](https://www.dnsc.ro/).
+:::
+
+## Bibliografie
+
+- Betker, J. et al. (2023). [Improving Image Generation with Better Captions](https://cdn.openai.com/papers/dall-e-3.pdf). Raport tehnic OpenAI.
+- Blattmann, A. et al. (2023). [Stable Video Diffusion: Scaling Latent Video Diffusion Models to Large Datasets](https://arxiv.org/abs/2311.15127). Preprint arXiv:2311.15127.
+- Brooks, T. et al. (2024). [Video generation models as world simulators](https://openai.com/index/video-generation-models-as-world-simulators/). Raport tehnic OpenAI.
+- Google DeepMind (2025). [Genie 3: A new frontier for world models](https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models/). Blogul Google DeepMind.
+- Ho, J. et al. (2022). [Video Diffusion Models](https://arxiv.org/abs/2204.03458). _NeurIPS 2022_.
+- Kong, W. et al. (2024). [HunyuanVideo: A Systematic Framework For Large Video Generative Models](https://arxiv.org/abs/2412.03603). Preprint arXiv:2412.03603.
+- Parlamentul European și Consiliul Uniunii Europene (2024). [Regulamentul (UE) 2024/1689 de stabilire a unor norme armonizate privind inteligența artificială](https://eur-lex.europa.eu/legal-content/RO/TXT/?uri=CELEX:32024R1689). _Jurnalul Oficial al Uniunii Europene_, seria L, 12 iulie 2024.
+- Peebles, W. și Xie, S. (2023). [Scalable Diffusion Models with Transformers](https://arxiv.org/abs/2212.09748). _ICCV 2023_.
+- Singer, U. et al. (2022). [Make-A-Video: Text-to-Video Generation without Text-Video Data](https://arxiv.org/abs/2209.14792). Preprint arXiv:2209.14792.
+- Wan Team (2025). [Wan: Open and Advanced Large-Scale Video Generative Models](https://arxiv.org/abs/2503.20314). Preprint arXiv:2503.20314.

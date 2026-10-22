@@ -1,0 +1,417 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
+import Search from '@astrojs/starlight/components/Search.astro';
+import SocialIcons from '@astrojs/starlight/components/SocialIcons.astro';
+import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import SiteTitle from './SiteTitle.astro';
+
+// Header-ul Starlight, cu căutarea lângă logo și meniul site-ului în dreapta, înaintea iconițelor. Pe ecranele
+// înguste, paginile fără bară laterală (prima pagină) primesc un buton de meniu cu aceleași linkuri. Pe celelalte,
+// linkurile sunt în bara laterală, deschisă de butonul de meniu al Starlight.
+// Laboratoarele din meniu vin din grupul „Laboratoare” al barei laterale, deci apar aici automat odată cu el.
+type SidebarEntry = StarlightRouteData['sidebar'][number];
+
+const MENIU = [
+  { label: 'Glosar', href: '/glosar/' },
+  { label: 'Resurse', href: '/resurse-utile/' },
+  { label: 'Despre', href: '/despre/' },
+];
+
+const { sidebar, hasSidebar } = Astro.locals.starlightRoute;
+const cale = Astro.url.pathname.replace(/\/?$/, '/');
+
+const primulLink = (e: SidebarEntry): string | undefined =>
+  e.type === 'link' ? e.href : e.entries.map(primulLink).find(Boolean);
+
+// În grupul „Laboratoare”, linkul simplu este pagina cu toate laboratoarele, iar fiecare subgrup este un laborator.
+const grupLaboratoare = sidebar.find((e) => e.type === 'group' && e.label === 'Laboratoare');
+const intrari = grupLaboratoare?.type === 'group' ? grupLaboratoare.entries : [];
+const toate = intrari.find((e) => e.type === 'link');
+const laboratoare = [
+  ...(toate ? [{ label: 'Toate laboratoarele', href: toate.href, curent: cale === toate.href }] : []),
+  ...intrari.flatMap((e) => {
+    const href = e.type === 'group' ? primulLink(e) : undefined;
+    return href ? [{ label: e.label, href, curent: cale.startsWith(href.replace(/[^/]+\/$/, '')) }] : [];
+  }),
+];
+const meniu = MENIU.map((l) => ({ ...l, curent: cale === l.href }));
+---
+
+<div class='header'>
+  <div class='title-wrapper sl-flex'>
+    <SiteTitle />
+  </div>
+  <div class='sl-flex print:hidden cautare'>
+    <Search />
+  </div>
+  <div class:list={['print:hidden right-group', hasSidebar ? 'sl-hidden md:sl-flex' : 'sl-flex']}>
+    <nav class='meniu' aria-label='Meniul site-ului'>
+      <ul>
+        {
+          laboratoare.length > 0 && (
+            <li>
+              <details>
+                <summary class:list={{ curent: cale.startsWith('/laboratoare/') }}>
+                  Laboratoare
+                  <Icon name='down-caret' size='1rem' />
+                </summary>
+                <ul>
+                  {laboratoare.map(({ label, href, curent }) => (
+                    <li>
+                      <a {href} aria-current={curent ? 'page' : undefined}>
+                        {label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </li>
+          )
+        }
+        {
+          meniu.map(({ label, href, curent }) => (
+            <li>
+              <a {href} aria-current={curent ? 'page' : undefined}>
+                {label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+    <div class='sl-hidden md:sl-flex social-icons'>
+      <SocialIcons />
+    </div>
+    <span class='sl-hidden md:sl-flex tema' title={Astro.locals.t('themeSelect.accessibleLabel')}>
+      <ThemeSelect />
+    </span>
+    <LanguageSelect />
+    {
+      !hasSidebar && (
+        <details class='meniu-mobil'>
+          <summary>
+            <span class='sr-only'>{Astro.locals.t('menuButton.accessibleLabel')}</span>
+            <Icon name='bars' class='deschide' />
+            <Icon name='close' class='inchide' />
+          </summary>
+          <nav aria-label='Meniul site-ului'>
+            {laboratoare.length > 0 && <p class='grup'>Laboratoare</p>}
+            <ul>
+              {laboratoare.map(({ label, href, curent }) => (
+                <li>
+                  <a {href} aria-current={curent ? 'page' : undefined}>
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <ul>
+              {meniu.map(({ label, href, curent }) => (
+                <li>
+                  <a {href} aria-current={curent ? 'page' : undefined}>
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <div class='subsol'>
+              <div class='sl-flex social-icons'>
+                <SocialIcons />
+              </div>
+              <ThemeSelect />
+            </div>
+          </nav>
+        </details>
+      )
+    }
+  </div>
+</div>
+
+<style>
+  .header {
+    display: flex;
+    gap: var(--sl-nav-gap);
+    justify-content: space-between;
+    align-items: center;
+    height: 100%;
+  }
+
+  /* Pe ecranele late: logo-ul, căutarea imediat după el, apoi meniul și iconițele, la dreapta. Coloanele temei
+     (căutarea centrată deasupra coloanei de text) nu se mai aplică. */
+  @media (min-width: 50rem) {
+    .header {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      column-gap: 2rem;
+    }
+  }
+
+  .cautare {
+    justify-content: flex-start;
+  }
+
+  .title-wrapper {
+    /* Un titlu lung nu acoperă căutarea și butoanele pe ecranele înguste. */
+    overflow: clip;
+    /* Fără să taie conturul de focus al linkului. */
+    padding: 0.25rem;
+    margin: -0.25rem;
+    min-width: 0;
+  }
+
+  .right-group,
+  .social-icons {
+    gap: 1rem;
+    align-items: center;
+  }
+
+  /* Selectorul de temă, redus la iconiță: Starlight o schimbă după tema aleasă (laptop, soare, lună). Lista nativă
+     rămâne peste iconiță, fără text, deci alegerea se face tot din ea. */
+  .tema :global(label) {
+    --sl-label-icon-size: 1.125rem;
+  }
+
+  .tema :global(.caret) {
+    display: none;
+  }
+
+  .tema :global(select) {
+    width: var(--sl-label-icon-size);
+    padding-inline: 0;
+    margin-inline: 0;
+    color: transparent;
+  }
+
+  /* Meniul are nevoie de loc: apare doar pe ecranele late. Pe cele înguste, paginile lui sunt în bara laterală. */
+  .meniu {
+    display: none;
+  }
+
+  @media (min-width: 64rem) {
+    .meniu {
+      display: block;
+    }
+
+    .right-group {
+      gap: 1.5rem;
+    }
+  }
+
+  .meniu ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .meniu > ul {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .meniu a,
+  .meniu summary {
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .meniu a:hover,
+  .meniu summary:hover,
+  .meniu [aria-current='page'],
+  .meniu .curent {
+    color: var(--sl-color-white);
+  }
+
+  .meniu > ul > li > [aria-current='page'],
+  .meniu .curent {
+    text-decoration: underline;
+    text-decoration-color: var(--sl-color-accent);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.4em;
+  }
+
+  /* Lista laboratoarelor, deschisă din „Laboratoare”. */
+
+  .meniu details {
+    position: relative;
+  }
+
+  .meniu summary {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .meniu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .meniu summary :global(svg) {
+    transition: rotate 0.2s ease;
+  }
+
+  .meniu details[open] summary :global(svg) {
+    rotate: 180deg;
+  }
+
+  /* Lista începe imediat sub header: „Laboratoare” este centrat pe verticală în bara de înălțime --sl-nav-height. */
+  .meniu details ul {
+    position: absolute;
+    top: calc((100% + var(--sl-nav-height)) / 2 + 0.25rem);
+    inset-inline-start: -0.75rem;
+    z-index: 1;
+    width: max-content;
+    max-width: 20rem;
+    padding: 0.4rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 4px;
+    background: var(--sl-color-bg);
+    box-shadow: var(--sl-shadow-md);
+  }
+
+  .meniu details a {
+    display: block;
+    padding: 0.45rem 0.65rem;
+    border-radius: 2px;
+    font-weight: 400;
+    color: var(--sl-color-gray-2);
+    white-space: normal;
+  }
+
+  .meniu details a:hover,
+  .meniu details a:focus-visible {
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+  }
+
+  .meniu details a[aria-current='page'] {
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .meniu summary :global(svg) {
+      transition: none;
+    }
+  }
+
+  /* Meniul pentru ecranele înguste: un buton care deschide, sub header, linkurile meniului, iconițele și selectorul
+     de temă (pe telefon, header-ul nu are loc pentru ele). */
+
+  .meniu-mobil summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-inline-end: -0.5rem;
+    font-size: 1.5rem;
+    color: var(--sl-color-gray-1);
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .meniu-mobil summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .meniu-mobil :global(.inchide),
+  .meniu-mobil[open] :global(.deschide) {
+    display: none;
+  }
+
+  .meniu-mobil[open] :global(.inchide) {
+    display: block;
+  }
+
+  .meniu-mobil > nav {
+    position: fixed;
+    top: var(--sl-nav-height);
+    inset-inline: 0;
+    max-height: calc(100dvh - var(--sl-nav-height));
+    overflow-y: auto;
+    padding: var(--sl-exquisitus-space-md) var(--sl-nav-pad-x) var(--sl-exquisitus-space-xl);
+    border-bottom: 1px solid var(--sl-color-hairline);
+    background: var(--sl-color-bg);
+    box-shadow: var(--sl-shadow-md);
+  }
+
+  .meniu-mobil .grup {
+    margin: 0 0 var(--sl-exquisitus-space-2xs);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+
+  .meniu-mobil nav ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .meniu-mobil ul + ul,
+  .meniu-mobil .subsol {
+    margin-top: var(--sl-exquisitus-space-sm);
+    padding-top: var(--sl-exquisitus-space-sm);
+    border-top: 1px solid var(--sl-color-hairline);
+  }
+
+  .meniu-mobil nav a {
+    display: block;
+    padding-block: 0.45rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+
+  .meniu-mobil nav a:hover,
+  .meniu-mobil nav a[aria-current='page'] {
+    color: var(--sl-color-text-accent);
+  }
+
+  /* Iconițele și selectorul de temă apar în header de la 50rem, așa că în meniu sunt doar sub această lățime. */
+  .meniu-mobil .subsol {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  @media (min-width: 50rem) {
+    .meniu-mobil .subsol {
+      display: none;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .meniu-mobil {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Lista laboratoarelor și meniul pentru ecranele înguste se închid la un clic în afara lor, la Escape și când
+  // focusul trece mai departe.
+  for (const meniu of document.querySelectorAll<HTMLDetailsElement>('.right-group details')) {
+    document.addEventListener('click', ({ target }) => {
+      if (meniu.open && !meniu.contains(target as Node)) meniu.open = false;
+    });
+    meniu.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !meniu.open) return;
+      meniu.open = false;
+      meniu.querySelector('summary')?.focus();
+    });
+    meniu.addEventListener('focusout', ({ relatedTarget }) => {
+      if (relatedTarget instanceof Node && !meniu.contains(relatedTarget)) meniu.open = false;
+    });
+  }
+</script>

@@ -1,0 +1,258 @@
+---
+title: Ajustarea fină supervizată
+description: Modelul preantrenat învață să scrie povestea cerută de o instrucțiune. Datele TinyStories-Instruct, formatul instrucțiunilor, pierderea calculată doar pe răspuns, completarea loturilor și rezultatele.
+sidebar:
+  order: 6
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+---
+
+import Python from '@components/Python.astro';
+import SourceFile from '@components/SourceFile.astro';
+
+export const sftSetup = String.raw`
+import os, re, sys
+from js import location
+from pyodide.http import open_url
+
+# Fișierul tokenizer.py al laboratorului și eșantioanele de date, copiate în sistemul de fișiere din browser.
+LAB = location.origin + "/laboratoare/model-lingvistic-de-la-zero/"
+for path in ["cod/tokenizer.py", "date/povesti.txt", "date/instructiuni.txt"]:
+    name = path.split("/")[-1]
+    if not os.path.exists(name):
+        text = open_url(LAB + path).read()
+        with open(name, "w", encoding="utf-8") as f:
+            f.write(text)
+sys.path.insert(0, ".")
+
+from tokenizer import EOT
+
+# Aceleași funcții ca în sft.py.
+FIELDS = ["Features", "Words", "Random sentence", "Summary"]
+FIELD = re.compile(r"^(Features|Words|Random sentence|Summary|Story):", re.MULTILINE)
+
+def parse(doc):
+    parts = FIELD.split(doc)
+    return {name: text.strip() for name, text in zip(parts[1::2], parts[2::2])}
+
+def instruction(fields):
+    lines = [f"{name}: {fields[name]}" for name in FIELDS if name in fields]
+    return "\n".join(lines + ["Story:"])
+
+with open("instructiuni.txt", encoding="utf-8") as f:
+    docs = [d for d in f.read().split(EOT) if d.strip()]
+`;
+
+Modelul preantrenat știe doar să continue texte. Dacă primește o instrucțiune, scrie mai departe ce i se pare probabil după ea, iar asta rareori este ce cerea instrucțiunea. Să luăm instrucțiunea „Words: dog, ball, happy. Story:”, care cere o poveste cu aceste trei cuvinte. Modelul de pe pagina anterioară răspunde la ea cu textele de mai jos.
+
+```bash
+python sample.py checkpoints/pretrain/model.pt "Words: dog, ball, happy. Story:" -n 2
+```
+
+```text
+Words: dog, ball, happy. Story: "Wow, Max, it is too." Mia was happy and thanked her mom.
+They walked to the park and saw a big park. When it was time to go home, they found Max
+again. Max was happy and thanked his mom. They played happily ever after.
+
+Words: dog, ball, happy. Story: I am sorry for you. But we can both go to the park. We
+will get the ball back and get it back inside. But it is the same time to go home." The
+ball likes to go home and play with his ball. Lila and Ben nod. They run to the park and
+slide. They are happy.
+```
+
+Ambele texte încep la mijlocul unei povești, iar câinele cerut nu apare. **Ajustarea fină supervizată** (_supervised fine-tuning_, SFT) continuă antrenarea pe perechi formate dintr-o instrucțiune și răspunsul dorit, ca modelul să învețe să răspundă la instrucțiuni. Prin aceeași etapă trec și asistenții conversaționali. La ei, instrucțiunile sunt întrebări și cereri, iar răspunsurile sunt scrise sau verificate de oameni. Aici, instrucțiunile cer o poveste cu anumite cuvinte, trăsături sau un rezumat, iar răspunsurile sunt chiar poveștile.
+
+## Datele
+
+[TinyStories-Instruct](https://huggingface.co/datasets/roneneldan/TinyStoriesInstruct) conține poveștile din prima versiune a setului TinyStories, fiecare însoțită de câteva dintre câmpurile următoare.
+
+- `Features`: trăsături ale poveștii, de exemplu `Dialogue`, `BadEnding` sau `Twist`.
+- `Words`: trei cuvinte care trebuie folosite.
+- `Random sentence`: o propoziție care trebuie să apară în poveste.
+- `Summary`: un rezumat de o propoziție.
+
+Câmpurile apar în orice ordine, iar uneori rezumatul vine după poveste. Funcția `parse` desparte un document în câmpuri, iar `instruction` le rescrie mereu în aceeași ordine, cu `Story:` la final.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/sft.py" symbols={['FIELDS', 'FIELD', 'parse', 'instruction']} />
+
+Mai jos, cele două funcții sunt aplicate primului document din eșantionul de 60 de instrucțiuni.
+
+<Python
+  setup={sftSetup}
+  code={String.raw`
+print(docs[0].strip()[:500], "…")
+print()
+
+fields = parse(docs[0])
+print(list(fields))
+print()
+print(instruction(fields))
+
+after = sum(1 for d in docs if d.find("Summary:") > d.find("Story:") >= 0)
+print()
+print(f"Documente cu rezumatul după poveste: {after} din {len(docs)}")
+`}
+/>
+
+## Exemplele
+
+Fiecare exemplu de antrenare este format din tokenurile instrucțiunii, urmate de tokenurile poveștii și de `<|endoftext|>`, ca modelul să învețe și unde se termină o poveste.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/sft.py" symbols={['build_examples']} />
+
+Exemplele mai lungi decât fereastra de context sunt tăiate la 257 de tokenuri, adică 256 de intrări și ținta ultimei poziții. Pe lângă exemplu, funcția păstrează și lungimea instrucțiunii, de care avem nevoie la pasul următor.
+
+## Pierderea calculată doar pe poveste
+
+:::tip[De ce se maschează pierderea pe instrucțiune?]
+La preantrenare, fiecare poziție este o țintă. La ajustarea fină, țintele din dreptul instrucțiunii primesc valoarea -1, pe care `F.cross_entropy` o ignoră (`ignore_index=-1`). Astfel, pierderea se calculează doar pe poveste. Modelul învață să scrie povești la instrucțiuni, nu să repete instrucțiunile pe care le-a primit deja. Prin această mascare, modelul nu își irosește capacitatea pe predicții triviale.
+:::
+
+Exemplele au lungimi diferite, așa că fiecare lot este completat până la lungimea celui mai lung exemplu, cu tokenul `[PAD]`. Pozițiile de **completare** (_padding_) au și ele ținta -1.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/sft.py" symbols={['make_batch']} />
+
+Ultima poziție a instrucțiunii (cele două puncte de după `Story`) prezice primul cuvânt al poveștii, deci acolo încep țintele. Ultimul token al poveștii prezice `<|endoftext|>`. Exemplul de mai jos construiește un lot de trei exemple din eșantion, cu o variantă NumPy a funcției `make_batch`. Pentru cel mai scurt dintre ele, afișează granița dintre instrucțiune și poveste, apoi finalul poveștii și începutul completării.
+
+<Python
+  packages={['numpy']}
+  setup={sftSetup}
+  code={String.raw`
+import numpy as np
+from tokenizer import WordTokenizer, build_vocab
+
+vocab, _ = build_vocab(["povesti.txt", "instructiuni.txt"], size=2000)
+tokenizer = WordTokenizer(vocab)
+
+# Primele trei documente care încap întregi în fereastră.
+examples = []
+for doc in docs:
+    fields = parse(doc)
+    prompt = tokenizer.encode(instruction(fields))
+    story = tokenizer.encode(fields["Story"]) + [tokenizer.eot_id]
+    if len(prompt + story) <= 257 and len(examples) < 3:
+        examples.append((prompt + story, len(prompt)))
+
+def make_batch(examples, pad_id):
+    longest = max(len(ids) for ids, _ in examples)
+    x = np.full((len(examples), longest - 1), pad_id, dtype=np.int64)
+    y = np.full((len(examples), longest - 1), -1, dtype=np.int64)
+    for row, (ids, prompt_len) in enumerate(examples):
+        x[row, : len(ids) - 1] = ids[:-1]
+        y[row, prompt_len - 1 : len(ids) - 1] = ids[prompt_len:]
+    return x, y
+
+x, y = make_batch(examples, tokenizer.pad_id)
+print("Lungimi:", [len(ids) for ids, _ in examples], "-> lotul are forma", x.shape)
+
+def show(row, positions):
+    for t in positions:
+        target = tokenizer.id_to_token[y[row, t]] if y[row, t] != -1 else -1
+        print(f"  {t:>3}  {tokenizer.id_to_token[x[row, t]]:<14} {target}")
+
+# Cel mai scurt exemplu are și poziții de completare.
+row = min(range(len(examples)), key=lambda r: len(examples[r][0]))
+ids, prompt_len = examples[row]
+print()
+print("Poziția, intrarea și ținta, la granița dintre instrucțiune și poveste:")
+show(row, range(prompt_len - 4, prompt_len + 3))
+print()
+print("Finalul poveștii și începutul completării:")
+show(row, range(len(ids) - 4, min(len(ids) + 2, x.shape[1])))
+`}
+/>
+
+## Antrenarea
+
+Restul fișierului `sft.py` seamănă cu preantrenarea.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/sft.py" symbols={['random_batch', 'estimate_loss', 'main']} />
+
+Diferențele sunt puține. Antrenarea pornește de la modelul preantrenat, `checkpoints/pretrain/model.pt`, nu de la ponderi aleatoare. Rata de învățare este constantă și egală cu $2 \cdot 10^{-4}$, o treime din valoarea maximă de la preantrenare, pentru că modelul scrie deja povești, iar pașii mai mici îi ajustează comportamentul fără să șteargă ce a învățat. Loturile sunt alcătuite din 48 de exemple întregi, alese la întâmplare, nu din ferestre tăiate din text. La fiecare evaluare, modelul scrie o poveste pentru aceeași instrucțiune de test, `DEMO`.
+
+```bash
+python sft.py 10
+```
+
+Mai jos este rezultatul unei ajustări de 10 minute, pe același laptop ca preantrenarea. Am omis o parte din linii.
+
+```text
+76,875 exemple de antrenare, 4,999 păstrate pentru validare
+pasul     0 | antrenare 2.491 | validare 2.466
+  Do you understand?" Amy said, "Yes, please! I think it is fun. I don't like it!" Her
+  mother smiled and said, "I'm sorry, Tom. I just wanted to play with you." Amy hugged
+  her dog and said, "No, Tom. It's okay. Let's get it together." Tom nodded. He learned
+  that even if he can help others to be happy. They played together and had a lot of
+  fun.
+pasul   500 | antrenare 2.162 | validare 2.132
+  Once upon a time, there was a dog. He liked to run and play in the park. One day, he
+  saw a big tree with a stick. He wanted to go up the tree and see what was at there.
+  The dog was so happy. He ran to the tree and took the stick. The dog was so proud of
+  himself. He wanted to show the dog. The dog looked at the dog and said "Look at this
+  stick!" The dog wanted to show the stick. The dog barked. He jumped up and down. The
+  dog was happy to be back. He took the
+pasul  1167 | antrenare 1.988 | validare 2.023
+  One day, a dog and a dog were at the park. The dog was a happy dog. They played on the
+  swings, the dog had a lot of fun. The dog wanted to have fun. The dog and dog were
+  happy. They wanted to play on the swings. The dog was a good dog. They started to play
+  on the swings. The dog was happy. They ran and kicked on the slide. The dog saw the
+  dog. The dog wanted to play too. The dog barked. The dog was not nice. The dog and the
+  dog played together. They had fun. Then
+gata: 1,167 pași, 10.1 minute
+```
+
+Instrucțiunea de test cere un dialog, cuvintele „dog”, „happy” și „park” și o poveste despre un câine care își face un prieten nou în parc. La pasul 0, modelul preantrenat continuă instrucțiunea cu mijlocul altei povești. După 500 de pași, modelul scrie povestea de la început și folosește cuvintele cerute. Pierderea pe validare scade de la 2,47 la 2,02.
+
+## Rezultatele
+
+Mai jos, modelul ajustat primește aceeași instrucțiune ca la începutul paginii.
+
+```bash
+python sample.py checkpoints/sft/model.pt "Words: dog, ball, happy. Story:" -n 2
+```
+
+```text
+Words: dog, ball, happy. Story: Once upon a time, there was a happy dog. He wanted to play
+with his ball. His friend, a dog, had a red ball. He wanted to play with it too. So, he
+put the ball in his pocket and went to play with it. The ball went down and down to play
+with his ball. They played with the ball all day long. They took turns to pretend they
+were at a dog. The dog was having a lot of fun. Everyone was happy. After the ball go
+home, the dog and the dog played with the ball all the time. They played with the ball and
+had a fun day.
+
+Words: dog, ball, happy. Story: Once upon a time, there was a happy dog. The dog liked to
+play in the big, tall tree. One day, the tree was very happy. The dog saw a ball. The ball
+wanted to play with the ball. So, the dog went to the ball. He was happy and wanted to
+play with the ball. The ball went to the ball. He played with the ball. They had fun. The
+ball was very happy. Then, something unexpected happened. The ball went into the tree. The
+ball became friends. They played with the ball. They played and played all day in the big
+tree.
+```
+
+Ambele povești pornesc de la început, cu „Once upon a time”, și folosesc toate cele trei cuvinte, chiar prea des. Spațiile și trecerile la rând nou dispar la tokenizare, așa că promptul poate fi scris pe un singur rând.
+
+În seria video, cele două modele au fost comparate pe instrucțiuni și povești păstrate pentru validare, cu un script de evaluare care nu face parte din laborator.
+
+| Măsură | Preantrenat | Ajustat |
+| --- | --- | --- |
+| Cuvinte cerute folosite în poveste | aproximativ 3% | aproximativ 27% |
+| Pierderea pe poveștile instrucțiunilor | 2,60 | 2,13 |
+| Pierderea pe povești simple | 2,25 | 2,38 |
+| Lungimea medie a unei povești, în tokenuri | 85 | 178 |
+| Povești încheiate în cel mult 200 de tokenuri | 92% | 48% |
+
+Modelul ajustat folosește de aproape zece ori mai multe dintre cuvintele cerute. Poveștile lui sunt de două ori mai lungi, apropiate ca lungime de cele din setul cu instrucțiuni, așa că mai puține se termină în limita de 200 de tokenuri. Modelul preantrenat continuă de la mijlocul unei povești și o încheie repede, iar cel ajustat scrie o poveste întreagă. Pierderea pe poveștile simple crește puțin, pentru că modelul preia stilul poveștilor din setul cu instrucțiuni, care provin din prima versiune a TinyStories, generată parțial de GPT-3.5.
+
+## Mai departe
+
+:::note[Următorul pas: alinierea cu preferințele umane]
+Modelul urmează acum instrucțiuni, dar nu știe care dintre două povești este mai bună. La modelele mari, etapa următoare este **alinierea cu preferințele umane** (_alignment_), cu metode ca DPO, PPO sau GRPO, descrise pe pagina despre [învățarea prin consolidare pentru LLM-uri](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/). Seria video [Minimum Viable GPT](https://mvgpt.nenuadrian.com) continuă cu DPO și PPO, aplicate aceluiași model, în episoadele de după cele trei urmărite de laborator. Pentru tot drumul, de la tokenizare până la învățarea prin consolidare, pe un model mai mare, merită studiat și [nanochat](https://github.com/karpathy/nanochat), proiectul lui Andrej Karpathy.
+:::
+
+## Bibliografie
+
+- Eldan, R. și Li, Y. (2023). [TinyStories: How Small Can Language Models Be and Still Speak Coherent English?](https://arxiv.org/abs/2305.07759) Preprint arXiv:2305.07759.
+- Karpathy, A. (2025). [nanochat](https://github.com/karpathy/nanochat). Cod sursă, GitHub.
+- Ouyang, L. et al. (2022). [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155). _NeurIPS 2022_.
+- Wei, J. et al. (2022). [Finetuned Language Models Are Zero-Shot Learners](https://arxiv.org/abs/2109.01652). _ICLR 2022_.

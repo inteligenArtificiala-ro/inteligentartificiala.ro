@@ -1,0 +1,317 @@
+<section class="neuron-demo" data-neuron-demo aria-labelledby="neuron-demo-title">
+  <h3 id="neuron-demo-title">Un neuron cu funcția ReLU</h3>
+  <p class="neuron-demo-intro">Suma ponderată și ieșirea se recalculează la fiecare modificare a valorilor.</p>
+
+  <div class="neuron-demo-layout">
+    <fieldset class="neuron-demo-controls">
+      <legend>Parametrii neuronului</legend>
+      <label>
+        <span>Intrare <i>x</i>₁: <output data-value-for="x1">1,0</output></span>
+        <input data-control="x1" type="range" min="-2" max="2" step="0.1" value="1" />
+      </label>
+      <label>
+        <span>Pondere <i>w</i>₁: <output data-value-for="w1">0,8</output></span>
+        <input data-control="w1" type="range" min="-2" max="2" step="0.1" value="0.8" />
+      </label>
+      <label>
+        <span>Intrare <i>x</i>₂: <output data-value-for="x2">0,5</output></span>
+        <input data-control="x2" type="range" min="-2" max="2" step="0.1" value="0.5" />
+      </label>
+      <label>
+        <span>Pondere <i>w</i>₂: <output data-value-for="w2">−0,4</output></span>
+        <input data-control="w2" type="range" min="-2" max="2" step="0.1" value="-0.4" />
+      </label>
+      <label>
+        <span><i>Bias</i> <i>b</i>: <output data-value-for="bias">0,2</output></span>
+        <input data-control="bias" type="range" min="-2" max="2" step="0.1" value="0.2" />
+      </label>
+      <button type="button" data-reset>Valori inițiale</button>
+    </fieldset>
+
+    <div class="neuron-demo-visual">
+      <svg viewBox="0 0 540 245" role="img" aria-labelledby="neuron-demo-svg-title neuron-demo-svg-description">
+        <title id="neuron-demo-svg-title">Calculul unui neuron artificial</title>
+        <desc id="neuron-demo-svg-description">Două intrări și un bias ajung într-un neuron, care aplică funcția ReLU și produce o ieșire.</desc>
+        <defs>
+          <marker id="neuron-demo-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" />
+          </marker>
+        </defs>
+        <g class="neuron-demo-lines" marker-end="url(#neuron-demo-arrow)">
+          <path d="M 112 62 L 231 109" /><path d="M 112 176 L 231 136" /><path d="M 220 221 L 254 161" /><path d="M 330 123 L 432 123" />
+        </g>
+        <g class="neuron-demo-input">
+          <circle cx="78" cy="62" r="34" /><circle cx="78" cy="176" r="34" />
+          <text x="78" y="58" text-anchor="middle">x₁</text><text x="78" y="78" text-anchor="middle" class="neuron-demo-node-value" data-node="x1">1,0</text>
+          <text x="78" y="172" text-anchor="middle">x₂</text><text x="78" y="192" text-anchor="middle" class="neuron-demo-node-value" data-node="x2">0,5</text>
+        </g>
+        <text x="153" y="74" text-anchor="middle" class="neuron-demo-weight" data-weight="w1">w₁ = 0,8</text>
+        <text x="153" y="185" text-anchor="middle" class="neuron-demo-weight" data-weight="w2">w₂ = −0,4</text>
+        <text x="197" y="228" text-anchor="middle" class="neuron-demo-weight" data-weight="bias">b = 0,2</text>
+        <g class="neuron-demo-neuron">
+          <circle cx="280" cy="123" r="53" />
+          <text x="280" y="116" text-anchor="middle">Σ</text><text x="280" y="140" text-anchor="middle" class="neuron-demo-relu">ReLU</text>
+        </g>
+        <g class="neuron-demo-output">
+          <circle cx="465" cy="123" r="43" />
+          <text x="465" y="114" text-anchor="middle">a</text><text x="465" y="137" text-anchor="middle" class="neuron-demo-node-value" data-node="output">0,8</text>
+        </g>
+      </svg>
+      <div class="neuron-demo-result" aria-live="polite">
+        <p><span>Suma ponderată</span> <output data-result="sum">0,8</output></p>
+        <p><span>Ieșirea ReLU</span> <output data-result="output">0,8</output></p>
+      </div>
+      <p class="neuron-demo-formula" data-formula>1,0 × 0,8 + 0,5 × −0,4 + 0,2 = 0,8</p>
+    </div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('[data-neuron-demo]').forEach((demo) => {
+    const initialValues = { x1: 1, w1: 0.8, x2: 0.5, w2: -0.4, bias: 0.2 };
+    const controlNames = Object.keys(initialValues);
+    const controls = new Map(
+      controlNames.map((name) => [name, demo.querySelector<HTMLInputElement>(`[data-control="${name}"]`)]),
+    );
+    if ([...controls.values()].some((control) => control === null)) return;
+
+    const format = (number: number) =>
+      number.toLocaleString('ro-RO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).replace('-', '−');
+    const setText = (selector: string, value: string) => {
+      const element = demo.querySelector(selector);
+      if (element) element.textContent = value;
+    };
+    const setOutput = (selector: string, value: string) => {
+      const element = demo.querySelector<HTMLOutputElement>(selector);
+      if (element) element.textContent = value;
+    };
+    const update = () => {
+      const controlValue = (name: string) => Number(controls.get(name)?.value ?? 0);
+      const values = {
+        x1: controlValue('x1'),
+        w1: controlValue('w1'),
+        x2: controlValue('x2'),
+        w2: controlValue('w2'),
+        bias: controlValue('bias'),
+      };
+      const sum = values.x1 * values.w1 + values.x2 * values.w2 + values.bias;
+      const output = Math.max(0, sum);
+
+      Object.entries(values).forEach(([name, value]) => {
+        demo
+          .querySelectorAll<HTMLOutputElement>(`[data-value-for="${name}"]`)
+          .forEach((element) => {
+            element.textContent = format(value);
+          });
+      });
+      setText('[data-node="x1"]', format(values.x1));
+      setText('[data-node="x2"]', format(values.x2));
+      setText('[data-node="output"]', format(output));
+      setText('[data-weight="w1"]', `w₁ = ${format(values.w1)}`);
+      setText('[data-weight="w2"]', `w₂ = ${format(values.w2)}`);
+      setText('[data-weight="bias"]', `b = ${format(values.bias)}`);
+      setOutput('[data-result="sum"]', format(sum));
+      setOutput('[data-result="output"]', format(output));
+      setText(
+        '[data-formula]',
+        `${format(values.x1)} × ${format(values.w1)} + ${format(values.x2)} × ${format(values.w2)} + ${format(values.bias)} = ${format(sum)}`,
+      );
+      demo.classList.toggle('is-active', output > 0);
+    };
+
+    controls.forEach((input) => {
+      input?.addEventListener('input', update);
+    });
+    demo.querySelector<HTMLButtonElement>('[data-reset]')?.addEventListener('click', () => {
+      Object.entries(initialValues).forEach(([name, value]) => {
+        const control = controls.get(name);
+        if (control) control.value = String(value);
+      });
+      update();
+    });
+    update();
+  });
+</script>
+
+<style>
+  .neuron-demo {
+    margin: 1.5rem 0;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    background: var(--sl-color-gray-7);
+  }
+
+  .neuron-demo h3 {
+    margin: 0;
+  }
+
+  .neuron-demo-intro {
+    margin-top: 0.25rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  .neuron-demo-layout {
+    display: grid;
+    grid-template-columns: minmax(13rem, 0.7fr) minmax(0, 1.3fr);
+    gap: 1.5rem;
+    align-items: center;
+  }
+
+  .neuron-demo-controls {
+    display: grid;
+    gap: 0.8rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .neuron-demo-controls legend {
+    margin-bottom: 0.65rem;
+    color: var(--sl-color-gray-2);
+    font-weight: 600;
+  }
+
+  .neuron-demo-controls label {
+    display: grid;
+    gap: 0.2rem;
+    color: var(--sl-color-gray-2);
+  }
+
+  .neuron-demo-controls output,
+  .neuron-demo-result output {
+    color: var(--sl-color-text-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .neuron-demo-controls input {
+    accent-color: var(--sl-color-accent);
+  }
+
+  .neuron-demo-controls button {
+    justify-self: start;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 0.35rem;
+    padding: 0.45rem 0.7rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .neuron-demo-controls button:hover {
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
+  }
+
+  .neuron-demo-visual svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .neuron-demo-lines {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+
+  .neuron-demo marker path {
+    fill: var(--sl-color-gray-4);
+  }
+
+  .neuron-demo-input circle {
+    fill: color-mix(in oklab, var(--sl-color-blue) 15%, var(--sl-color-bg));
+    stroke: var(--sl-color-blue);
+    stroke-width: 2;
+  }
+
+  .neuron-demo-neuron circle {
+    fill: color-mix(in oklab, var(--sl-color-purple) 15%, var(--sl-color-bg));
+    stroke: var(--sl-color-purple);
+    stroke-width: 2;
+  }
+
+  .neuron-demo-output circle {
+    fill: color-mix(in oklab, var(--sl-color-accent) 18%, var(--sl-color-bg));
+    stroke: var(--sl-color-accent);
+    stroke-width: 2;
+  }
+
+  .neuron-demo.is-active .neuron-demo-neuron circle {
+    fill: color-mix(in oklab, var(--sl-color-green) 18%, var(--sl-color-bg));
+    stroke: var(--sl-color-green);
+  }
+
+  .neuron-demo svg text {
+    fill: var(--sl-color-gray-1);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .neuron-demo svg .neuron-demo-node-value,
+  .neuron-demo svg .neuron-demo-weight {
+    fill: var(--sl-color-gray-3);
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  .neuron-demo svg .neuron-demo-relu {
+    font-size: 14px;
+  }
+
+  .neuron-demo-result {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .neuron-demo-result p {
+    margin: 0;
+    padding: 0.7rem;
+    border-left: 3px solid var(--sl-color-accent);
+    background: color-mix(in oklab, var(--sl-color-accent) 8%, transparent);
+  }
+
+  .neuron-demo-result span,
+  .neuron-demo-result output {
+    display: block;
+  }
+
+  .neuron-demo-result span {
+    color: var(--sl-color-gray-3);
+    font-size: 0.875rem;
+  }
+
+  .neuron-demo-result output {
+    margin-top: 0.2rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .neuron-demo-formula {
+    margin: 0.9rem 0 0;
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  @media (max-width: 42rem) {
+    .neuron-demo-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 28rem) {
+    .neuron-demo {
+      padding: 1rem;
+    }
+
+    .neuron-demo-result {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

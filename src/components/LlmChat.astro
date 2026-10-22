@@ -1,0 +1,434 @@
+---
+/**
+ * Conversație cu un model lingvistic mic (SmolLM2 135M), care rulează integral în browser cu Transformers.js.
+ * Modelul (public/modele/) se descarcă doar la apăsarea butonului de încărcare.
+ */
+import { readdir, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+
+// Dimensiunea descărcării, calculată la build din fișierele modelului și din ONNX Runtime pentru WebAssembly.
+async function folderSize(path: string): Promise<number> {
+  let total = 0;
+  for (const entry of await readdir(path, { withFileTypes: true })) {
+    const full = join(path, entry.name);
+    total += entry.isDirectory() ? await folderSize(full) : (await stat(full)).size;
+  }
+  return total;
+}
+const modelBytes = await folderSize('public/modele/smollm2-135m-instruct');
+const runtimeBytes = (await stat('node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify.wasm')).size;
+const downloadSize = `${Math.round((modelBytes + runtimeBytes) / 1e7) * 10} MB`;
+---
+
+<section
+  class='llm-chat not-content'
+  data-llm-chat
+  data-bytes={modelBytes}
+  aria-labelledby='llm-chat-title'
+>
+  <h3 id='llm-chat-title'>Conversație cu SmolLM2 135M</h3>
+
+  <div class='llm-chat-intro' data-panel='idle'>
+    <p>
+      Modelul are aproximativ 135 de milioane de parametri și rulează integral în browser, fără server. Descărcarea are
+      circa {downloadSize}, se face de pe acest site și doar la cerere. După prima încărcare, fișierele rămân salvate în
+      browser, dacă acesta are spațiu suficient.
+    </p>
+    <p>
+      Modelul a fost antrenat pe texte în limba engleză și răspunde în engleză, chiar și la mesajele scrise în română.
+      Un model atât de mic greșește des: inventează fapte, se repetă și pierde ușor firul. Răspunsurile nu sunt
+      verificate și nu trebuie tratate ca informații corecte.
+    </p>
+    <button type='button' class='llm-chat-primary' data-load>Încărcarea modelului ({downloadSize})</button>
+  </div>
+
+  <div class='llm-chat-loading' data-panel='loading' hidden>
+    <progress max='100' data-progress></progress>
+    <p aria-live='polite' data-progress-text>Se pregătește descărcarea…</p>
+  </div>
+
+  <div class='llm-chat-conversation' data-panel='chat' hidden>
+    <ol class='llm-chat-messages' aria-live='polite' data-messages></ol>
+    <form class='llm-chat-form' data-form>
+      <label for='llm-chat-input' class='sr-only'>Mesaj pentru model</label>
+      <textarea id='llm-chat-input' rows='2' placeholder='Mesaj pentru model' data-input required></textarea>
+      <div class='llm-chat-buttons'>
+        <button type='submit' class='llm-chat-primary' data-send>Trimitere</button>
+        <button type='button' class='llm-chat-primary' data-stop hidden>Oprire</button>
+      </div>
+    </form>
+    <div class='llm-chat-actions'>
+      <span data-device></span>
+      <button type='button' data-reset>Conversație nouă</button>
+      <button type='button' data-forget>Ștergerea modelului din browser</button>
+    </div>
+  </div>
+
+  <p class='llm-chat-error' role='alert' data-error hidden></p>
+
+  <p class='llm-chat-license'>
+    <a href='https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct'>SmolLM2-135M-Instruct</a> este un model
+    publicat de Hugging Face sub licența Apache 2.0, distribuit aici în forma convertită de{' '}
+    <a href='https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX'>onnx-community</a>.
+  </p>
+</section>
+
+<script>
+  import type { Message } from '@huggingface/transformers';
+  import type { WorkerRequest, WorkerResponse } from '../scripts/llm-chat.worker';
+
+  const CACHE_NAME = 'transformers-cache';
+
+  // Textul generat este afișat ca text simplu. Doar **îngroșarea** din Markdown este păstrată.
+  function renderText(element: HTMLElement, text: string) {
+    element.replaceChildren();
+    text.split(/(\*\*[^*]+\*\*)/g).forEach((part) => {
+      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+        const strong = document.createElement('strong');
+        strong.textContent = part.slice(2, -2);
+        element.append(strong);
+      } else element.append(part);
+    });
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-llm-chat]')) {
+    const $ = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector) as T;
+    const panels = root.querySelectorAll<HTMLElement>('[data-panel]');
+    const progress = $<HTMLProgressElement>('[data-progress]');
+    const progressText = $('[data-progress-text]');
+    const messagesList = $('[data-messages]');
+    const form = $<HTMLFormElement>('[data-form]');
+    const input = $<HTMLTextAreaElement>('[data-input]');
+    const sendButton = $<HTMLButtonElement>('[data-send]');
+    const stopButton = $<HTMLButtonElement>('[data-stop]');
+    const resetButton = $<HTMLButtonElement>('[data-reset]');
+    const errorText = $('[data-error]');
+
+    const bytes = Number(root.dataset.bytes);
+    let worker: Worker | undefined;
+    let messages: Message[] = [];
+    let reply: { element: HTMLElement; text: string } | undefined;
+
+    const show = (name: string) => {
+      for (const panel of panels) panel.hidden = panel.dataset.panel !== name;
+    };
+    const showError = (message?: string) => {
+      errorText.hidden = !message;
+      errorText.textContent = message ? `Eroare: ${message}` : '';
+    };
+    const setBusy = (busy: boolean) => {
+      sendButton.hidden = busy;
+      stopButton.hidden = !busy;
+      resetButton.disabled = busy;
+      input.disabled = busy;
+    };
+    const send = (request: WorkerRequest) => worker?.postMessage(request);
+
+    const addMessage = (role: 'user' | 'assistant', text: string) => {
+      const item = document.createElement('li');
+      item.className = `llm-chat-message llm-chat-${role}`;
+      const label = document.createElement('span');
+      label.className = 'llm-chat-role';
+      label.textContent = role === 'user' ? 'Mesaj' : 'Model';
+      const body = document.createElement('div');
+      renderText(body, text);
+      item.append(label, body);
+      messagesList.append(item);
+      item.scrollIntoView({ block: 'nearest' });
+      return body;
+    };
+
+    const handleResponse = (response: WorkerResponse) => {
+      switch (response.type) {
+        case 'progress': {
+          const loaded = Math.min(response.loaded, bytes);
+          progress.value = (loaded / bytes) * 100;
+          progressText.textContent =
+            loaded < bytes
+              ? `Descărcare: ${Math.round(loaded / 1e6)} din ${Math.round(bytes / 1e6)} MB`
+              : 'Se pregătește modelul…';
+          break;
+        }
+        case 'ready':
+          show('chat');
+          $('[data-device]').textContent =
+            response.device === 'webgpu' ? 'Rulare pe placa grafică (WebGPU)' : 'Rulare pe procesor (WebAssembly)';
+          input.focus();
+          break;
+        case 'token':
+          if (!reply) break;
+          reply.text += response.text;
+          renderText(reply.element, reply.text);
+          break;
+        case 'done':
+          // Șablonul de conversație al modelului cere alternarea mesajelor, deci și un răspuns oprit devreme rămâne în istoric.
+          if (reply) {
+            if (!reply.text.trim()) reply.element.textContent = 'Generarea a fost oprită.';
+            messages.push({ role: 'assistant', content: reply.text.trim() || '…' });
+          }
+          reply = undefined;
+          setBusy(false);
+          input.focus();
+          break;
+        case 'error':
+          showError(response.message);
+          if (reply) {
+            reply.element.textContent = 'Răspunsul nu a putut fi generat.';
+            messages.push({ role: 'assistant', content: '…' });
+            reply = undefined;
+          }
+          setBusy(false);
+          // O eroare la încărcare oprește worker-ul. Butonul de încărcare pornește unul nou.
+          if (!root.querySelector<HTMLElement>('[data-panel="chat"]')?.hidden) break;
+          stopWorker();
+          show('idle');
+          break;
+      }
+    };
+
+    const stopWorker = () => {
+      worker?.terminate();
+      worker = undefined;
+    };
+
+    $('[data-load]').addEventListener('click', () => {
+      showError();
+      show('loading');
+      stopWorker();
+      worker = new Worker(new URL('../scripts/llm-chat.worker.ts', import.meta.url), { type: 'module' });
+      worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => handleResponse(event.data));
+      worker.addEventListener('error', (event) => {
+        showError(event.message || 'modelul nu a putut fi încărcat.');
+        stopWorker();
+        show('idle');
+      });
+      send({ type: 'load', bytes });
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text || reply) return;
+      showError();
+      input.value = '';
+      addMessage('user', text);
+      messages.push({ role: 'user', content: text });
+      reply = { element: addMessage('assistant', ''), text: '' };
+      setBusy(true);
+      // Fără instrucțiune de sistem: modelul răspunde, de regulă, în limba întrebării.
+      send({ type: 'generate', messages });
+    });
+
+    // Enter trimite mesajul, Shift + Enter adaugă un rând nou.
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    stopButton.addEventListener('click', () => send({ type: 'stop' }));
+
+    resetButton.addEventListener('click', () => {
+      messages = [];
+      messagesList.replaceChildren();
+      showError();
+      input.focus();
+    });
+
+    $('[data-forget]').addEventListener('click', async () => {
+      stopWorker();
+      messages = [];
+      reply = undefined;
+      messagesList.replaceChildren();
+      setBusy(false);
+      await caches.delete(CACHE_NAME).catch(() => false);
+      show('idle');
+      showError();
+    });
+  }
+</script>
+
+<style>
+  .llm-chat {
+    margin-block: 1.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.75rem;
+    background: var(--sl-color-gray-7);
+  }
+
+  .llm-chat h3 {
+    margin: 0 0 0.75rem;
+    color: var(--sl-color-white);
+    font-size: var(--sl-text-h4);
+  }
+
+  .llm-chat p {
+    margin: 0 0 0.75rem;
+  }
+
+  .llm-chat-intro p,
+  .llm-chat-loading p {
+    color: var(--sl-color-gray-2);
+  }
+
+  .llm-chat button {
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .llm-chat button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .llm-chat-primary {
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--sl-color-accent);
+    border-radius: 999px;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font-weight: 600;
+  }
+
+  .llm-chat-primary:hover,
+  .llm-chat-primary:focus-visible {
+    border-color: var(--sl-color-accent-high);
+    background: var(--sl-color-accent-high);
+  }
+
+  .llm-chat-loading progress {
+    width: 100%;
+    height: 0.6rem;
+    margin-bottom: 0.5rem;
+    accent-color: var(--sl-color-accent);
+  }
+
+  .llm-chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 28rem;
+    margin: 0 0 1rem;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .llm-chat-messages:empty {
+    display: none;
+  }
+
+  .llm-chat :global(.llm-chat-message) {
+    max-width: 90%;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.6rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .llm-chat :global(.llm-chat-user) {
+    align-self: flex-end;
+    background: color-mix(in oklab, var(--sl-color-accent) 16%, var(--sl-color-bg));
+  }
+
+  .llm-chat :global(.llm-chat-assistant) {
+    align-self: flex-start;
+    border: 1px solid var(--sl-color-hairline);
+    background: var(--sl-color-bg);
+  }
+
+  .llm-chat :global(.llm-chat-assistant div:empty::after) {
+    content: '…';
+    color: var(--sl-color-gray-3);
+  }
+
+  .llm-chat :global(.llm-chat-role) {
+    display: block;
+    margin-bottom: 0.15rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .llm-chat-form {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-end;
+  }
+
+  .llm-chat-form textarea {
+    flex: 1;
+    min-width: 0;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg);
+    color: var(--sl-color-text);
+    font: inherit;
+    resize: vertical;
+  }
+
+  .llm-chat-form textarea:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 1px;
+  }
+
+  .llm-chat-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    align-items: center;
+    margin-top: 0.75rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .llm-chat-actions span {
+    margin-right: auto;
+  }
+
+  .llm-chat-actions button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--sl-color-text-accent);
+    font-size: var(--sl-text-xs);
+    text-decoration: underline;
+  }
+
+  .llm-chat-error {
+    margin-top: 0.75rem;
+    color: var(--sl-color-red);
+  }
+
+  .llm-chat .llm-chat-license {
+    margin: 1rem 0 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .llm-chat-license a {
+    color: inherit;
+  }
+
+  @media (max-width: 32rem) {
+    .llm-chat {
+      padding: 1rem;
+    }
+
+    .llm-chat-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .llm-chat-buttons {
+      display: flex;
+      justify-content: flex-end;
+    }
+  }
+</style>

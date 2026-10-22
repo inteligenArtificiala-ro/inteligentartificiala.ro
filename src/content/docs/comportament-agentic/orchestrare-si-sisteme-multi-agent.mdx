@@ -1,0 +1,60 @@
+---
+title: Orchestrare și sisteme multi-agent
+description: Cum împarte un sistem agentic o sarcină mare în sarcini mai mici, ce rulează în ordine și ce rulează în paralel, cum lucrează subagenții și ce rol au compactarea contextului și sarcinile asincrone.
+sidebar:
+  order: 5
+level: intermediar
+tags:
+  - Sisteme agentice
+  - Modele de limbaj mari (LLM)
+---
+
+Cu cât o sarcină este mai mare, cu atât este mai greu să ținem toată activitatea într-o singură conversație, iar de la un moment dat nu se mai poate deloc. Motivele sunt două.
+
+- **Fereastra de context se umple repede.** Jurnalele lungi de compilare, fișierele mari și rezultatele intermediare ocupă mii de tokenuri. Costul crește, la fel și riscul ca modelul să piardă din vedere instrucțiunile de la început.
+- **Prea multe instrumente încurcă modelul.** Un agent cu 50 de instrumente diferite la dispoziție riscă să aleagă instrumente nepotrivite sau să se piardă în detalii secundare.
+
+Sistemele agentice de azi rezolvă aceste probleme prin **orchestrare** (_orchestration_): sistemul decide cum se împarte sarcina, ce rulează unul după altul, ce rulează în paralel și ce informații trec de la un pas la altul.
+
+## Planul și împărțirea în sarcini
+
+Ca să știe ce poate rula în paralel, sistemul pornește de obicei de la un plan. Modelul scrie mai întâi planul, iar sistemul îl împarte în sarcini separate. Cea mai simplă metodă este tăierea textului planului la fiecare punct din listă, astfel încât fiecare punct să devină o sarcină. Metoda este ușor de implementat, dar fragilă: dacă modelul scrie planul puțin altfel decât se aștepta codul, de exemplu cu subpuncte sau cu o frază de introducere, împărțirea iese greșit.
+
+O variantă mai sigură este ca modelul să fie antrenat să producă **ieșire structurată** (_structured output_), de exemplu JSON, într-un format stabilit dinainte. Fiecare sarcină devine un obiect cu câmpuri clare, de exemplu ce trebuie făcut și de ce alte sarcini depinde. Codul citește acest format fără să ghicească unde se termină o sarcină și unde începe următoarea.
+
+## Pași secvențiali și paraleli
+
+Când o sarcină are nevoie de rezultatul alteia, cele două rulează în ordine, iar a doua așteaptă până se termină prima. De exemplu, agentul nu poate repara un test înainte să vadă mesajul de eroare. Sarcinile care nu depind una de alta pot rula în paralel. Sistemul poate porni pentru ele mai multe instanțe ale modelului, care lucrează în același timp, fiecare la partea ei. Una poate citi documentația unei biblioteci, în timp ce alta caută în cod locurile în care este folosită.
+
+Rezultatele se întorc apoi la coordonator, adică la agentul care a împărțit sarcina. Coordonatorul citește ce a primit, combină rezultatele și decide ce urmează: pornește sarcinile care așteptau aceste rezultate, cere o corectură sau scrie răspunsul final.
+
+## Subagenți specializați (subagents)
+
+Un [harnașament](/comportament-agentic/harnasamentul/) mai avansat îi permite agentului principal să pornească **subagenți**, fiecare cu un obiectiv mai mic și bine delimitat. O împărțire tipică arată astfel.
+
+- **Agentul coordonator (părinte)** are imaginea de ansamblu a proiectului, planifică sarcinile și vorbește direct cu utilizatorul.
+- **Agentul de cercetare** (_research subagent_) primește o întrebare precisă, caută în documentație sau în repozitoriul de cod folosind numai instrumente care citesc, fără să modifice nimic, și îi trimite părintelui doar rezumatul concluziilor.
+- **Agentul de execuție sau testare** lucrează într-un spațiu izolat (o ramură separată sau un director temporar) și verifică o implementare fără să aglomereze contextul conversației principale.
+
+Astfel, toate detaliile căutărilor rămân în istoricul subagentului, iar agentul părinte primește doar un răspuns scurt și la obiect.
+
+## Compactarea contextului (context compaction)
+
+Când o sesiune de lucru durează zeci de minute sau ore, istoricul ajunge să depășească numărul maxim de tokenuri pe care îl acceptă modelul. Atunci harnașamentul intervine automat prin **compactare**: un pas intern rezumă ce s-a făcut până acum, deciziile luate și fișierele cu care s-a lucrat. Spațiul eliberat în context rămâne pentru pașii următori, iar sarcina continuă de unde a rămas, fără să își piardă firul. Pagina [Memoria agenților](/comportament-agentic/memoria-agentilor/) arată ce se pierde la compactare și unde păstrează un agent informațiile care trebuie să dureze mai mult decât o sesiune.
+
+## Sarcini asincrone și reactivitate
+
+Sistemele mai avansate nu blochează conversația cât timp rulează o comandă lungă în consolă. Comenzile care durează mult (de exemplu descărcarea unor modele mari sau rularea unei suite mari de teste) sunt trimise în fundal, ca **procese asincrone** (_background tasks_).
+
+În loc să verifice la intervale regulate dacă s-a terminat comanda (_polling_), harnașamentul folosește **trezirea reactivă** (_event-driven wakeup_). Când procesul se termină sau dă o eroare, harnașamentul trezește automat agentul și îi transmite notificarea. Așa se economisesc apeluri și timp.
+
+## Bibliografie
+
+- Anthropic (2025). [Effective context engineering for AI agents](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents). Blogul Anthropic.
+- Anthropic (2025). [How we built our multi-agent research system](https://www.anthropic.com/research/multi-agent-research-system). Blogul Anthropic.
+- Hong, S. et al. (2024). [MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework](https://arxiv.org/abs/2308.00352). _ICLR 2024_.
+- Kim, S. et al. (2024). [An LLM Compiler for Parallel Function Calling](https://arxiv.org/abs/2312.04511). _ICML 2024_.
+- Liu, N. F. et al. (2024). [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172). _Transactions of the Association for Computational Linguistics_, 12, 157–173.
+- Schluntz, E. și Zhang, B. (2024). [Building effective agents](https://www.anthropic.com/research/building-effective-agents). Blogul Anthropic.
+- Willard, B. T. și Louf, R. (2023). [Efficient Guided Generation for Large Language Models](https://arxiv.org/abs/2307.09702). Preprint arXiv:2307.09702.
+- Wu, Q. et al. (2023). [AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation](https://arxiv.org/abs/2308.08155). Preprint arXiv:2308.08155.

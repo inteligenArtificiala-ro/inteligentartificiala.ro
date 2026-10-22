@@ -1,0 +1,107 @@
+<figure class="network-diagram">
+  <svg viewBox="0 0 720 320" role="img" aria-labelledby="network-diagram-title network-diagram-description">
+    <title id="network-diagram-title">O rețea neuronală cu un strat ascuns</title>
+    <desc id="network-diagram-description">
+      Trei valori de intrare sunt conectate la trei neuroni dintr-un strat ascuns, iar aceștia sunt conectați la un singur neuron de ieșire.
+    </desc>
+    <defs>
+      <marker id="network-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" />
+      </marker>
+    </defs>
+
+    <text x="110" y="30" text-anchor="middle" class="layer-label">Strat de intrare</text>
+    <text x="360" y="30" text-anchor="middle" class="layer-label">Strat ascuns</text>
+    <text x="610" y="30" text-anchor="middle" class="layer-label">Strat de ieșire</text>
+
+    <g class="connections" marker-end="url(#network-arrow)">
+      <path d="M 140 79 L 330 79" /><path d="M 140 79 L 330 156" /><path d="M 140 79 L 330 233" />
+      <path d="M 140 156 L 330 79" /><path d="M 140 156 L 330 156" /><path d="M 140 156 L 330 233" />
+      <path d="M 140 233 L 330 79" /><path d="M 140 233 L 330 156" /><path d="M 140 233 L 330 233" />
+      <path d="M 390 79 L 572 156" /><path d="M 390 156 L 572 156" /><path d="M 390 233 L 572 156" />
+    </g>
+
+    <g class="nodes input-nodes">
+      <circle cx="110" cy="79" r="30" /><circle cx="110" cy="156" r="30" /><circle cx="110" cy="233" r="30" />
+      <text x="110" y="85" text-anchor="middle">x₁</text><text x="110" y="162" text-anchor="middle">x₂</text><text x="110" y="239" text-anchor="middle">x₃</text>
+    </g>
+    <g class="nodes hidden-nodes">
+      <circle cx="360" cy="79" r="30" /><circle cx="360" cy="156" r="30" /><circle cx="360" cy="233" r="30" />
+      <text x="360" y="85" text-anchor="middle">h₁</text><text x="360" y="162" text-anchor="middle">h₂</text><text x="360" y="239" text-anchor="middle">h₃</text>
+    </g>
+    <g class="nodes output-node">
+      <circle cx="610" cy="156" r="38" />
+      <text x="610" y="162" text-anchor="middle">ŷ</text>
+    </g>
+
+    <text x="110" y="293" text-anchor="middle" class="node-note">date</text>
+    <text x="360" y="293" text-anchor="middle" class="node-note">reprezentări</text>
+    <text x="610" y="293" text-anchor="middle" class="node-note">predicție</text>
+  </svg>
+  <figcaption>Fiecare conexiune are o pondere. Prin straturile ascunse, modelul poate transforma datele în reprezentări utile pentru predicție.</figcaption>
+</figure>
+
+<style>
+  .network-diagram {
+    margin: 1.5rem 0;
+  }
+
+  .network-diagram svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .network-diagram .layer-label,
+  .network-diagram .node-note {
+    fill: var(--sl-color-gray-3);
+    font-size: 15px;
+  }
+
+  .network-diagram .connections {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+
+  .network-diagram marker path {
+    fill: var(--sl-color-gray-4);
+  }
+
+  .network-diagram .nodes circle {
+    stroke-width: 2;
+  }
+
+  .network-diagram .nodes text {
+    fill: var(--sl-color-gray-1);
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .network-diagram .input-nodes circle {
+    fill: color-mix(in oklab, var(--sl-color-blue) 15%, var(--sl-color-bg));
+    stroke: var(--sl-color-blue);
+  }
+
+  .network-diagram .hidden-nodes circle {
+    fill: color-mix(in oklab, var(--sl-color-purple) 15%, var(--sl-color-bg));
+    stroke: var(--sl-color-purple);
+  }
+
+  .network-diagram .output-node circle {
+    fill: color-mix(in oklab, var(--sl-color-accent) 18%, var(--sl-color-bg));
+    stroke: var(--sl-color-accent);
+  }
+
+  .network-diagram figcaption {
+    color: var(--sl-color-gray-3);
+    font-size: 0.9375rem;
+    text-align: center;
+  }
+
+  @media (max-width: 32rem) {
+    .network-diagram .layer-label,
+    .network-diagram .node-note {
+      font-size: 13px;
+    }
+  }
+</style>

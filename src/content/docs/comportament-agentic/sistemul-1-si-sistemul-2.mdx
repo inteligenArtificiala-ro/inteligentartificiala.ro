@@ -1,0 +1,75 @@
+---
+title: Gândire rapidă și gândire lentă (Sistemul 1 și Sistemul 2)
+description: Cum se aplică cele două sisteme de gândire descrise de Daniel Kahneman la inteligența artificială, de la modelele rapide de decizie precum Jev până la LLM-urile care raționează pas cu pas.
+sidebar:
+  order: 4
+  label: Sistemul 1 și Sistemul 2
+level: intermediar
+tags:
+  - Sisteme agentice
+  - Modele de limbaj mari (LLM)
+---
+
+Psihologul Daniel Kahneman, laureat al Premiului Nobel pentru economie în 2002, a popularizat o distincție între două moduri de gândire în cartea _Thinking, Fast and Slow_ (2011), tradusă în română ca _Gândire rapidă, gândire lentă_. Denumirile de **Sistem 1** și **Sistem 2** fuseseră propuse înainte de psihologii Keith Stanovich și Richard West. Distincția s-a dovedit utilă și pentru a descrie cum sunt construite sistemele de inteligență artificială.
+
+## Cele două sisteme
+
+| | Sistemul 1 | Sistemul 2 |
+| --- | --- | --- |
+| Viteză | Rapid, automat | Lent, deliberat |
+| Efort | Aproape fără efort | Cere atenție și concentrare |
+| Exemple | Recunoașterea unei fețe, citirea unui cuvânt, rezultatul lui 2 + 2 | Calculul lui 17 × 24, compararea a două oferte, verificarea unui argument |
+| Erori tipice | Scurtături mentale și prejudecăți (_biases_) | Oboseală și capacitate limitată |
+
+Sistemul 1 lucrează tot timpul și ne oferă impresii și intuiții. Sistemul 2 intervine când o problemă este nouă sau când intuiția nu ajunge, și poate verifica și corecta ce propune Sistemul 1. Majoritatea deciziilor de zi cu zi le ia Sistemul 1, pentru că Sistemul 2 cere mult efort și nu poate fi folosit tot timpul.
+
+Analogia are limite. Kahneman descrie procese ale minții umane, nu arhitecturi de calcul, iar împărțirea în două sisteme este o simplificare chiar și în psihologie. În inteligența artificială, ea rămâne totuși o metaforă bună pentru compromisul dintre viteză și cost, pe de o parte, și flexibilitate, pe de altă parte.
+
+## LLM-ul ca Sistem 2
+
+În 2019, la conferința NeurIPS, Yoshua Bengio a spus că rețelele neuronale de atunci se descurcă bine mai ales la sarcini de tip Sistem 1, precum percepția și recunoașterea tiparelor, și a cerut modele capabile de raționament explicit, de tip Sistem 2.
+
+Un [model de limbaj mare](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) generează text token cu token. Un singur pas de generare, adică o singură trecere prin rețea, seamănă mai degrabă cu o intuiție. Comportamentul se schimbă când modelul își scrie raționamentul pas cu pas (_chain of thought_, descris de [Wei și colaboratorii](https://arxiv.org/abs/2201.11903) în 2022), verifică rezultatele intermediare, revine asupra unor pași greșiți și apelează instrumente într-un [proces agentic](/comportament-agentic/harnasamentul/). Privit în ansamblu, un astfel de sistem seamănă cu Sistemul 2: este lent și scump, dar flexibil și poate aborda probleme pe care nu le-a mai întâlnit. [Modelele de raționament](/modele-lingvistice/rationament-si-gandire/) antrenate prin [învățare prin consolidare](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/) duc această idee mai departe și învață singure să genereze pași de verificare înainte de răspunsul final.
+
+Prețul acestei flexibilități este timpul. Un model de raționament poate genera mii de tokenuri și poate avea nevoie de secunde sau minute pentru un singur răspuns. Pentru multe decizii din software, precum clasificarea unui tichet, alegerea unei acțiuni dintr-o listă sau direcționarea unei cereri, un asemenea efort este prea mare. Aici apare ideea unui Sistem 1 artificial.
+
+## Modelele System One și Jev
+
+În 2026, compania TypeSafe a prezentat [**Jev**](https://typesafe.ai/blog/introducing-system-one-models-and-jev), primul său model public dintr-o clasă pe care o numește **modele System One** (_System One models_). Numele clasei trimite explicit la cartea lui Kahneman. Jev poartă numele economistului William Stanley Jevons, cunoscut pentru observația că o eficiență mai mare poate crește consumul total al unei resurse.
+
+Spre deosebire de un LLM, Jev nu generează text liber. Compania îl descrie ca pe un apel de funcție care primește o stare nestructurată și întoarce decizii tipizate, însoțite de probabilități.
+
+- **Intrări**: starea unui program, adesea nestructurată, nu mesajele unei conversații.
+- **Ieșiri**: valori tipizate, definite dinainte printr-o schemă, de exemplu alegerea unei opțiuni dintr-o listă. Răspunsul respectă întotdeauna schema.
+- **Încredere calibrată**: fiecare decizie vine cu probabilități, astfel încât programul știe cât de sigur este modelul.
+- **Eșantionare paralelă**: toate valorile ieșirii sunt produse într-o singură interogare, nu token cu token.
+- **Antrenare**: o metodă numită de companie RLCD (_reinforcement learning for calibrated decisions_), care recompensează deciziile calibrate, nu preferințele umane sau răspunsurile verificabile.
+
+Compania raportează timpi de răspuns între 70 și 500 de milisecunde, de 40 până la 200 de ori mai mici decât ai LLM-urilor de vârf pentru întrebări de acest tip, și un cost de 0,042 dolari pentru un milion de tokenuri de intrare. Printre demonstrații se numără un agent care joacă Doom pe baza stării jocului descrise ca text, cu aproximativ 10 decizii pe secundă, și navigarea între articole Wikipedia prin alegerea repetată a linkului următor.
+
+:::note[Cifre raportate de companie]
+Valorile provin din articolul de prezentare al TypeSafe și nu au fost verificate independent. Autorii menționează ei înșiși limitele evaluării, printre care faptul că LLM-urile comparate au fost constrânse să producă decizii structurate, ceea ce le poate face mai lente și mai scumpe decât în utilizarea obișnuită. La data scrierii acestei pagini (octombrie 2026), Jev este disponibil doar în acces anticipat (_early access_).
+:::
+
+## Cum colaborează cele două sisteme
+
+Articolul TypeSafe nu împarte explicit rolurile în Sistem 1 și Sistem 2, dar recomandă în continuare LLM-urile pentru asistenții conversaționali, agenții de programare, problemele verificabile și prototipurile. Analogia lui Kahneman sugerează o arhitectură în care cele două tipuri de modele lucrează împreună.
+
+| | Model de tip Sistem 1 (de exemplu Jev) | LLM ca Sistem 2 |
+| --- | --- | --- |
+| Ieșire | O valoare tipizată, cu probabilități | Text liber, cod sau apeluri de instrumente |
+| Timp de răspuns | Zeci sau sute de milisecunde | Secunde sau minute |
+| Potrivit pentru | Decizii frecvente, repetitive și bine delimitate | Probleme noi, ambigue sau cu mulți pași |
+| Rolul în sistem | O funcție apelată din cod | Coordonatorul care planifică și verifică |
+
+Într-un [sistem agentic](/comportament-agentic/ce-este-comportamentul-agentic/), un LLM poate juca rolul Sistemului 2. El planifică sarcina, scrie cod și verifică rezultatele. Deciziile mărunte, care trebuie luate de multe ori pe secundă sau la un cost minim, pot fi delegate unor modele rapide de tip Sistem 1, apelate la fel ca orice alt [instrument](/comportament-agentic/apelul-de-instrumente/). Ca la oameni, Sistemul 2 poate prelua controlul atunci când încrederea raportată de Sistemul 1 este mică.
+
+## Bibliografie
+
+- Bengio, Y. (2019). From System 1 Deep Learning to System 2 Deep Learning. Prezentare invitată, NeurIPS 2019.
+- Evans, J. St. B. T. și Stanovich, K. E. (2013). [Dual-Process Theories of Higher Cognition: Advancing the Debate](https://doi.org/10.1177/1745691612460685). _Perspectives on Psychological Science_, 8(3), 223–241.
+- Jevons, W. S. (1865). _The Coal Question_. Macmillan.
+- Kahneman, D. (2011). _Thinking, Fast and Slow_. Farrar, Straus and Giroux.
+- Stanovich, K. E. și West, R. F. (2000). [Individual differences in reasoning: Implications for the rationality debate?](https://doi.org/10.1017/S0140525X00003435) _Behavioral and Brain Sciences_, 23(5), 645–665.
+- TypeSafe (2026). [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev). Blogul TypeSafe.
+- Wei, J. et al. (2022). [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903). _NeurIPS 2022_.

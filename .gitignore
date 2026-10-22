@@ -1,0 +1,37 @@
+# build output
+dist/
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+
+# index Pagefind copiat pentru `npm run dev:search`
+public/pagefind/
+
+# copiate din node_modules de src/integrations/vendor.mjs
+public/pyscript/
+public/onnxruntime/
+
+# descărcările scripts/prepare-model.py
+.cache/
+
+# agent config
+.config/

@@ -1,0 +1,100 @@
+---
+// Propagarea directă și retropropagarea în rețeaua din exemplul paginii: o intrare, un neuron ascuns și o ieșire.
+import '../../styles/diagrams.css';
+import Box, { type BoxProps } from './Box.astro';
+
+const boxes: BoxProps[] = [
+  { x: 20, y: 70, width: 110, height: 48, kind: 'embedding', lines: ['Intrare', 'x'] },
+  { x: 200, y: 70, width: 110, height: 48, kind: 'feed-forward', lines: ['Neuron ascuns', 'a = f(wx + b)'] },
+  { x: 380, y: 70, width: 110, height: 48, kind: 'output', lines: ['Ieșire', 'ŷ = va + c'] },
+  { x: 560, y: 70, width: 110, height: 48, kind: 'neutral', lines: ['Eroare', 'L = ½(ŷ − y)²'] },
+];
+
+// Propagarea directă duce valorile spre dreapta, prin partea de sus a spațiului dintre casete.
+const forward = [
+  { d: 'M130 86 H200', label: 'x', x: 165 },
+  { d: 'M310 86 H380', label: 'a', x: 345 },
+  { d: 'M490 86 H560', label: 'ŷ', x: 525 },
+];
+
+// Retropropagarea întoarce gradienții spre stânga, prin partea de jos. Nu continuă până la intrare,
+// pentru că x nu este un parametru.
+const backward = [
+  { d: 'M560 102 H490', label: '∂L/∂ŷ', x: 525 },
+  { d: 'M380 102 H310', label: '∂L/∂a', x: 345 },
+];
+
+// Gradienții parametrilor, obținuți pe drum, sub caseta care îi folosește.
+const parameterGradients = [
+  { label: '∂L/∂w, ∂L/∂b', x: 255 },
+  { label: '∂L/∂v, ∂L/∂c', x: 435 },
+];
+---
+
+<figure class='diagram backprop-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 44 690 156' role='img' aria-labelledby='backprop-title backprop-desc'>
+      <title id='backprop-title'>Propagarea directă și retropropagarea</title>
+      <desc id='backprop-desc'>
+        Patru casete legate de la stânga la dreapta: intrarea x, neuronul ascuns care calculează a = f(wx + b), ieșirea ŷ =
+        va + c și eroarea L. Săgețile pline, spre dreapta, duc valorile x, a și ŷ. Săgețile punctate, spre stânga, întorc
+        gradienții ∂L/∂ŷ și ∂L/∂a. Sub neuronul ascuns apar gradienții ∂L/∂w și ∂L/∂b, iar sub ieșire ∂L/∂v și ∂L/∂c.
+      </desc>
+      <defs>
+        <marker
+          id='backprop-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      {boxes.map((box) => <Box {...box} />)}
+
+      <g class='arrow' marker-end='url(#backprop-arrow)'>
+        {forward.map((arrow) => <path d={arrow.d} />)}
+      </g>
+      <g class='arrow' stroke-dasharray='5 3' marker-end='url(#backprop-arrow)'>
+        {backward.map((arrow) => <path d={arrow.d} />)}
+      </g>
+
+      {
+        forward.map((arrow) => (
+          <text class='label math' x={arrow.x} y='62' text-anchor='middle'>
+            {arrow.label}
+          </text>
+        ))
+      }
+      {
+        [...backward, ...parameterGradients].map((item) => (
+          <text class='label math' x={item.x} y='138' text-anchor='middle'>
+            {item.label}
+          </text>
+        ))
+      }
+
+      <g class='arrow'>
+        <path d='M20 176 H56' marker-end='url(#backprop-arrow)' />
+        <path d='M346 176 H310' stroke-dasharray='5 3' marker-end='url(#backprop-arrow)' />
+      </g>
+      <text class='label' x='66' y='180'>propagare directă: valori</text>
+      <text class='label' x='356' y='180'>retropropagare: gradienți</text>
+    </svg>
+  </div>
+  <figcaption>
+    Propagarea directă calculează valorile de la stânga la dreapta, până la eroare. Retropropagarea pornește de la eroare
+    și trimite gradienții înapoi, iar pe drum obține gradienții tuturor parametrilor.
+  </figcaption>
+</figure>
+
+<style>
+  .backprop-diagram svg {
+    min-width: 34rem;
+    max-width: 43rem;
+  }
+</style>

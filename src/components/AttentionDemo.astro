@@ -1,0 +1,179 @@
+---
+// Ponderile de atenție ale cuvântului „ea” într-o propoziție cu două variante. Valorile sunt alese pentru ilustrare,
+// nu calculate de un model. Exemplul este adaptat după articolul de pe blogul Google care a prezentat Transformerul (2017).
+const words = ['Pisica', 'nu', 'a', 'traversat', 'strada', 'pentru', 'că', 'ea', 'era', 'prea'];
+const variants = {
+  obosita: { word: 'obosită', weights: [0.46, 0.03, 0.02, 0.05, 0.12, 0.02, 0.03, 0.1, 0.05, 0.03, 0.09] },
+  lata: { word: 'lată', weights: [0.12, 0.03, 0.02, 0.05, 0.44, 0.02, 0.03, 0.1, 0.05, 0.03, 0.11] },
+};
+const queryIndex = words.indexOf('ea');
+const initial = variants.obosita;
+const percent = (value: number) => `${Math.round(value * 100)}%`;
+---
+
+<section class='attention-demo not-content' data-attention-demo aria-labelledby='attention-demo-title'>
+  <h3 id='attention-demo-title'>La ce se uită cuvântul „ea”</h3>
+
+  <fieldset class='attention-demo-variants'>
+    <legend>Ultimul cuvânt al propoziției</legend>
+    {
+      Object.entries(variants).map(([key, { word }], index) => (
+        <label>
+          <input type='radio' name='attention-demo-variant' value={key} checked={index === 0} />
+          <span>{word}</span>
+        </label>
+      ))
+    }
+  </fieldset>
+
+  <ol class='attention-demo-words' data-variants={JSON.stringify(variants)}>
+    {
+      [...words, initial.word].map((word, index) => (
+        <li class:list={{ query: index === queryIndex }} style={`--weight: ${initial.weights[index]}`}>
+          <span class='attention-demo-word' data-word={index === words.length ? 'last' : undefined}>
+            {word}
+          </span>
+          <span class='attention-demo-value'>{percent(initial.weights[index])}</span>
+        </li>
+      ))
+    }
+  </ol>
+
+  <p class='attention-demo-summary' aria-live='polite' data-summary>
+    „ea” acordă cea mai mare pondere cuvântului „Pisica” ({percent(initial.weights[0])}).
+  </p>
+  <p class='attention-demo-note'>
+    Ponderile sunt alese pentru ilustrare, nu calculate de un model. Suma lor este 100%. Cuvântul „ea” este marcat cu un contur.
+  </p>
+</section>
+
+<script>
+  type Variants = Record<string, { word: string; weights: number[] }>;
+
+  for (const demo of document.querySelectorAll<HTMLElement>('[data-attention-demo]')) {
+    const list = demo.querySelector<HTMLElement>('[data-variants]');
+    const summary = demo.querySelector<HTMLElement>('[data-summary]');
+    if (!list || !summary) continue;
+    const variants = JSON.parse(list.dataset.variants ?? '{}') as Variants;
+    const items = [...list.querySelectorAll<HTMLElement>('li')];
+
+    const update = (key: string) => {
+      const { word, weights } = variants[key];
+      items.forEach((item, index) => {
+        item.style.setProperty('--weight', String(weights[index]));
+        const value = item.querySelector('.attention-demo-value');
+        if (value) value.textContent = `${Math.round(weights[index] * 100)}%`;
+      });
+      const last = list.querySelector('[data-word="last"]');
+      if (last) last.textContent = word;
+
+      const top = weights.indexOf(Math.max(...weights));
+      const topWord = items[top].querySelector('.attention-demo-word')?.textContent?.trim();
+      summary.textContent = `„ea” acordă cea mai mare pondere cuvântului „${topWord}” (${Math.round(weights[top] * 100)}%).`;
+    };
+
+    demo.addEventListener('change', (event) => {
+      const input = event.target as HTMLInputElement;
+      if (input.name === 'attention-demo-variant') update(input.value);
+    });
+  }
+</script>
+
+<style>
+  .attention-demo {
+    margin-block: 1.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.75rem;
+    background: var(--sl-color-gray-7);
+  }
+
+  .attention-demo h3 {
+    margin: 0 0 0.75rem;
+    color: var(--sl-color-white);
+    font-size: var(--sl-text-h4);
+  }
+
+  .attention-demo-variants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    margin: 0 0 1rem;
+    padding: 0;
+    border: 0;
+  }
+
+  .attention-demo-variants legend {
+    float: left;
+    margin-right: 0.5rem;
+    color: var(--sl-color-gray-2);
+  }
+
+  .attention-demo-variants label {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .attention-demo-variants input {
+    accent-color: var(--sl-color-accent);
+  }
+
+  .attention-demo-words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .attention-demo-words li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .attention-demo-word {
+    padding: 0.3rem 0.55rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.4rem;
+    background: color-mix(
+      in oklab,
+      var(--sl-color-accent) calc(var(--weight) * 160%),
+      var(--sl-color-bg)
+    );
+    color: var(--sl-color-white);
+    transition: background-color 0.3s;
+  }
+
+  .attention-demo-words .query .attention-demo-word {
+    outline: 2px solid var(--sl-color-text-accent);
+    outline-offset: 2px;
+  }
+
+  .attention-demo-value {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-xs);
+  }
+
+  .attention-demo p {
+    margin: 1rem 0 0;
+  }
+
+  .attention-demo .attention-demo-note {
+    margin-top: 0.4rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .attention-demo-word {
+      transition: none;
+    }
+  }
+</style>

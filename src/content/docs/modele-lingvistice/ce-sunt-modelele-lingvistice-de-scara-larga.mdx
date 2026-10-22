@@ -1,0 +1,106 @@
+---
+title: Modele de limbaj mari (LLM)
+description: Un model de limbaj mare (LLM) scrie text câte un token pe rând, pe baza probabilităților învățate din cantități uriașe de text. Pagina include un demo care rulează direct în browser.
+sidebar:
+  order: 1
+level: incepator
+tags:
+  - Modele de limbaj mari (LLM)
+---
+
+import GenerationStepDiagram from '@components/diagrams/GenerationStepDiagram.astro';
+import LlmChat from '@components/LlmChat.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Un **model de limbaj mare** (_large language model_, LLM) este o [rețea neuronală](/retele-neuronale/ce-sunt-retelele-neuronale/) antrenată să prezică și să genereze text coerent. Primește un text și estimează cum continuă cel mai probabil, bucată cu bucată. Sisteme precum ChatGPT, Gemini, Grok sau Claude sunt construite în jurul unor astfel de modele. Detaliile lor interne nu sunt, de obicei, publice, dar principiile de bază sunt aceleași pentru toată familia de modele Transformer.
+
+Cuvântul „mare” se referă la dimensiune: cele mai mari modele au sute de miliarde de parametri, antrenați pe cantități uriașe de text și cod. De exemplu, GPT-3 (lansat de OpenAI în 2020) avea 175 de miliarde de parametri, iar Llama 3.1 (Meta, 2024) are și o variantă cu 405 miliarde.
+
+## Definiție
+
+Un **model de limbaj** (_language model_) atribuie probabilități secvențelor de text. Textul este împărțit în bucăți numite tokenuri, $x_1, x_2, \ldots, x_n$. Cu regula lanțului, probabilitatea întregii secvențe se scrie ca un produs de probabilități condiționate.
+
+$$
+P(x_1, \ldots, x_n) = \prod_{t=1}^{n} P(x_t \mid x_1, \ldots, x_{t-1})
+$$
+
+Fiecare factor este probabilitatea ca tokenul $x_t$ să apară după tokenurile dinaintea lui. Un LLM aproximează aceste probabilități: pornind de la contextul primit, calculează o distribuție peste întregul vocabular. Sarcina aceasta se numește **predicția următorului token** (_next-token prediction_).
+
+## Tokenuri
+
+Modelele nu lucrează direct cu litere sau cu cuvinte întregi, ci cu **tokenuri** (_tokens_), adică secvențe de caractere dintr-un vocabular fixat dinainte. **Tokenizarea** (_tokenization_) este pasul care împarte textul în astfel de bucăți. Cuvintele foarte frecvente devin adesea un singur token, iar cele rare sau compuse se împart în mai multe.
+
+De exemplu, tokenizatorul modelului SmolLM2 (cel din demo-ul de mai jos) are un vocabular de 49.152 de tokenuri. Propoziția „Neural networks learn from data.” este împărțită în 7 tokenuri (`␣` marchează spațiul de la începutul unui token).
+
+`Ne` `ural` `␣networks` `␣learn` `␣from` `␣data` `.`
+
+:::note[Ce înseamnă tokenizarea pentru limba română]
+Cele mai multe vocabulare sunt construite mai ales pentru engleză. De aceea, aceeași propoziție în română („Rețelele neuronale învață din date.”) are nevoie de 17 tokenuri, deși are tot atâtea cuvinte. Literele cu diacritice, precum „ț” sau „î”, sunt adesea împărțite în octeți UTF-8 separați. Un text în română folosește deci mai multe tokenuri, are un cost computațional mai mare și ocupă mai mult loc în fereastra de context.
+:::
+
+Fiecare token are un număr de identificare unic (ID). În interiorul rețelei, fiecare ID este transformat într-un vector dens de numere reale, numit **reprezentare vectorială** (_embedding_).
+
+## Cum este generat textul
+
+Generarea este un proces autoregresiv: modelul produce câte un token pe rând, iar fiecare token nou depinde de cele de dinainte. La fiecare pas, modelul citește tot textul de până atunci (numit **context**) și calculează un scor pentru fiecare token din vocabular. Funcția softmax transformă aceste scoruri în probabilități. Din această distribuție se alege următorul token, care se adaugă la context, iar procesul se repetă până când apare un token special de oprire sau se atinge numărul maxim de tokenuri permis.
+
+<GenerationStepDiagram />
+
+Diagrama de mai sus arată probabilitățile calculate de modelul din demo. Pentru începutul de propoziție „Capitala României este”, modelul îi dă continuării corecte doar 5%. Asta arată că, fără suficient text în română la preantrenare, predicțiile devin nesigure.
+
+Alegerea tokenului depinde direct de **temperatură** (_temperature_), un hiperparametru care scalează scorurile nenormalizate înainte de softmax.
+
+$$
+p_i = \frac{\exp(z_i / T)}{\sum_{j} \exp(z_j / T)}
+$$
+
+unde $z_i$ este scorul nenormalizat al tokenului $i$ (numit _logit_), iar $T$ este temperatura. La temperaturi mici ($T \to 0$), aproape toată probabilitatea se adună pe cele mai probabile tokenuri, iar textul devine previzibil. La temperaturi mari, distribuția se apropie de una uniformă, iar textul devine mai variat și mai surprinzător. Cazul limită, în care alegem mereu tokenul cu probabilitatea cea mai mare, se numește **decodare greedy** (_greedy decoding_).
+
+## Arhitectura
+
+Arhitectura standard pentru LLM-uri este **Transformer**, introdusă în 2017 în articolul „Attention Is All You Need”. Modelele generative de azi folosesc varianta **doar cu decodor** (_decoder-only_): o stivă adâncă de blocuri cu aceeași structură, fiecare format din atenție cauzală și o rețea feed-forward. Mecanismul de **atenție** (_attention_) îi permite fiecărei poziții să adune informație din pozițiile anterioare. Paginile [Avem nevoie doar de atenție?](/modele-lingvistice/avem-nevoie-doar-de-atentie/) și [Arhitectura Transformer](/modele-lingvistice/arhitectura-transformer/) explică pe larg cum funcționează.
+
+## Antrenarea
+
+Un asistent conversațional se construiește de obicei în trei etape. Prima produce modelul preantrenat, iar celelalte două îl transformă în asistent.
+
+<Steps>
+1. **Preantrenarea** (_pretraining_): modelul este antrenat pe cantități uriașe de text de pe web, cărți și cod sursă. Învață să prezică următorul token, minimizând **entropia încrucișată** (_cross-entropy_).
+   $$L = -\sum_{t=1}^{n} \log P(x_t \mid x_1, \ldots, x_{t-1})$$
+   Pierderea scade pe măsură ce modelul dă probabilități tot mai mari continuărilor care apar efectiv în text. Etapa este **auto-supervizată** (_self-supervised_): textul însuși oferă semnalul de învățare, fără etichete puse de oameni.
+2. **Ajustarea fină supervizată** (_supervised fine-tuning_, SFT): modelul preantrenat știe să continue un text, dar nu este încă un asistent care urmează instrucțiuni. Prin SFT pe exemple de dialoguri, modelul învață cum arată o conversație și cum să urmeze instrucțiunile din prompt.
+3. **Alinierea cu preferințele umane** (_alignment_): se compară mai multe variante de răspuns, iar comportamentul modelului este ajustat spre cele preferate, cu tehnici precum RLHF (_reinforcement learning from human feedback_) sau DPO (_direct preference optimization_). Ambele sunt explicate pe pagina despre [învățarea prin consolidare pentru LLM-uri](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/).
+</Steps>
+
+## Limitări
+
+:::caution[Limitele unui LLM]
+- [**Halucinațiile**](/modele-lingvistice/halucinatii/) (_hallucinations_) sunt afirmații care sună plauzibil, dar sunt false. Modelul este antrenat să producă text probabil, nu text adevărat sau corect logic.
+- **Fereastra de context** (_context window_) este limitată: modelul poate prelucra doar un număr maxim de tokenuri deodată.
+- **Cunoștințele sunt fixe**: modelul știe doar ce exista în datele de antrenare, până la **data limită a cunoștințelor** (_knowledge cutoff_). Limita poate fi ocolită prin [generare augmentată prin regăsire (RAG) și apel de instrumente](/modele-lingvistice/generare-augmentata-prin-regasire-rag/).
+- **Prejudecățile** (_bias_) din datele de pe internet ajung și în model, care poate reproduce stereotipurile și dezechilibrele din acele date.
+:::
+
+## Un model compact în browser
+
+:::tip[Totul rulează în browser]
+SmolLM2 135M, dezvoltat de Hugging Face în 2024, are 135 de milioane de parametri, de peste 1.000 de ori mai puțini decât GPT-3. A fost preantrenat pe 2.000 de miliarde de tokenuri, mai ales în limba engleză.
+
+Modelul rulează direct în browser, **cuantizat** (_quantized_) pe 8 biți, prin biblioteca [Transformers.js](https://huggingface.co/docs/transformers.js), cu WebGPU sau WebAssembly. Mesajele nu sunt trimise la niciun server.
+:::
+
+<LlmChat />
+
+Modelul răspunde în engleză și are limitele firești ale unui model atât de mic. Arată însă că inferența unui model de limbaj poate rula eficient, în întregime local.
+
+## Bibliografie
+
+- Ben Allal, L. et al. (2025). [SmolLM2: When Smol Goes Big – Data-Centric Training of a Small Language Model](https://arxiv.org/abs/2502.02737). Preprint arXiv:2502.02737.
+- Bengio, Y. et al. (2003). [A Neural Probabilistic Language Model](https://www.jmlr.org/papers/v3/bengio03a.html). _Journal of Machine Learning Research_, 3, 1137–1155.
+- Brown, T. B. et al. (2020). [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165). _NeurIPS 2020_.
+- Grattafiori, A. et al. (2024). [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783). Preprint arXiv:2407.21783.
+- Ouyang, L. et al. (2022). [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155). _NeurIPS 2022_.
+- Petrov, A. et al. (2023). [Language Model Tokenizers Introduce Unfairness Between Languages](https://arxiv.org/abs/2305.15425). _NeurIPS 2023_.
+- Radford, A. et al. (2018). [Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf). Raport tehnic OpenAI.
+- Rafailov, R. et al. (2023). [Direct Preference Optimization: Your Language Model is Secretly a Reward Model](https://arxiv.org/abs/2305.18290). _NeurIPS 2023_.
+- Vaswani, A. et al. (2017). [Attention Is All You Need](https://arxiv.org/abs/1706.03762). _NeurIPS 2017_.

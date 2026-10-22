@@ -1,0 +1,119 @@
+/* Stiluri comune pentru diagramele SVG din documentație (src/components/diagrams/). */
+
+.diagram {
+  margin: 1.75rem 0;
+}
+
+/* Pe ecranele înguste, diagramele mari se derulează orizontal, ca textul să rămână lizibil. */
+.diagram-scroll {
+  overflow-x: auto;
+}
+
+.diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.diagram figcaption {
+  margin-top: 0.5rem;
+  color: var(--sl-color-gray-3);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+/* Etichetele au fost așezate pentru un font mai îngust decât Source Sans 3. Cu un pixel mai puțin, textul ocupă
+   aceeași lățime în casete și arată la fel de mare, pentru că literele mici ale lui Source Sans 3 sunt mai înalte. */
+.diagram text {
+  fill: var(--sl-color-gray-1);
+  font-family: var(--sl-font);
+  font-size: 13px;
+}
+
+.diagram .label {
+  fill: var(--sl-color-gray-3);
+  font-size: 12px;
+}
+
+.diagram .title {
+  fill: var(--sl-color-gray-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.diagram .math {
+  font-family: var(--sl-font-mono);
+  font-size: 13px;
+}
+
+.diagram .arrow {
+  fill: none;
+  stroke: var(--sl-color-gray-3);
+  stroke-width: 1.5;
+}
+
+.diagram marker path {
+  fill: var(--sl-color-gray-3);
+}
+
+.diagram .group {
+  fill: color-mix(in oklab, var(--sl-color-gray-5) 35%, transparent);
+  stroke: var(--sl-color-gray-4);
+  stroke-dasharray: 5 4;
+}
+
+.diagram .box {
+  stroke-width: 1.5;
+  rx: 6px;
+}
+
+.diagram .box.dashed {
+  stroke-dasharray: 5 3;
+}
+
+/* Culorile urmează convenția din diagrama originală a articolului: atenția portocalie, rețeaua feed-forward albastră. */
+.diagram .attention {
+  fill: color-mix(in oklab, var(--sl-color-orange) 22%, var(--sl-color-bg));
+  stroke: var(--sl-color-orange);
+}
+
+.diagram .feed-forward {
+  fill: color-mix(in oklab, var(--sl-color-blue) 20%, var(--sl-color-bg));
+  stroke: var(--sl-color-blue);
+}
+
+.diagram .norm {
+  fill: color-mix(in oklab, var(--sl-color-green) 18%, var(--sl-color-bg));
+  stroke: var(--sl-color-green);
+}
+
+.diagram .embedding {
+  fill: color-mix(in oklab, var(--sl-color-purple) 18%, var(--sl-color-bg));
+  stroke: var(--sl-color-purple);
+}
+
+.diagram .output {
+  fill: color-mix(in oklab, var(--sl-color-red) 15%, var(--sl-color-bg));
+  stroke: var(--sl-color-red);
+}
+
+.diagram .neutral {
+  fill: var(--sl-color-bg);
+  stroke: var(--sl-color-gray-4);
+}
+
+.diagram .bar {
+  fill: var(--sl-color-accent);
+}
+
+.diagram .bar-track {
+  fill: var(--sl-color-gray-6);
+}
+
+.diagram .highlight {
+  fill: color-mix(in oklab, var(--sl-color-accent) 22%, var(--sl-color-bg));
+  stroke: var(--sl-color-accent);
+}

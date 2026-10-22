@@ -1,0 +1,228 @@
+---
+title: Preantrenarea
+description: Modelul învață din povești să prezică următorul token. Obiectivul, loturile de antrenare, optimizatorul AdamW, programul ratei de învățare, limitarea gradientului și o antrenare de zece minute pe un laptop.
+sidebar:
+  order: 4
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+---
+
+import Python from '@components/Python.astro';
+import SourceFile from '@components/SourceFile.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+export const labSetup = String.raw`
+import os, sys
+from js import location
+from pyodide.http import open_url
+
+# Fișierul tokenizer.py al laboratorului și eșantionul de povești, copiate în sistemul de fișiere din browser.
+LAB = location.origin + "/laboratoare/model-lingvistic-de-la-zero/"
+for path in ["cod/tokenizer.py", "date/povesti.txt"]:
+    name = path.split("/")[-1]
+    if not os.path.exists(name):
+        text = open_url(LAB + path).read()
+        with open(name, "w", encoding="utf-8") as f:
+            f.write(text)
+sys.path.insert(0, ".")
+`;
+
+Un model abia creat are ponderi aleatoare și scrie cuvinte fără legătură. În **preantrenare** (_pretraining_), modelul citește povești și învață un singur lucru: să prezică următorul token. Nimeni nu îi spune ce este o propoziție sau un personaj. Gramatica, numele personajelor și firul unei povești le învață pe drum, doar pentru că îl ajută să prezică următorul cuvânt.
+
+Codul antrenării se află în fișierul `pretrain.py`.
+
+## Obiectivul
+
+Pentru o fereastră de tokenuri $x_1, \ldots, x_T$, modelul dă la fiecare poziție $t$ o distribuție de probabilitate peste vocabular. Pierderea este media logaritmului negativ al probabilității date tokenului care urmează cu adevărat.
+
+$$
+\mathcal{L} = -\frac{1}{T} \sum_{t=1}^{T} \log p_\theta(x_{t+1} \mid x_1, \ldots, x_t)
+$$
+
+unde $p_\theta$ este distribuția calculată de model cu parametrii $\theta$. Această pierdere este **entropia încrucișată** (_cross-entropy_), calculată de `F.cross_entropy` în metoda `forward` a modelului. Masca cauzală din atenție împiedică poziția $t$ să vadă tokenul $x_{t+1}$ pe care trebuie să-l prezică.
+
+Un model netantrenat împarte probabilitatea aproximativ egal între cele 10.000 de tokenuri, deci pornește de la o pierdere în jur de $\ln 10.000 \approx 9{,}21$. O mărime mai ușor de interpretat este **perplexitatea** (_perplexity_), $e^{\mathcal{L}}$, adică numărul de tokenuri între care modelul ezită, în medie, ca și cum ar alege la întâmplare dintre ele.
+
+<Python
+  code={String.raw`
+import math
+
+vocab_size = 10_000
+print(f"Model uniform: pierdere ln({vocab_size}) = {math.log(vocab_size):.3f}")
+print()
+for loss in [9.21, 5.0, 3.2, 2.25]:
+    print(f"Pierdere {loss:.2f} -> perplexitate {math.exp(loss):8,.1f}")
+`}
+/>
+
+## Loturile
+
+La fiecare pas, modelul primește un **lot** (_batch_) de 48 de ferestre de câte 256 de tokenuri, luate din locuri aleatoare ale fișierului `train.bin`.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/pretrain.py" symbols={['get_batch']} />
+
+Țintele `y` sunt intrările `x` deplasate cu o poziție. O singură fereastră conține astfel 256 de exemple de antrenare, câte unul pentru fiecare poziție, toate calculate în paralel. Ferestrele nu țin cont de granițele dintre povești. O fereastră poate începe la mijlocul unei povești și poate trece de `<|endoftext|>` în următoarea, iar modelul învață și că după acest token începe o poveste nouă.
+
+Mai jos, aceeași funcție este scrisă cu NumPy și rulată pe eșantionul din browser, cu ferestre de doar 8 tokenuri.
+
+<Python
+  packages={['numpy']}
+  setup={labSetup}
+  code={String.raw`
+import numpy as np
+from tokenizer import WordTokenizer, build_vocab
+
+vocab, _ = build_vocab(["povesti.txt"], size=1000)
+tokenizer = WordTokenizer(vocab)
+with open("povesti.txt", encoding="utf-8") as f:
+    data = np.array(tokenizer.encode(f.read()), dtype=np.uint16)
+
+def get_batch(data, block_size, batch_size, rng):
+    starts = rng.integers(len(data) - block_size - 1, size=batch_size)
+    x = np.stack([data[i : i + block_size].astype(np.int64) for i in starts])
+    y = np.stack([data[i + 1 : i + 1 + block_size].astype(np.int64) for i in starts])
+    return x, y
+
+x, y = get_batch(data, block_size=8, batch_size=2, rng=np.random.default_rng(seed=1))
+print("x =", x.tolist())
+print("y =", y.tolist())
+print()
+print("Exemplele din prima fereastră:")
+for t in range(8):
+    context = tokenizer.decode(x[0, : t + 1].tolist(), skip_special=False)
+    print(f"  {context!r} -> {tokenizer.id_to_token[y[0, t]]!r}")
+`}
+/>
+
+## Optimizatorul
+
+Ponderile sunt actualizate de **AdamW**, o variantă a [coborârii pe gradient](/retele-neuronale/ce-sunt-retelele-neuronale/#cum-învață-o-rețea-neuronală) folosită de aproape toate modelele de limbaj. Pentru fiecare parametru, Adam păstrează o medie mobilă a gradienților și una a pătratelor lor. Pasul urmează direcția mediei, iar mărimea lui este împărțită la rădăcina celei de-a doua medii, așa că parametrii cu gradienți mari sau zgomotoși fac pași mai mici. Coeficienții `betas=(0.9, 0.95)` stabilesc cât de repede uită cele două medii valorile vechi. Valoarea 0,95, în locul celei implicite de 0,999, face optimizatorul să reacționeze mai repede când scara gradienților se schimbă.
+
+Litera W vine de la **descreșterea ponderilor** (_weight decay_), descrisă de [Loshchilov și Hutter](https://arxiv.org/abs/1711.05101) în 2017. La fiecare pas, ponderile sunt micșorate puțin, proporțional cu valoarea lor, ceea ce le împiedică să crească fără limită. Descreșterea, cu coeficientul 0,1, se aplică doar matricelor, adică parametrilor cu cel puțin două dimensiuni. Vectorii de _bias_ și cei din normalizarea pe strat nu sunt micșorați.
+
+## Rata de învățare
+
+Rata de învățare nu este constantă. În primii 100 de pași crește liniar de la aproape zero la $6 \cdot 10^{-4}$. Această **încălzire** (_warmup_) evită pașii mari din primele momente, când gradienții modelului aleator sunt mari și instabili, iar mediile din AdamW nu s-au format încă. Apoi rata scade după o curbă cosinus, până la o zecime din valoarea maximă.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/pretrain.py" symbols={['LR', 'MIN_LR', 'WARMUP_STEPS', 'learning_rate']} />
+
+Antrenarea are un buget de timp, nu un număr fix de pași, ca să se potrivească oricărui calculator. De aceea, curba cosinus urmează fracțiunea de timp deja consumată (`progress`) și ajunge la valoarea minimă exact când se termină timpul. Codul de mai jos afișează programul pentru o antrenare de 1.250 de pași.
+
+<Python
+  code={String.raw`
+import math
+
+LR = 6e-4
+MIN_LR = LR / 10
+WARMUP_STEPS = 100
+
+def learning_rate(step, progress):
+    if step < WARMUP_STEPS:
+        return LR * (step + 1) / WARMUP_STEPS
+    return MIN_LR + 0.5 * (LR - MIN_LR) * (1 + math.cos(math.pi * progress))
+
+total_steps = 1250
+for step in [0, 25, 50, 99, 100, 250, 500, 625, 750, 1000, 1249]:
+    lr = learning_rate(step, step / total_steps)
+    print(f"pasul {step:>4}: {lr:.1e} {'#' * round(lr / LR * 40)}")
+`}
+/>
+
+Primii 100 de pași sunt doar 8% din antrenare, așa că la pasul 100 cosinusul a coborât deja puțin sub valoarea maximă. Pașii mari de la început aduc rapid modelul într-o zonă bună, iar pașii mici de la sfârșit îl stabilizează.
+
+## Limitarea gradientului
+
+:::tip[Protecție împotriva pașilor prea mari]
+Înaintea fiecărei actualizări, gradienții tuturor parametrilor sunt priviți ca un singur vector. Dacă lungimea lui depășește 1, vectorul este micșorat la lungimea 1, fără să-și schimbe direcția. Datorită acestei **limitări a gradientului** (_gradient clipping_), un lot neobișnuit sau o explozie a gradienților nu poate strica ponderile într-un singur pas.
+:::
+
+<Python
+  packages={['numpy']}
+  code={String.raw`
+import numpy as np
+
+# Gradienții a doi parametri, ca în clip_grad_norm_(model.parameters(), 1.0).
+grads = [np.array([3.0, -1.0]), np.array([[2.0, 0.5], [-1.0, 1.5]])]
+max_norm = 1.0
+
+total_norm = np.sqrt(sum((g ** 2).sum() for g in grads))
+scale = min(1.0, max_norm / total_norm)
+clipped = [g * scale for g in grads]
+
+print(f"Lungimea inițială: {total_norm:.3f}, factor: {scale:.3f}")
+print(f"Lungimea după limitare: {np.sqrt(sum((g ** 2).sum() for g in clipped)):.3f}")
+print(clipped[0])
+`}
+/>
+
+## Procesul de antrenare
+
+Funcția `estimate_loss` măsoară pierderea medie pe 20 de loturi din fiecare parte a datelor, cu modelul în modul de evaluare, adică fără _dropout_ și fără calculul gradienților.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/pretrain.py" symbols={['estimate_loss']} />
+
+Funcția `main` pune totul cap la cap.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/pretrain.py" symbols={['main']} />
+
+Fiecare pas al procesului face aceleași cinci operații.
+
+<Steps>
+1. **Rata de învățare** este calculată după programul de mai sus, cu încălzire și apoi scădere după o curbă cosinus, și este transmisă optimizatorului.
+2. **Alegerea lotului** ia un lot aleator `(x, y)` din fișierul binar de antrenare.
+3. **Propagarea directă** (_forward pass_) trece datele prin model și calculează pierderea prin entropie încrucișată.
+4. **Retropropagarea și limitarea** (_backward pass_) calculează gradienții (`loss.backward()`) și le limitează norma la 1,0 (`clip_grad_norm_`).
+5. **Actualizarea parametrilor** modifică ponderile cu un pas AdamW (`optimizer.step()`), după care gradienții sunt șterși (`optimizer.zero_grad()`).
+</Steps>
+
+`zero_grad` șterge gradienții pasului anterior, pe care altfel PyTorch i-ar aduna la cei noi. La fiecare 50 de pași se afișează pierderea lotului curent, rata de învățare și viteza, în tokenuri pe secundă. La fiecare 250 de pași, funcția `evaluate` măsoară pierderea pe datele de antrenare și pe cele de validare, generează începutul unei povești și salvează modelul într-un fișier separat, ca să-l putem compara mai târziu cu celelalte. Apelul `torch.manual_seed(1337)` face ca două rulări pe același dispozitiv să pornească din aceleași ponderi și să aleagă aceleași loturi.
+
+## Rularea
+
+Argumentul comenzii este bugetul de timp, în minute.
+
+```bash
+python pretrain.py 10
+```
+
+Rezultatul de mai jos vine dintr-o antrenare de 10 minute din seria video, pe un laptop modern. Am omis o parte din liniile afișate la fiecare 50 de pași.
+
+```text
+14,585,856 parametri pe mps, 19,853,261 tokenuri de antrenare
+pasul     0 | antrenare 9.324 | validare 9.325 | Once upon a time aren dismay mud Fragile sung passed disappearing Get Petal dead witch growling sunburn Patch onion sunburn Skip Barks napkins poles drip passed cautiously moms inspired asleep insisted insisted recorded feeder performers tear sliding rested bullets giving quilt hooted cuddle recommendations
+pasul    50 | pierdere 5.277 | lr 3.0e-04 | 19,994 tokenuri/s
+pasul   100 | pierdere 4.122 | lr 6.0e-04 | 27,243 tokenuri/s
+pasul   250 | antrenare 3.195 | validare 3.210 | Once upon a time, there was a tall bird. She loved to go home and make the bird. One day, a little bird named Tom was very angry anymore. The bird said, "I lost your friend!
+pasul   500 | antrenare 2.678 | validare 2.697 | Once upon a time, there was a little boy named Tim. He liked to make a big box on his room, and a bottle. Tim had an idea and said, "Let's watch the box!" In
+pasul   750 | antrenare 2.466 | validare 2.448 | Once upon a time, there was a small dog named Spot. Spot had many friends. Every day, Tom had a big job to do. One day, Spot went to the park to play. As Spot played,
+pasul  1000 | antrenare 2.307 | validare 2.311 | Once upon a time, there was a big tree. The tree had many leaves. The leaves were big and pretty. The tree liked to play with the leaves. One day, a little bird came to the tree.
+pasul  1250 | antrenare 2.252 | validare 2.252 | Once upon a time, in a big forest, there was a big hill. He lived in a big tree and all the forest. One day, a little bird came to the park. The bird asked, "What
+gata: 1,250 pași, 15,360,000 tokenuri, 10.1 minute
+```
+
+La pasul 0, modelul alege cuvinte la întâmplare din vocabular. După 250 de pași apar propozițiile și dialogul, iar după 1.000 de pași poveștile păstrează un fir pe parcursul câtorva propoziții. Pierderea pe validare scade de la 9,3 la 2,25, adică o perplexitate de aproximativ 9,5: din 10.000 de tokenuri posibile, modelul ezită, în medie, între câteva. Cele două pierderi rămân aproape egale până la final, deci modelul nu a memorat datele de antrenare. În 10 minute a văzut 15 milioane de tokenuri, mai puțin decât întregul set de antrenare.
+
+Viteza depinde mult de hardware. Pe o placă grafică NVIDIA, antrenarea ajunge mai departe în același timp. Pe un laptop mai lent, de exemplu la 16.000 de tokenuri pe secundă, 3 minute înseamnă doar 228 de pași și o pierdere de 3,6. Textele au atunci forma unei povești, dar personajele își schimbă numele de la o propoziție la alta. O rulare a codului din laborator pe un alt calculator de același tip a dat exact aceleași pierderi la pașii 50 și 100, pentru că generatorul de numere aleatoare pornește de la aceeași valoare.
+
+## Urmărirea în TensorBoard
+
+Fiecare antrenare își scrie valorile în directorul `runs/`, iar TensorBoard le afișează ca grafice.
+
+```bash
+tensorboard --logdir runs
+```
+
+:::note[Ce arată TensorBoard]
+La adresa `http://localhost:6006` apar pierderea pe fiecare lot (`loss/batch`), pierderile pe antrenare și validare (`loss/train`, `loss/valid`), rata de învățare (`lr`), viteza și, în fila Text, poveștile generate la fiecare evaluare. Graficele se actualizează automat în timp ce scriptul rulează.
+:::
+
+Modelul final este salvat în `checkpoints/pretrain/model.pt`, iar modelele salvate pe parcurs, de exemplu `step-250.pt`, în același director. Pe pagina următoare le folosim pentru a genera povești.
+
+## Bibliografie
+
+- Goyal, P. et al. (2017). [Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour](https://arxiv.org/abs/1706.02677). Preprint arXiv:1706.02677.
+- Kingma, D. P. și Ba, J. (2015). [Adam: A Method for Stochastic Optimization](https://arxiv.org/abs/1412.6980). _ICLR 2015_.
+- Loshchilov, I. și Hutter, F. (2017). [SGDR: Stochastic Gradient Descent with Warm Restarts](https://arxiv.org/abs/1608.03983). _ICLR 2017_.
+- Loshchilov, I. și Hutter, F. (2019). [Decoupled Weight Decay Regularization](https://arxiv.org/abs/1711.05101). _ICLR 2019_.
+- Pascanu, R., Mikolov, T. și Bengio, Y. (2013). [On the difficulty of training Recurrent Neural Networks](https://arxiv.org/abs/1211.5063). _ICML 2013_.

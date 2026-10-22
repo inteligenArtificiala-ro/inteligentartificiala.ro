@@ -1,0 +1,71 @@
+---
+title: Ce este inteligența artificială
+description: Inteligența artificială nu este o singură tehnologie, ci o familie de metode, de la modele mici antrenate pe date până la sisteme agentice construite pe modele de limbaj mari (LLM).
+sidebar:
+  order: 1
+level: incepator
+tags:
+  - Concepte de bază
+---
+
+**Inteligența artificială** (AI) se referă la sisteme informatice care rezolvă sarcini pe care le asociem de obicei cu inteligența umană: raționamentul, percepția, învățarea sau înțelegerea limbajului natural. Nu este vorba de o singură tehnologie, ci de o familie largă de metode, fiecare cu nevoile ei de calcul și de date și cu obiectivele ei.
+
+Unele sisteme învață o regulă de decizie dintr-un set de date. Altele caută cea mai bună mutare într-un joc, recunosc ce apare într-o imagine sau scriu și prelucrează text. În practică, un sistem complet combină adesea mai multe dintre aceste abordări.
+
+Ce metodă alegem depinde de problema pe care o avem, de datele de care dispunem, de cât de precis trebuie să fie rezultatul și de felul în care îl evaluăm.
+
+## Învățarea automată și știința datelor
+
+[**Învățarea automată**](/concepte-de-baza/ce-este-invatarea-automata/) (_machine learning_) este ramura centrală a inteligenței artificiale de azi. În loc să scriem de mână regulile, lăsăm modelul să descopere singur tiparele din date. În **știința datelor** (_data science_), astfel de modele sunt folosite pentru clasificare, regresie, detectarea anomaliilor sau prognoza seriilor de timp. Pagina [Ce este învățarea automată](/concepte-de-baza/ce-este-invatarea-automata/) explică principalele tipuri de învățare și cum funcționează, concret, un model.
+
+De exemplu, un model poate estima cererea pentru un produs pornind de la istoricul vânzărilor, poate filtra mesajele spam sau poate semnala tranzacțiile bancare suspecte. Pentru multe dintre aceste sarcini nu avem nevoie de un model mare. Un model mic, antrenat pe date potrivite și testat cu atenție, este rapid, ieftin de rulat și ușor de integrat într-o aplicație.
+
+Dimensiunea (numărul de parametri) nu garantează calitatea unui model. Orice model trebuie testat pe date cât mai apropiate de cele pe care le va întâlni în utilizarea reală, iar rezultatele lui trebuie urmărite și după lansare, pentru că datele din lumea reală se schimbă în timp.
+
+## Inteligența artificială în jocuri
+
+Jocurile au fost unul dintre primele terenuri de încercare pentru inteligența artificială. Motivul este simplu: un joc are reguli clare, stări și acțiuni bine definite și un obiectiv precis. Un adversar controlat de calculator poate folosi reguli scrise de mână (euristici), [căutare în arbori și grafuri](/concepte-de-baza/rolul-algoritmilor-in-ai/), algoritmi de găsire a drumului sau [**învățare prin consolidare**](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/) (_reinforcement learning_, RL).
+
+Într-un joc de strategie, căutarea compară variantele posibile după fiecare mutare. Într-o lume virtuală, algoritmii de navigație calculează cel mai scurt drum pentru personaje. În învățarea prin consolidare, agentul își îmbunătățește strategia din încercări și erori: acționează, primește recompense sau penalizări și învață treptat ce acțiuni îi aduc cele mai multe recompense.
+
+Niciuna dintre aceste tehnici nu are nevoie de limbaj natural. Ele rezolvă probleme concrete de decizie și optimizare, într-un cadru cu reguli stricte.
+
+## Modele de limbaj mari (LLM)
+
+Un **model de limbaj mare** (_large language model_, LLM) este o rețea neuronală antrenată să citească și să genereze text, câte un token (un cuvânt sau o bucată de cuvânt) pe rând. Pornind doar de la această capacitate de a prezice ce urmează, un LLM poate rezuma texte, extrage informații, scrie cod, răspunde la întrebări sau urma instrucțiuni scrise în limbaj natural.
+
+:::caution[Limitele unui LLM]
+Un LLM nu este o enciclopedie fără greșeală și nu știe ce se întâmplă în lume în acest moment. Poate produce afirmații care sună convingător, dar sunt false ([halucinații](/modele-lingvistice/halucinatii/)). Când exactitatea contează, răspunsul modelului trebuie sprijinit pe documente verificate, baze de date sau instrumente specializate.
+:::
+
+## Sisteme agentice
+
+Când vorbim despre un **sistem agentic** (_agentic system_), ne referim la un sistem construit în jurul unui model (de regulă un LLM), care permite ca pașii unei sarcini să se desfășoare unul după altul sau în paralel. Pașii pot aștepta unii după alții atunci când unul are nevoie de rezultatul altuia, iar sistemul poate porni mai multe instanțe ale modelului care lucrează în același timp. Pe parcurs, modelul folosește alte instrumente (_tools_), de exemplu un motor de căutare, o bază de date sau un terminal, înțelege ce rezultate primește înapoi și decide pe baza lor pasul următor.
+
+Multe sisteme agentice pornesc de la un plan. Modelul îl scrie mai întâi, iar sistemul îl împarte în sarcini separate, pe care le poate da apoi unor instanțe diferite ale modelului. Împărțirea poate fi foarte simplă, de exemplu tăierea textului planului după punctele din listă, astfel încât fiecare punct să devină o sarcină. O variantă mai sigură este ca modelul să fie antrenat să răspundă direct într-un format fix, numit **ieșire structurată** (_structured output_), de exemplu JSON, pe care codul îl poate citi fără ambiguități.
+
+Să luăm o cerere de analiză de date. Sistemul pornește în paralel o căutare prin documente și o interogare SQL, așteaptă ca ambele să se termine, rulează apoi un script de calcul pe rezultate și, la final, scrie un răspuns care le adună pe toate. Partea care decide ce rulează unul după altul, ce rulează în paralel, ce informații trec de la un pas la altul și când se oprește totul se numește **orchestrare** (_orchestration_). Autonomia nu înseamnă lipsă de control. Ce are voie sistemul să acceseze, cât are voie să cheltuiască, ce face când un pas eșuează și cum verificăm rezultatul sunt reguli care trebuie stabilite explicit, dinainte.
+
+Dacă o sarcină reușește sau nu depinde de felul în care lucrează împreună modelul, instrumentele, memoria și mecanismele de control, nu doar de cât de mare este modelul. Secțiunea despre [comportamentul agentic](/comportament-agentic/ce-este-comportamentul-agentic/) explică pe larg [harnașamentul](/comportament-agentic/harnasamentul/) (_harness_), [apelul de instrumente](/comportament-agentic/apelul-de-instrumente/) și cum funcționează orchestrarea în practică.
+
+## Cum alegem metodele potrivite
+
+:::tip[Ce metodă pentru ce problemă]
+Pornim întotdeauna de la problemă, nu de la tehnologia la modă.
+- **Regulile scrise de mână și modelele statistice mici** se potrivesc pentru decizii repetitive, previzibile și bine delimitate.
+- **Algoritmii de căutare în grafuri și arbori** sunt potriviți pentru optimizare combinatorie, planificare și jocuri cu reguli stricte.
+- **Modelele de limbaj mari (LLM)** sunt alegerea firească atunci când intrarea sau ieșirea este text în limbaj natural.
+- **Sistemele agentice** devin necesare când sarcina are mai mulți pași, presupune rularea unor comenzi sau folosirea mai multor instrumente.
+:::
+
+Indiferent de metodă, contează la fel de mult calitatea datelor, o evaluare făcută corect, măsurile de siguranță și posibilitatea de a verifica rezultatele.
+
+## Bibliografie
+
+- Goodfellow, I., Bengio, Y. și Courville, A. (2016). [_Deep Learning_](https://www.deeplearningbook.org/). MIT Press.
+- Ouyang, L. et al. (2022). [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155). _NeurIPS 2022_.
+- Russell, S. și Norvig, P. (2020). [_Artificial Intelligence: A Modern Approach_](https://aima.cs.berkeley.edu/) (ed. a 4-a). Pearson.
+- Schluntz, E. și Zhang, B. (2024). [Building effective agents](https://www.anthropic.com/research/building-effective-agents). Blogul Anthropic.
+- Sculley, D. et al. (2015). [Hidden Technical Debt in Machine Learning Systems](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html). _NeurIPS 2015_.
+- Sutton, R. S. și Barto, A. G. (2018). [_Reinforcement Learning: An Introduction_](http://incompleteideas.net/book/the-book-2nd.html) (ed. a 2-a). MIT Press.
+- Yao, S. et al. (2023). [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629). _ICLR 2023_.

@@ -1,0 +1,308 @@
+---
+/**
+ * Editor de cod Python care rulează în browser, cu PyScript și Pyodide.
+ *
+ * ```mdx
+ * import Python from '@components/Python.astro';
+ *
+ * <Python code={`
+ * import numpy as np
+ * print(np.array([1, 2, 3]) * 2)
+ * `} packages={['numpy']} />
+ * ```
+ *
+ * Fără JavaScript sau până la încărcarea PyScript, codul apare ca un bloc de cod obișnuit.
+ * Interpretorul Pyodide (de pe cdn.jsdelivr.net) se descarcă abia la prima rulare.
+ */
+import { Code } from '@astrojs/starlight/components';
+import pyscriptPackage from '@pyscript/core/package.json';
+
+interface Props {
+  /** Codul afișat în editor. Indentarea comună și liniile goale de la capete sunt eliminate. */
+  code: string;
+  /** Pachete încărcate înainte de rulare, de exemplu `['numpy']`. Cu `env`, se declară doar pe primul editor. */
+  packages?: string[];
+  /** Editoarele cu același `env` de pe o pagină împart interpretorul și variabilele, ca celulele unui notebook. */
+  env?: string;
+  /**
+   * Cod rulat în fundal înaintea codului din editor, la fiecare rulare (atributul PyScript `onbeforerun`). Face un editor
+   * independent de cele de deasupra, de exemplu cu importurile și funcțiile definite într-un bloc anterior.
+   */
+  setup?: string;
+}
+
+const { code, packages, env, setup } = Astro.props;
+
+const source = dedent(code);
+if (/<\/script/i.test(source)) {
+  throw new Error('Codul unui editor Python nu poate conține „</script”.');
+}
+
+// Atributele PyScript `env` și `config` nu fac parte din tipurile Astro pentru <script>.
+const editorAttributes = {
+  env,
+  config: packages?.length ? JSON.stringify({ packages }) : undefined,
+  onbeforerun: setup ? dedent(setup) : undefined,
+};
+const base = `/pyscript/${pyscriptPackage.version}/`;
+
+function dedent(text: string) {
+  const lines = text.replace(/^\s*\n/, '').trimEnd().split('\n');
+  const indents = lines.filter((line) => line.trim()).map((line) => line.length - line.trimStart().length);
+  const indent = Math.min(...indents, Number.POSITIVE_INFINITY);
+  return lines.map((line) => line.slice(Number.isFinite(indent) ? indent : 0)).join('\n');
+}
+---
+
+<div class='python-editor not-content' data-python-editor data-pyscript-base={base} data-env={env}>
+  <div class='python-editor-fallback'>
+    <Code code={source} lang='python' />
+  </div>
+  <script
+    is:inline
+    type='py-editor'
+    {...editorAttributes}
+    data-run='<span aria-hidden="true">▶</span> Rulare'
+    data-stop='<span aria-hidden="true">■</span> Oprire'
+    set:html={source}
+  />
+  <p class='python-editor-note'>Codul poate fi modificat și rulat direct în browser (Ctrl + Enter).</p>
+</div>
+
+<script>
+  // Stiluri pentru editorul CodeMirror, care se află într-un shadow DOM și nu primește stilurile paginii. Editorul are
+  // culorile implicite CodeMirror, pentru fundal deschis, iar blocurile de cod sunt întunecate în ambele moduri
+  // (src/styles/custom.css), așa că textul editorului este inversat: textul închis de aici devine deschis. Fundalul
+  // rămâne transparent: îl dă pagina.
+  const editorStyles = `
+    :host .cm-editor { font-family: var(--sl-font-mono, monospace); font-size: 0.875rem; color: #24292e; background: transparent; filter: invert(1) hue-rotate(180deg); }
+    :host .cm-editor.cm-focused { outline: none; }
+    :host .cm-scroller { line-height: 1.6; }
+    :host .cm-gutters { background: transparent; border-right: 1px solid #d4d4d4; color: #8a8a8a; }
+    :host .cm-activeLineGutter, :host .cm-activeLine { background: rgb(0 0 0 / 0.04); }
+  `;
+
+  const editors = document.querySelectorAll<HTMLElement>('[data-python-editor]');
+  const base = editors[0]?.dataset.pyscriptBase;
+
+  // PyScript se încarcă o singură dată și doar pe paginile care conțin un editor.
+  if (base) {
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = `${base}core.css`;
+    document.head.append(stylesheet);
+    import(/* @vite-ignore */ `${base}core.js`);
+  }
+
+  // Editorul a fost creat: textele interfeței trec în română, iar blocul de cod static este ascuns.
+  document.addEventListener('py-editor', (event) => {
+    const wrapper = (event.target as Element).closest<HTMLElement>('[data-python-editor]');
+    const box = wrapper?.querySelector('.py-editor-box');
+    if (!wrapper || !box) return;
+
+    const run = box.querySelector('.py-editor-run-button');
+    run?.removeAttribute('aria-label');
+    const input = box.querySelector('.py-editor-input');
+    input?.removeAttribute('aria-label');
+
+    const shadowRoot = input?.querySelector(':scope > div')?.shadowRoot;
+    if (shadowRoot) {
+      const style = document.createElement('style');
+      style.textContent = editorStyles;
+      shadowRoot.append(style);
+      shadowRoot.querySelector('.cm-content')?.setAttribute('aria-label', 'Cod Python');
+    }
+
+    // Sub chenarul codului, nota despre editare stă pe același rând cu butonul de rulare, iar rezultatul rulării vine
+    // dedesubt, în chenarul lui. Butonul rămâne în .py-editor-box, pentru că PyScript găsește editorul pornind de la
+    // el. Rezultatul poate fi mutat: PyScript păstrează o referință la el.
+    const note = wrapper.querySelector('.python-editor-note');
+    if (note && input) input.append(note);
+    const output = box.querySelector('.py-editor-output');
+    if (output) box.after(output);
+
+    // PyScript mută focusul în fiecare editor nou creat. Focusul rămâne unde era înainte.
+    if (wrapper.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+
+    wrapper.dataset.ready = '';
+    delete wrapper.dataset.started;
+  });
+
+  // După prima rulare, interpretorul este pregătit pentru toate editoarele care îl împart.
+  document.addEventListener('py-editor:done', (event) => {
+    const wrapper = (event.target as Element).closest<HTMLElement>('[data-python-editor]');
+    if (!wrapper) return;
+    const related = wrapper.dataset.env
+      ? document.querySelectorAll<HTMLElement>(`[data-python-editor][data-env="${CSS.escape(wrapper.dataset.env)}"]`)
+      : [wrapper];
+    for (const editor of related) editor.dataset.started = '';
+  });
+
+  // Erorile Python apar cu cadrele interne ale Pyodide, iar PyScript le inserează ca HTML, așa că „<exec>” și
+  // „<module>” dispar din text. Din traceback rămân doar liniile care privesc codul din editor.
+  function tidyTraceback(text: string) {
+    const lines = text.replace(/^Error: /, '').split('\n');
+    const kept: string[] = [];
+    let skipping = false;
+    for (const line of lines) {
+      if (line.startsWith('  File "')) skipping = line.includes('/lib/python');
+      else if (!line.startsWith('    ')) skipping = false;
+      if (!skipping) kept.push(line);
+    }
+    return kept
+      .join('\n')
+      .replace(/File "", line (\d+), in (.*)/g, (_, line, scope) => `File "<exec>", line ${line}, in ${scope || '<module>'}`);
+  }
+
+  const tracebacks = new MutationObserver((mutations) => {
+    for (const { addedNodes } of mutations) {
+      for (const node of addedNodes) {
+        if (node instanceof HTMLSpanElement && node.textContent?.includes('Traceback (most recent call last)')) {
+          node.textContent = tidyTraceback(node.textContent);
+        }
+      }
+    }
+  });
+
+  // Confirmarea opririi vine din PyScript în engleză. Mesajul este înlocuit doar pentru acest clic.
+  for (const wrapper of editors) {
+    tracebacks.observe(wrapper, { childList: true, subtree: true });
+    wrapper.addEventListener(
+      'click',
+      (event) => {
+        const button = (event.target as Element).closest('.py-editor-run-button');
+        if (!button?.classList.contains('running')) return;
+        const confirm = window.confirm;
+        window.confirm = () => confirm.call(window, 'Se oprește execuția codului?');
+        setTimeout(() => {
+          window.confirm = confirm;
+        });
+      },
+      { capture: true },
+    );
+  }
+</script>
+
+<style is:global>
+  .python-editor {
+    margin-block: 1.5rem;
+  }
+
+  .python-editor-note {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .python-editor:not([data-ready]) .python-editor-note,
+  .python-editor[data-ready] .python-editor-fallback {
+    display: none;
+  }
+
+  /* Chenarul PyScript (.py-editor-box) cuprinde și butonul de rulare, așa că rămâne fără fundal. Fundalul și marginea
+     sunt pe antet, pe codul de sub el și pe rezultat. */
+  .python-editor .py-editor-box {
+    padding: 0;
+  }
+
+  .python-editor .py-editor-box::before,
+  .python-editor .py-editor-input > div,
+  .python-editor .py-editor-output {
+    border: 1px solid var(--sl-color-hairline);
+    background: var(--sl-exquisitus-code-bg);
+    color: var(--cod-text);
+  }
+
+  .python-editor .py-editor-box::before {
+    content: 'Python';
+    padding: 0.35rem 0.75rem;
+    border-bottom-color: var(--cod-linie);
+    border-radius: 0.5rem 0.5rem 0 0;
+    color: var(--cod-text-estompat);
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-xs);
+    text-align: start;
+  }
+
+  /* Codul (pe primul rând, cât tot chenarul), apoi nota în stânga și butonul în dreapta. Prima linie de cod începe
+     imediat sub antet: spațiul de deasupra ei vine doar din CodeMirror. */
+  .python-editor .py-editor-input {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    column-gap: 0.75rem;
+    padding: 0;
+  }
+
+  .python-editor .py-editor-input > div {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    border-top: 0;
+    border-radius: 0 0 0.5rem 0.5rem;
+    overflow: hidden;
+  }
+
+  .python-editor .py-editor-input > .python-editor-note {
+    grid-row: 2;
+    grid-column: 1;
+    margin-top: 0.5rem;
+  }
+
+  .python-editor .py-editor-run-button {
+    position: static;
+    grid-row: 2;
+    grid-column: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--sl-color-accent);
+    border-radius: 999px;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font: inherit;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    opacity: 1;
+    cursor: pointer;
+  }
+
+  .python-editor .py-editor-run-button:hover,
+  .python-editor .py-editor-run-button:focus-visible {
+    background: var(--sl-color-accent-high);
+    border-color: var(--sl-color-accent-high);
+  }
+
+  .python-editor .py-editor-run-button.running {
+    background: transparent;
+    color: var(--sl-color-text);
+    border-color: var(--sl-color-gray-4);
+  }
+
+  .python-editor .py-editor-output {
+    margin-top: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.5rem;
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-sm);
+    line-height: 1.6;
+  }
+
+  .python-editor .py-editor-output:empty {
+    display: none;
+  }
+
+  .python-editor:has(.running) .py-editor-output:empty {
+    display: block;
+  }
+
+  .python-editor:has(.running) .py-editor-output:empty::before {
+    content: 'Codul rulează…';
+    color: var(--cod-text-estompat);
+  }
+
+  .python-editor:not([data-started]):has(.running) .py-editor-output:empty::before {
+    content: 'Se încarcă interpretorul Python. Prima rulare durează câteva secunde…';
+  }
+</style>

@@ -1,0 +1,346 @@
+---
+title: Retropropagare (backpropagation)
+description: Cum se calculează gradienții într-o rețea neuronală, pas cu pas, de la eroare la ajustarea ponderilor. Explicăm regula lanțului, derivatele funcțiilor de activare și cum se propagă gradienții înapoi prin straturi.
+sidebar:
+  order: 2
+level: intermediar
+tags:
+  - Rețele neuronale
+---
+
+import BackpropDiagram from '@components/diagrams/BackpropDiagram.astro';
+import Python from '@components/Python.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Pentru a antrena o [rețea neuronală](/retele-neuronale/ce-sunt-retelele-neuronale/), trebuie să știm cu cât să ajustăm fiecare pondere pentru ca eroarea să scadă. Acest calcul se face cu algoritmul de **retropropagare** (_backpropagation_), care aplică eficient **regula lanțului** (_chain rule_) pentru a obține gradienții tuturor parametrilor.
+
+<BackpropDiagram />
+
+## De ce avem nevoie de retropropagare
+
+O rețea neuronală este o compoziție de funcții. Fiecare strat transformă intrarea și trece rezultatul mai departe. Pentru a ști cum să ajustăm o pondere din stratul 1, trebuie să înțelegem cum afectează ea ieșirea finală și, prin urmare, eroarea.
+
+Fără un calcul eficient, am trebui să modificăm fiecare pondere pe rând, să măsurăm eroarea și să repetăm. Ar fi extrem de lent. Retropropagarea rezolvă această problemă calculând **toți gradienții** o singură dată, într-un singur pas înapoi prin rețea.
+
+## Regula lanțului
+
+Retropropagarea se bazează pe regula lanțului din calculul diferențial. Dacă o variabilă $y$ depinde de $u$, iar $u$ depinde de $x$, atunci derivata lui $y$ în raport cu $x$ este:
+
+$$
+\frac{dy}{dx} = \frac{dy}{du} \cdot \frac{du}{dx}
+$$
+
+Într-o rețea neuronală, eroarea este capătul unui lanț de funcții: intrarea trece prin straturi și funcții de activare, iar ieșirea ultimului strat este comparată cu valoarea corectă. Regula lanțului ne permite să parcurgem acest lanț invers, câte o verigă pe rând.
+
+## Exemplu concret
+
+Să considerăm o rețea simplă, cu o intrare $x$ și un strat ascuns. Fiecare neuron $j$ din stratul ascuns are o pondere $w_j$, un *bias* $b_j$ și o funcție de activare $f$.
+
+### Propagare directă (forward pass)
+
+1. Pentru fiecare neuron $j$ din stratul ascuns, calculăm suma ponderată $z_j = w_j x + b_j$.
+2. Apoi aplicăm funcția de activare $a_j = f(z_j)$.
+3. La stratul de ieșire, calculăm predicția $\hat{y} = \sum_j v_j a_j + c$, unde $v_j$ sunt ponderile stratului de ieșire, iar $c$ este *bias*-ul lui.
+4. Eroarea este $L = \frac{1}{2}(\hat{y} - y)^2$, unde $y$ este valoarea corectă. Factorul $\frac{1}{2}$ face derivata mai simplă.
+
+### Retropropagare (backward pass)
+
+Acum calculăm gradienții, pornind de la ieșire.
+
+#### Gradienții stratului de ieșire
+
+Eroarea depinde direct de predicție:
+
+$$
+\frac{\partial L}{\partial \hat{y}} = \hat{y} - y
+$$
+
+Pentru că $\hat{y} = \sum_j v_j a_j + c$, gradienții parametrilor stratului de ieșire se obțin cu un singur pas al regulii lanțului:
+
+$$
+\frac{\partial L}{\partial v_j} = \frac{\partial L}{\partial \hat{y}} \cdot a_j, \qquad \frac{\partial L}{\partial c} = \frac{\partial L}{\partial \hat{y}}
+$$
+
+Același pas ne dă și gradientul în raport cu ieșirea fiecărui neuron ascuns, de care avem nevoie ca să mergem mai departe, înapoi:
+
+$$
+\frac{\partial L}{\partial a_j} = \frac{\partial L}{\partial \hat{y}} \cdot \frac{\partial \hat{y}}{\partial a_j} = (\hat{y} - y) \cdot v_j
+$$
+
+#### Gradienții stratului ascuns
+
+Pentru ponderea $w_j$, care leagă intrarea de neuronul $j$, lanțul are încă două verigi:
+
+$$
+\frac{\partial L}{\partial w_j} = \frac{\partial L}{\partial a_j} \cdot \frac{\partial a_j}{\partial z_j} \cdot \frac{\partial z_j}{\partial w_j}
+$$
+
+unde $\frac{\partial a_j}{\partial z_j} = f'(z_j)$ este derivata funcției de activare, iar $\frac{\partial z_j}{\partial w_j} = x$. Pentru *bias*, ultima verigă este $\frac{\partial z_j}{\partial b_j} = 1$, deci $\frac{\partial L}{\partial b_j} = \frac{\partial L}{\partial a_j} \cdot f'(z_j)$.
+
+Observăm că $\frac{\partial L}{\partial a_j}$ se calculează o singură dată și se refolosește pentru ambii parametri ai neuronului. La scară mică, aceasta este ideea care face retropropagarea eficientă.
+
+### Derivatele funcțiilor de activare
+
+| Funcție | Derivată |
+|---------|----------|
+| ReLU $f(z) = \max(0, z)$ | $f'(z) = 1$ dacă $z > 0$, altfel $0$ |
+| Sigmoidă $f(z) = \frac{1}{1 + e^{-z}}$ | $f'(z) = f(z)(1 - f(z))$ |
+| Tangentă hiperbolică $f(z) = \tanh(z)$ | $f'(z) = 1 - \tanh^2(z)$ |
+
+În $z = 0$, derivata ReLU nu există. Bibliotecile folosesc, prin convenție, valoarea $0$.
+
+## Algoritmul complet
+
+Un pas de antrenare are două faze:
+
+<Steps>
+1. **Propagare directă**: calculăm și memorăm valorile intermediare ($z$, $a$) ale fiecărui strat, de la intrare spre ieșire.
+2. **Retropropagare**: pornim de la gradientul erorii în raport cu ieșirea ($\frac{\partial L}{\partial \hat{y}}$) și trimitem gradienții înapoi prin rețea, strat cu strat.
+</Steps>
+
+Fiecare strat primește de la stratul următor gradientul în raport cu ieșirea sa și calculează din el:
+
+- gradienții parametrilor proprii ($\frac{\partial L}{\partial w}$, $\frac{\partial L}{\partial b}$)
+- gradientul în raport cu intrarea sa, pe care îl trimite stratului anterior
+
+Valorile memorate la propagarea directă sunt folosite aici: $f'(z)$ are nevoie de $z$, iar gradientul unei ponderi are nevoie de intrarea stratului. De aceea, antrenarea ocupă mai multă memorie decât simpla folosire a modelului.
+
+## Actualizarea parametrilor
+
+După ce au fost calculați toți gradienții, actualizăm parametrii cu coborârea pe gradient:
+
+$$
+w \leftarrow w - \eta \frac{\partial L}{\partial w}
+$$
+
+$$
+b \leftarrow b - \eta \frac{\partial L}{\partial b}
+$$
+
+unde $\eta$ este rata de învățare.
+
+## De ce este eficient
+
+Retropropagarea este eficientă deoarece:
+
+- **Partajează calculul**: fiecare gradient intermediar este calculat o singură dată și refolosit pentru mai mulți parametri.
+- **Se poate paraleliza**: gradienții parametrilor din același strat se calculează în paralel, ca înmulțiri de matrice.
+- **Costul ei este de același ordin cu al propagării directe**: în practică, de aproximativ două ori mai mare. Metoda naivă de mai sus ar avea nevoie de câte o propagare directă pentru fiecare parametru.
+
+## Probleme practice
+
+### Gradienți care dispar (vanishing gradients)
+
+În rețelele adânci, gradienții pot deveni foarte mici pe măsură ce sunt propagați înapoi. Cauza este produsul derivatelor de la fiecare strat: dacă aceste derivate sunt mai mici decât 1, gradientul scade exponențial cu numărul de straturi traversate. De exemplu, derivata sigmoidei este cel mult $0.25$, așa că, după 10 straturi, doar derivatele activărilor pot micșora gradientul de până la $0.25^{10} \approx 10^{-6}$ ori.
+
+**Soluții**:
+
+- Funcții de activare ReLU sau variante ale ei, a căror derivată este 1 pentru valorile pozitive
+- Inițializarea potrivită a ponderilor (de exemplu, inițializarea Xavier sau He, descrise mai jos)
+- Rețele reziduale (_residual networks_), cu conexiuni directe între straturi, pe care gradientul trece fără să fie atenuat
+
+### Gradienți care explodează (exploding gradients)
+
+Gradienții pot deveni și foarte mari, mai ales în rețelele recurente sau foarte adânci, când derivatele din produs sunt mai mari decât 1.
+
+**Soluții**:
+
+- **Limitarea gradientului** (_gradient clipping_): norma gradientului este limitată la o valoare maximă
+- Normalizarea activărilor, pe lot (_batch normalization_) sau pe strat (_layer normalization_)
+- Rate de învățare mai mici
+
+## Exemplu numeric
+
+Să considerăm un exemplu simplu: o rețea cu o singură intrare, un neuron ascuns cu activare ReLU și o ieșire liniară.
+
+- Intrare: $x = 2$
+- Ponderi: $w = 0.5$, $v = 1.5$
+- *Bias*-uri: $b = 0.1$, $c = 0$
+- Valoare țintă: $y = 3$
+
+**Propagare directă**:
+- $z = 0.5 \cdot 2 + 0.1 = 1.1$
+- $a = \operatorname{ReLU}(1.1) = 1.1$
+- $\hat{y} = 1.5 \cdot 1.1 + 0 = 1.65$
+- $L = \frac{1}{2}(1.65 - 3)^2 = 0.91125$
+
+**Retropropagare**:
+- $\frac{\partial L}{\partial \hat{y}} = 1.65 - 3 = -1.35$
+- $\frac{\partial L}{\partial v} = -1.35 \cdot 1.1 = -1.485$ și $\frac{\partial L}{\partial c} = -1.35$
+- $\frac{\partial L}{\partial a} = -1.35 \cdot 1.5 = -2.025$
+- $\frac{\partial L}{\partial w} = -2.025 \cdot 1 \cdot 2 = -4.05$ (derivata ReLU este 1, pentru că $z > 0$)
+- $\frac{\partial L}{\partial b} = -2.025 \cdot 1 = -2.025$
+
+Actualizările (cu $\eta = 0.1$):
+- $w \leftarrow 0.5 - 0.1 \cdot (-4.05) = 0.905$
+- $v \leftarrow 1.5 - 0.1 \cdot (-1.485) = 1.6485$
+- $b \leftarrow 0.1 - 0.1 \cdot (-2.025) = 0.3025$
+- $c \leftarrow 0 - 0.1 \cdot (-1.35) = 0.135$
+
+Cu noii parametri, eroarea scade de la 0,91125 la aproximativ 0,19.
+
+## Exemplu interactiv
+
+Calculul de mai sus poate fi verificat direct în browser. Putem modifica valorile, apoi apăsăm „Rulare” pentru a vedea cum se schimbă gradienții.
+
+<Python
+  code={`
+# Valorile din exemplul numeric
+x = 2.0
+w = 0.5
+v = 1.5
+b = 0.1
+c = 0.0
+y = 3.0
+eta = 0.1
+
+# Propagare directă
+z = w * x + b
+a = max(0.0, z)  # ReLU
+y_pred = v * a + c
+loss = 0.5 * (y_pred - y) ** 2
+
+print("Propagare directă:")
+print(f"  z = {z:.6g}, a = {a:.6g}, y_pred = {y_pred:.6g}")
+print(f"  loss = {loss:.6g}")
+
+# Retropropagare, de la eroare spre intrare
+dL_dy_pred = y_pred - y
+dL_dv = dL_dy_pred * a
+dL_dc = dL_dy_pred
+dL_da = dL_dy_pred * v
+dL_dz = dL_da * (1.0 if z > 0 else 0.0)  # derivata ReLU
+dL_dw = dL_dz * x
+dL_db = dL_dz
+
+print("\\nRetropropagare:")
+print(f"  dL/dy_pred = {dL_dy_pred:.6g}")
+print(f"  dL/dv = {dL_dv:.6g}, dL/dc = {dL_dc:.6g}")
+print(f"  dL/da = {dL_da:.6g}")
+print(f"  dL/dw = {dL_dw:.6g}, dL/db = {dL_db:.6g}")
+
+# Un pas de coborâre pe gradient
+w -= eta * dL_dw
+v -= eta * dL_dv
+b -= eta * dL_db
+c -= eta * dL_dc
+new_loss = 0.5 * (v * max(0.0, w * x + b) + c - y) ** 2
+
+print("\\nDupă actualizare:")
+print(f"  w = {w:.6g}, v = {v:.6g}, b = {b:.6g}, c = {c:.6g}")
+print(f"  loss = {new_loss:.6g}")
+`}
+/>
+
+## Calculul automat al gradienților
+
+Bibliotecile moderne precum PyTorch și TensorFlow construiesc automat un **graf computațional** (_computational graph_) în timpul propagării directe. Fiecare operație (înmulțire, adunare, funcție de activare) devine un nod în graf, iar valorile intermediare circulă pe muchiile dintre noduri. Biblioteca știe derivata fiecărui tip de operație, așa că poate aplica regula lanțului pe tot graful, fără ca noi să scriem vreo derivată. Mecanismul se numește **diferențiere automată** (_automatic differentiation_), iar în PyTorch îl implementează modulul `autograd`.
+
+### Cum funcționează `autograd`
+
+1. **Propagarea directă**: pe măsură ce se calculează ieșirea, fiecare operație este înregistrată în graf, împreună cu valorile de care va avea nevoie derivata ei.
+2. **Calculul erorii**: eroarea devine ultimul nod al grafului.
+3. **Retropropagarea**: apelul `loss.backward()` parcurge graful invers, aplică regula lanțului la fiecare nod și adaugă gradienții în atributul `.grad` al fiecărui parametru.
+
+Codul de mai jos refolosește valorile din exemplul numeric. PyTorch nu rulează în browser, așa că rezultatele sunt trecute în comentarii.
+
+```python
+import torch
+
+# Aceleași valori ca în exemplul numeric
+x = torch.tensor(2.0)
+y = torch.tensor(3.0)
+w = torch.tensor(0.5, requires_grad=True)
+v = torch.tensor(1.5, requires_grad=True)
+b = torch.tensor(0.1, requires_grad=True)
+c = torch.tensor(0.0, requires_grad=True)
+
+# Propagare directă: fiecare operație este înregistrată în graf
+z = w * x + b
+a = torch.relu(z)
+y_pred = v * a + c
+loss = 0.5 * (y_pred - y) ** 2
+
+# Retropropagare: graful este parcurs invers
+loss.backward()
+
+print(w.grad)  # tensor(-4.0500)
+print(v.grad)  # tensor(-1.4850)
+print(b.grad)  # tensor(-2.0250)
+print(c.grad)  # tensor(-1.3500)
+```
+
+Gradienții se adună de la un apel `backward()` la altul. De aceea, la antrenare îi resetăm la zero înainte de fiecare pas (`optimizer.zero_grad()`).
+
+### Ce câștigăm
+
+- **Automat**: nu mai scriem derivatele de mână.
+- **Flexibil**: putem schimba arhitectura oricând. PyTorch construiește graful din nou la fiecare propagare directă, deci nu avem derivate de recalculat.
+- **Eficient**: derivata fiecărei operații este implementată o singură dată, cu cod optimizat pentru plăci grafice. Unele instrumente, precum `torch.compile` sau compilatorul XLA, pot optimiza și graful întreg înainte de execuție.
+
+### Retropropagarea în timp (BPTT)
+
+Același mecanism funcționează și pentru **rețelele neuronale recurente** (_recurrent neural networks_, RNN), care aplică aceleași ponderi la fiecare pas al unei secvențe. Graful computațional se „desfășoară” în timp, cu câte o copie a rețelei pentru fiecare pas, iar gradienții se propagă înapoi prin toți pașii secvenței. Metoda se numește **retropropagare în timp** (_backpropagation through time_, BPTT). Gradienții ponderilor se adună de-a lungul secvenței, iar produsele lungi de derivate fac aceste rețele deosebit de sensibile la gradienții care dispar sau explodează.
+
+## Sfaturi practice
+
+### Inițializarea ponderilor
+
+Valorile inițiale ale ponderilor influențează direct mărimea gradienților care se propagă înapoi. Două scheme des folosite aleg varianța ponderilor după numărul de intrări ($n_{\text{in}}$) și de ieșiri ($n_{\text{out}}$) ale stratului:
+
+- **Inițializarea Xavier (Glorot)**, potrivită pentru sigmoidă și tangenta hiperbolică: $w \sim \mathcal{N}\left(0, \frac{2}{n_{\text{in}} + n_{\text{out}}}\right)$
+- **Inițializarea He**, potrivită pentru ReLU și variantele ei: $w \sim \mathcal{N}\left(0, \frac{2}{n_{\text{in}}}\right)$
+
+În ambele formule, al doilea parametru al distribuției normale $\mathcal{N}$ este varianța.
+
+### Verificarea gradienților
+
+Când scriem retropropagarea de mână, o greșeală într-o derivată nu produce nicio eroare la rulare: rețeaua doar învață prost. De aceea, gradienții calculați se compară cu o aproximare numerică, obținută prin **diferențe finite** (_finite differences_):
+
+$$
+\frac{\partial L}{\partial w} \approx \frac{L(w + \varepsilon) - L(w - \varepsilon)}{2\varepsilon}
+$$
+
+unde $\varepsilon$ este un număr mic, de exemplu $10^{-5}$. Metoda se numește **verificarea gradienților** (_gradient checking_). Este lentă, pentru că are nevoie de două propagări directe pentru fiecare parametru, așa că o folosim doar ca test, pe rețele mici.
+
+<Python
+  code={`
+x, y = 2.0, 3.0
+w, v, b, c = 0.5, 1.5, 0.1, 0.0
+eps = 1e-5
+
+
+def loss(w, v):
+    a = max(0.0, w * x + b)
+    return 0.5 * (v * a + c - y) ** 2
+
+
+# Gradienții calculați de mână în exemplul numeric
+analytic = {"w": -4.05, "v": -1.485}
+numeric = {
+    "w": (loss(w + eps, v) - loss(w - eps, v)) / (2 * eps),
+    "v": (loss(w, v + eps) - loss(w, v - eps)) / (2 * eps),
+}
+
+for name in analytic:
+    print(f"dL/d{name}: analitic {analytic[name]:.6g}, numeric {numeric[name]:.6g}")
+`}
+/>
+
+În timpul antrenării merită urmărită și norma gradienților: valori foarte apropiate de zero sau foarte mari semnalează una dintre problemele de mai sus.
+
+## Bibliografie
+
+- Ba, J. L., Kiros, J. R. și Hinton, G. E. (2016). [Layer Normalization](https://arxiv.org/abs/1607.06450). Preprint arXiv:1607.06450.
+- Baydin, A. G. et al. (2018). [Automatic differentiation in machine learning: a survey](https://arxiv.org/abs/1502.05767). _Journal of Machine Learning Research_, 18(153), 1–43.
+- Bengio, Y., Simard, P. și Frasconi, P. (1994). [Learning long-term dependencies with gradient descent is difficult](https://doi.org/10.1109/72.279181). _IEEE Transactions on Neural Networks_, 5(2), 157–166.
+- Glorot, X. și Bengio, Y. (2010). [Understanding the difficulty of training deep feedforward neural networks](https://proceedings.mlr.press/v9/glorot10a.html). _AISTATS 2010_.
+- Goodfellow, I., Bengio, Y. și Courville, A. (2016). [_Deep Learning_](https://www.deeplearningbook.org/). MIT Press.
+- He, K. et al. (2015). [Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification](https://arxiv.org/abs/1502.01852). _ICCV 2015_.
+- He, K. et al. (2016). [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385). _CVPR 2016_.
+- Ioffe, S. și Szegedy, C. (2015). [Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](https://arxiv.org/abs/1502.03167). _ICML 2015_.
+- Linnainmaa, S. (1976). [Taylor expansion of the accumulated rounding error](https://doi.org/10.1007/BF01931367). _BIT_, 16(2), 146–160.
+- Pascanu, R., Mikolov, T. și Bengio, Y. (2013). [On the difficulty of training Recurrent Neural Networks](https://arxiv.org/abs/1211.5063). _ICML 2013_.
+- Paszke, A. et al. (2019). [PyTorch: An Imperative Style, High-Performance Deep Learning Library](https://arxiv.org/abs/1912.01703). _NeurIPS 2019_.
+- Rumelhart, D. E., Hinton, G. E. și Williams, R. J. (1986). [Learning representations by back-propagating errors](https://doi.org/10.1038/323533a0). _Nature_, 323(6088), 533–536.
+- Werbos, P. J. (1990). [Backpropagation through time: what it does and how to do it](https://doi.org/10.1109/5.58337). _Proceedings of the IEEE_, 78(10), 1550–1560.

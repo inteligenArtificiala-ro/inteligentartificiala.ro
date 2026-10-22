@@ -1,0 +1,117 @@
+---
+title: Sunete din text
+description: Generăm sunete pornind de la o descriere, cu AudioLDM 2, un model de difuzie latentă pentru audio. Urmărim drumul de la reprezentarea latentă la spectrograma mel și de la spectrogramă, prin vocoder, la sunet.
+sidebar:
+  order: 4
+level: intermediar
+tags:
+  - Modele de difuzie
+---
+
+import Colab from '@components/Colab.astro';
+
+Pagina despre [generarea vocii](/modele-de-difuzie/generarea-vocii/) arată că un sunet poate fi descris printr-o [spectrogramă mel](/modele-de-difuzie/generarea-vocii/#sunetul-ca-semnal), care seamănă cu o imagine: pe orizontală este timpul, pe verticală frecvența. Un model de difuzie poate genera deci spectrograme la fel cum generează imagini, iar un **vocoder** (_vocoder_) le transformă apoi în sunet. Pe această pagină folosim [AudioLDM 2](https://huggingface.co/cvssp/audioldm2), un model de [difuzie latentă](/modele-de-difuzie/generarea-imaginilor/#difuzia-în-spațiul-latent) pentru sunete și muzică, publicat în 2023 de cercetători de la Universitatea din Surrey și de la ByteDance. Generăm câte un sunet pornind de la o descriere, apoi refacem de mână ultimii pași ai pipeline-ului, ca să vedem spectrograma.
+
+<Colab notebook='laboratoare/difuzie-imagini-si-sunete/notebooks/04-sunete-din-text.ipynb' />
+
+## Primul sunet
+
+Codul de mai jos generează 10 secunde de sunet pornind de la o descriere și le salvează într-un fișier WAV.
+
+```python
+import scipy.io.wavfile
+import torch
+from diffusers import AudioLDM2Pipeline
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+dtype = torch.float16 if device != "cpu" else torch.float32
+
+# La prima rulare, fișierele modelului (aproximativ 4,5 GB) se descarcă de pe Hugging Face Hub.
+pipe = AudioLDM2Pipeline.from_pretrained("cvssp/audioldm2", dtype=dtype).to(device)
+
+prompt = "a dog barking in the distance while rain falls on a tin roof"
+generator = torch.Generator("cpu").manual_seed(0)
+audio = pipe(prompt, negative_prompt="low quality", audio_length_in_s=10.0, generator=generator).audios[0]
+
+rate = pipe.vocoder.config.sampling_rate  # eșantioane pe secundă
+print(f"{len(audio)} de eșantioane, adică {len(audio) / rate:.1f} secunde la {rate} Hz")
+scipy.io.wavfile.write("sunet.wav", rate=rate, data=audio)
+```
+
+Fișierul `sunet.wav` poate fi ascultat cu orice program audio, iar în notebook apare direct un player. Pipeline-ul face implicit 200 de pași cu metoda DDIM, de patru ori mai mulți decât Stable Diffusion, și folosește [ghidarea fără clasificator](/modele-de-difuzie/generarea-imaginilor/#ghidarea-fără-clasificator) cu scala 3,5. Ca la imagini, `negative_prompt` înlocuiește textul gol din formula ghidării, iar `generator` fixează zgomotul de pornire. Descrierile se scriu în engleză, limba în care au fost scrise descrierile sunetelor din datele de antrenare.
+
+Sunetul are 160.000 de eșantioane: 10 secunde la 16.000 de eșantioane pe secundă (16 kHz), rata de eșantionare a vocoderului. Este dublul ratei din telefonia clasică, dar mult sub cea a unui CD, care are 44.100 de eșantioane pe secundă. De aceea, sunetele generate pot suna puțin înfundat.
+
+## Componentele lui AudioLDM 2
+
+Un pipeline din Diffusers își ține componentele în dicționarul `pipe.components`. AudioLDM 2 are mai multe componente decât Stable Diffusion, cu un total de aproximativ 1,1 miliarde de parametri.
+
+| Componentă | Clasa | Ce face |
+| :--- | :--- | :--- |
+| `text_encoder` | `ClapModel` | CLAP, un model antrenat să aducă un sunet și descrierea lui în puncte apropiate ale aceluiași spațiu vectorial, ca CLIP pentru imagini. |
+| `text_encoder_2` | `T5EncoderModel` | Codificatorul unui model de limbaj T5 (Flan-T5), care înțelege mai bine descrierile lungi. |
+| `projection_model`, `language_model` | `AudioLDM2ProjectionModel`, `GPT2Model` | Un model GPT-2 primește vectorii celor două codificatoare și generează 8 vectori noi, numiți de autori „limbajul sunetului” (_language of audio_). |
+| `unet` | `AudioLDM2UNet2DConditionModel` | U-Net-ul care elimină zgomotul din reprezentarea latentă, ghidat prin atenție încrucișată de vectorii generați de GPT-2 și de vectorii T5. |
+| `vae` | `AutoencoderKL` | Autoencoderul care comprimă spectrograma mel într-o reprezentare latentă și o reconstruiește. |
+| `vocoder` | `SpeechT5HifiGan` | Vocoderul HiFi-GAN, care transformă spectrograma mel în formă de undă. |
+
+Primele componente transformă descrierea în vectori, ca codificatorul CLIP din Stable Diffusion, doar că pe un drum mai lung. Ultimele trei sunt cele care contează pentru drumul de la zgomot la sunet.
+
+## De la reprezentarea latentă la sunet
+
+Cu `output_type="latent"`, pipeline-ul se oprește după procesul invers și întoarce reprezentarea latentă curată, fără să o decodeze. Codul de mai jos face de mână ultimii doi pași, decodarea cu VAE-ul și vocoderul, și desenează spectrograma mel dintre ei.
+
+```python
+import matplotlib.pyplot as plt
+import scipy.io.wavfile
+import torch
+from diffusers import AudioLDM2Pipeline
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+dtype = torch.float16 if device != "cpu" else torch.float32
+pipe = AudioLDM2Pipeline.from_pretrained("cvssp/audioldm2", dtype=dtype).to(device)
+
+prompt = "a slow piano melody with soft rain in the background"
+generator = torch.Generator("cpu").manual_seed(0)
+latents = pipe(
+    prompt, negative_prompt="low quality", audio_length_in_s=10.0, generator=generator, output_type="latent"
+).audios
+with torch.no_grad():
+    mel = pipe.vae.decode(latents / pipe.vae.config.scaling_factor).sample  # spectrograma mel
+    audio = pipe.mel_spectrogram_to_waveform(mel)[0].numpy()  # vocoderul HiFi-GAN
+print("Reprezentarea latentă:", tuple(latents.shape))
+print("Spectrograma mel:     ", tuple(mel.shape))
+print("Forma de undă:        ", audio.shape)
+
+plt.figure(figsize=(10, 3))
+plt.imshow(mel[0, 0].T.float().cpu().numpy(), origin="lower", aspect="auto", cmap="magma")
+plt.xlabel("cadre de câte 10 ms")
+plt.ylabel("benzi mel")
+plt.savefig("spectrograma.png", bbox_inches="tight")
+scipy.io.wavfile.write("pian.wav", rate=pipe.vocoder.config.sampling_rate, data=audio)
+```
+
+Formele afișate arată cum crește sunetul de la o etapă la alta. Ele se pot calcula și din fișierele de configurare ale modelului.
+
+- **Spectrograma mel** are 1.000 de cadre a câte 64 de benzi mel. Fiecare cadru acoperă 160 de eșantioane, adică 10 ms, așa că 10 secunde înseamnă 1.000 de cadre. Pe imaginea din `spectrograma.png`, un sunet cu înălțime clară, precum o notă de pian, apare de obicei ca o serie de linii orizontale, la frecvența notei și a armonicelor ei, iar un zgomot, precum ploaia, ca o pată răspândită pe multe frecvențe.
+- **Reprezentarea latentă** are 8 canale de 250 × 16 valori. Autoencoderul micșorează spectrograma de 4 ori pe fiecare axă, așa că difuzia lucrează cu 32.000 de valori, nu cu cele 64.000 ale spectrogramei sau cu cele 160.000 de eșantioane ale sunetului.
+- **Vocoderul** face pasul cel mai mare: din fiecare cadru al spectrogramei produce 160 de eșantioane. Spectrograma păstrează doar energia fiecărei benzi de frecvență, iar vocoderul trebuie să completeze restul detaliilor formei de undă. HiFi-GAN face asta dintr-o singură trecere, cu o rețea generativă adversarială, nu prin difuzie.
+
+Este exact [lanțul clasic](/modele-de-difuzie/generarea-vocii/#lanțul-clasic-model-acustic-și-vocoder) din sinteza vorbirii, cu un model de difuzie în locul modelului acustic.
+
+## Alte experimente
+
+- **Muzică**: modelul [cvssp/audioldm2-music](https://huggingface.co/cvssp/audioldm2-music) are aceleași componente, antrenate pe muzică. În cod se schimbă doar numele modelului.
+- **Mai multe variante**: cu `num_waveforms_per_prompt=3`, pipeline-ul generează trei sunete pentru aceeași descriere și le ordonează după cât de bine se potrivesc cu textul, măsurat cu CLAP. Ordonarea are nevoie de pachetul `librosa`.
+- **Numărul de pași**: `num_inference_steps` schimbă cei 200 de pași impliciți. Cu mai puțini pași, generarea este mai rapidă, dar sunetul pierde din calitate.
+
+Vorbirea inteligibilă cere modele specializate, antrenate pe înregistrări cu vorbire și pe transcrierile lor, precum cele descrise pe pagina despre [difuzia pentru vorbire](/modele-de-difuzie/generarea-vocii/#difuzia-și-potrivirea-fluxului-pentru-vorbire). Toate opțiunile pipeline-ului sunt descrise în [documentația AudioLDM 2](https://huggingface.co/docs/diffusers/api/pipelines/audioldm2).
+
+## Bibliografie
+
+- Chung, H. W. et al. (2024). [Scaling Instruction-Finetuned Language Models](https://arxiv.org/abs/2210.11416). _Journal of Machine Learning Research_.
+- Kong, J., Kim, J. și Bae, J. (2020). [HiFi-GAN: Generative Adversarial Networks for Efficient and High Fidelity Speech Synthesis](https://arxiv.org/abs/2010.05646). _NeurIPS 2020_.
+- Liu, H. et al. (2023). [AudioLDM: Text-to-Audio Generation with Latent Diffusion Models](https://arxiv.org/abs/2301.12503). _ICML 2023_.
+- Liu, H. et al. (2024). [AudioLDM 2: Learning Holistic Audio Generation with Self-supervised Pretraining](https://arxiv.org/abs/2308.05734). _IEEE/ACM Transactions on Audio, Speech, and Language Processing_.
+- Radford, A. et al. (2019). [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf). Raport tehnic OpenAI.
+- Wu, Y. et al. (2023). [Large-scale Contrastive Language-Audio Pretraining with Feature Fusion and Keyword-to-Caption Augmentation](https://arxiv.org/abs/2211.06687). _ICASSP 2023_.

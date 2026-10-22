@@ -1,0 +1,76 @@
+---
+// Unde stă memoria unui agent: în model (ponderi, memorie arhitecturală), în fereastra de context și în depozite externe.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram agent-memory-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='5 30 770 220' role='img' aria-labelledby='agent-memory-title agent-memory-desc'>
+      <title id='agent-memory-title'>Cele trei locuri în care poate sta memoria unui agent</title>
+      <desc id='agent-memory-desc'>
+        În stânga, modelul de limbaj, cu ponderile (memoria parametrică) și memoria arhitecturală, încă în zona de cercetare. În mijloc, fereastra de context, cu promptul de sistem și fișierele de memorie, rezumatul obținut prin compactare și mesajele recente. Contextul intră în model, iar răspunsul modelului se adaugă în context. În dreapta, memoria externă: fișiere text, un depozit cheie-valoare și o bază de date vectorială. Harnașamentul scrie informații din context în memoria externă și le regăsește de acolo înapoi în context.
+      </desc>
+      <defs>
+        <marker
+          id='memory-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <g class='arrow' marker-end='url(#memory-arrow)'>
+        <!-- Context -> Model -->
+        <path d='M288 125 H207'></path>
+        <!-- Model -> Context -->
+        <path d='M207 165 H288'></path>
+        <!-- Context -> Memorie externă (scriere) -->
+        <path d='M512 125 H593'></path>
+        <!-- Memorie externă -> Context (regăsire) -->
+        <path d='M593 165 H512'></path>
+      </g>
+
+      <!-- Modelul -->
+      <rect class='group' x={15} y={40} width={190} height={200} rx='8'></rect>
+      <text class='title' x={110} y={62} text-anchor='middle'>Modelul</text>
+      <Box x={30} y={78} width={160} height={66} kind='attention' lines={['Ponderi', '(memorie', 'parametrică)']} />
+      <Box x={30} y={156} width={160} height={66} kind='attention' dashed lines={['Memorie', 'arhitecturală', '(cercetare)']} />
+
+      <!-- Fereastra de context -->
+      <rect class='group' x={290} y={40} width={220} height={200} rx='8'></rect>
+      <text class='title' x={400} y={62} text-anchor='middle'>Fereastra de context</text>
+      <Box x={305} y={78} width={190} height={44} kind='embedding' lines={['Prompt de sistem și', 'fișiere de memorie']} />
+      <Box x={305} y={130} width={190} height={44} kind='embedding' lines={['Rezumat după', 'compactare']} />
+      <Box x={305} y={182} width={190} height={44} kind='neutral' lines={['Mesaje recente și', 'rezultate de instrumente']} />
+
+      <!-- Memoria externă -->
+      <rect class='group' x={595} y={40} width={170} height={200} rx='8'></rect>
+      <text class='title' x={680} y={62} text-anchor='middle'>Memorie externă</text>
+      <Box x={608} y={78} width={144} height={44} kind='highlight' lines={['Fișiere text', '(Markdown)']} />
+      <Box x={608} y={130} width={144} height={44} kind='feed-forward' lines={['Depozit', 'cheie-valoare']} />
+      <Box x={608} y={182} width={144} height={44} kind='norm' lines={['Bază de date', 'vectorială']} />
+
+      <!-- Etichete pe săgeți -->
+      <text class='label' x={247} y={117} text-anchor='middle'>prompt</text>
+      <text class='label' x={247} y={183} text-anchor='middle'>răspuns</text>
+      <text class='label' x={552} y={117} text-anchor='middle'>scriere</text>
+      <text class='label' x={552} y={183} text-anchor='middle'>regăsire</text>
+    </svg>
+  </div>
+  <figcaption>
+    Modelul vede doar ce se află în fereastra de context. Harnașamentul decide ce informații sunt scrise în memoria externă și ce informații sunt aduse înapoi în context la pasul următor.
+  </figcaption>
+</figure>
+
+<style>
+  .agent-memory-diagram svg {
+    min-width: 34rem;
+    max-width: 48rem;
+  }
+</style>

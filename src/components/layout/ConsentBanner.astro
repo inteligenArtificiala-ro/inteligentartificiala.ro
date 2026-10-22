@@ -1,0 +1,176 @@
+---
+import { SITE } from '../../consts';
+
+// Google Analytics se încarcă doar după acord explicit (Consent Mode „basic”): până atunci,
+// niciun script Google nu rulează. În `astro dev` banner-ul apare, dar GA nu se încarcă niciodată.
+const gaId = import.meta.env.PROD ? SITE.googleAnalyticsId : '';
+---
+
+<div
+  id='consimtamant'
+  data-ga-id={gaId}
+  hidden
+  role='dialog'
+  aria-labelledby='consimtamant-titlu'
+  aria-describedby='consimtamant-text'
+  data-pagefind-ignore
+>
+  <p id='consimtamant-titlu' class='titlu'>Cookie-uri</p>
+  <p id='consimtamant-text'>
+    Site-ul folosește Google Analytics pentru statistici de trafic. Cookie-urile de analiză se activează doar după
+    acceptare. Detalii în <a href='/cookie-uri/'>politica de cookie-uri</a>.
+  </p>
+  <div class='actiuni'>
+    <button type='button' data-consimtamant='acceptat'>Accept</button>
+    <button type='button' data-consimtamant='refuzat'>Refuz</button>
+  </div>
+</div>
+
+<style>
+  #consimtamant {
+    position: fixed;
+    inset-inline: 1rem;
+    bottom: 1rem;
+    z-index: 100;
+    max-width: 34rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.75rem;
+    background: var(--sl-color-bg-nav, var(--sl-color-bg));
+    box-shadow: var(--sl-shadow-lg);
+    color: var(--sl-color-text);
+    font-size: var(--sl-text-sm);
+  }
+
+  #consimtamant[hidden] {
+    display: none;
+  }
+
+  .titlu {
+    margin: 0 0 0.5rem;
+    font-size: var(--sl-text-h5);
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+
+  #consimtamant-text {
+    margin: 0;
+  }
+
+  #consimtamant-text a {
+    color: var(--sl-color-text-accent);
+  }
+
+  .actiuni {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .actiuni button {
+    padding: 0.4rem 1.1rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--sl-color-white);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .actiuni button:hover {
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-accent-high);
+  }
+</style>
+
+<script>
+  const STORAGE_KEY = 'consimtamant-analiza';
+
+  const banner = document.getElementById('consimtamant');
+  const gaId = banner?.dataset.gaId;
+
+  // Subsolul stă în `.main-pane` (izolat de Starlight), unde z-index-ul banner-ului nu trece
+  // peste bara laterală fixă; mutat direct în <body>, banner-ul rămâne deasupra întregii pagini.
+  if (banner) document.body.append(banner);
+
+  function readChoice() {
+    try {
+      return localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  function saveChoice(choice: string) {
+    try {
+      localStorage.setItem(STORAGE_KEY, choice);
+    } catch {
+      // Fără localStorage (mod privat strict), alegerea ține doar până la închiderea paginii.
+    }
+  }
+
+  function loadAnalytics() {
+    if (!gaId || window.gaLoaded) return;
+    window.gaLoaded = true;
+    window.dataLayer = window.dataLayer || [];
+    // gtag.js are nevoie de obiectul `arguments`, nu de un array, deci păstrăm forma clasică.
+    window.gtag = function gtag() {
+      // biome-ignore lint/complexity/noArguments: gtag.js citește obiectul `arguments`.
+      window.dataLayer.push(arguments);
+    };
+    window.gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      analytics_storage: 'granted',
+    });
+    window.gtag('js', new Date());
+    window.gtag('config', gaId);
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+    document.head.append(script);
+  }
+
+  function removeAnalyticsCookies() {
+    const names = document.cookie
+      .split(';')
+      .map((cookie) => cookie.split('=')[0].trim())
+      .filter((name) => name === '_ga' || name.startsWith('_ga_') || name === '_gid');
+    const host = location.hostname.replace(/^www\./, '');
+    for (const name of names) {
+      for (const domain of ['', host, `.${host}`]) {
+        // biome-ignore lint/suspicious/noDocumentCookie: ștergerea cookie-urilor GA la retragerea acordului.
+        document.cookie = `${name}=; Max-Age=0; path=/${domain ? `; domain=${domain}` : ''}`;
+      }
+    }
+  }
+
+  function decide(choice: string) {
+    const wasLoaded = window.gaLoaded;
+    saveChoice(choice);
+    if (banner) banner.hidden = true;
+    if (choice === 'acceptat') {
+      loadAnalytics();
+    } else {
+      removeAnalyticsCookies();
+      // Dacă GA rula deja în pagină, reîncărcarea îl oprește complet.
+      if (wasLoaded) location.reload();
+    }
+  }
+
+  banner?.querySelectorAll<HTMLButtonElement>('[data-consimtamant]').forEach((button) => {
+    button.addEventListener('click', () => decide(button.dataset.consimtamant ?? 'refuzat'));
+  });
+
+  document.querySelectorAll('[data-deschide-consimtamant]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (banner) banner.hidden = false;
+    });
+  });
+
+  const choice = readChoice();
+  if (choice === 'acceptat') loadAnalytics();
+  else if (choice === null && banner) banner.hidden = false;
+</script>

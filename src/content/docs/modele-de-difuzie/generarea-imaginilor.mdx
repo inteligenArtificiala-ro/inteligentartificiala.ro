@@ -1,0 +1,116 @@
+---
+title: Generarea imaginilor
+description: Cum transformă un generator de imagini un text într-o imagine prin difuzie în spațiul latent, codificatorul de text, atenția încrucișată și ghidarea fără clasificator. Editarea imaginilor, limitele generatoarelor și semnele după care recunoaștem o imagine generată.
+sidebar:
+  order: 2
+level: intermediar
+tags:
+  - Modele de difuzie
+---
+
+import LatentDiffusionDiagram from '@components/diagrams/LatentDiffusionDiagram.astro';
+
+Scriem „o pisică portocalie care doarme pe o bancă în Cișmigiu, pictată în acuarelă”, iar în câteva secunde primim o imagine care nu a existat până atunci. Cele mai multe generatoare de imagini, precum Stable Diffusion, FLUX, Imagen sau DALL·E 3, sunt construite pe un [model de difuzie](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/). La modelul de difuzie se adaugă trei piese: o comprimare a imaginii într-un spațiu mult mai mic, un model care înțelege textul și un mecanism care obligă generarea să urmeze textul.
+
+## Difuzia în spațiul latent
+
+O imagine color de 1024 × 1024 pixeli are $1024 \times 1024 \times 3 = 3.145.728$ de valori. Este foarte costisitor să rulăm o rețea mare peste toate aceste valori de zeci de ori, la fiecare pas al procesului invers. În plus, multe dintre ele descriu detalii fine, pe care ochiul abia le observă.
+
+Soluția a fost propusă în 2022 de Robin Rombach și colegii săi, de la universitățile din München și Heidelberg, sub numele de **difuzie latentă** (_latent diffusion_). Un **autoencoder** (_autoencoder_), adică o rețea formată dintr-un codificator și un decodor, este antrenat separat să comprime imaginea într-o reprezentare mult mai mică și apoi să o reconstruiască cât mai fidel. Reprezentarea comprimată se numește **reprezentare latentă** (_latent representation_), iar spațiul în care se află, **spațiu latent** (_latent space_). Autoencoderul folosit este de obicei un **autoencoder variațional** (_variational autoencoder_, VAE).
+
+La Stable Diffusion 1.x, o imagine de $512 \times 512 \times 3 = 786.432$ de valori devine o reprezentare latentă de $64 \times 64 \times 4 = 16.384$ de valori, de 48 de ori mai mică. Modelul de difuzie lucrează doar în acest spațiu latent. La final, decodorul transformă reprezentarea latentă curată într-o imagine. Stable Diffusion a fost lansat în august 2022 de Stability AI, împreună cu grupul de cercetare al lui Rombach și cu Runway, iar ponderile lui au fost publicate pentru oricine. A fost primul generator de imagini de calitate care putea rula pe o placă grafică obișnuită, de acasă.
+
+<LatentDiffusionDiagram />
+
+## Cum ajunge textul în imagine
+
+Ca imaginea să urmeze descrierea, rețeaua care elimină zgomotul primește, pe lângă $x_t$ și $t$, și textul. Textul trece mai întâi printr-un **codificator de text** (_text encoder_), care îl transformă într-un șir de vectori, câte unul pentru fiecare token, la fel ca în [modelele de limbaj](/modele-lingvistice/embeddings-si-tokenizare/).
+
+Stable Diffusion 1.x folosește codificatorul de text al lui **CLIP**, un model publicat de OpenAI în 2021. CLIP a fost antrenat pe 400 de milioane de perechi de imagini și descrieri să aducă o imagine și descrierea ei în puncte apropiate ale aceluiași spațiu vectorial. Imagen (Google, 2022) a arătat că un codificator luat dintr-un model de limbaj antrenat doar pe text, T5-XXL, înțelege mai bine descrierile lungi și complicate, iar creșterea acestui codificator îmbunătățește imaginile mai mult decât creșterea modelului de difuzie. Stable Diffusion 3 folosește ambele tipuri de codificatoare.
+
+Legătura dintre text și imagine se face prin **atenție încrucișată** (_cross-attention_), o variantă a [mecanismului de atenție](/modele-lingvistice/avem-nevoie-doar-de-atentie/) în care interogările vin dintr-o secvență, iar cheile și valorile din alta.
+
+$$
+\operatorname{Attention}(Q, K, V) = \operatorname{softmax}\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V, \qquad Q = h_{\text{img}} W_Q, \quad K = h_{\text{text}} W_K, \quad V = h_{\text{text}} W_V
+$$
+
+Interogările $Q$ vin din reprezentarea imaginii, $h_{\text{img}}$, iar cheile $K$ și valorile $V$ vin din vectorii textului, $h_{\text{text}}$. Fiecare zonă a imaginii caută astfel în text cuvintele care o privesc. Zona în care apare pisica se uită mai ales la „pisică” și la „portocalie”, iar fundalul la „bancă” și la „Cișmigiu”.
+
+### Arhitectura rețelei
+
+Primele versiuni Stable Diffusion folosesc un U-Net cu aproximativ 860 de milioane de parametri. În 2023, William Peebles și Saining Xie au propus **Transformerul de difuzie** (_diffusion transformer_, DiT). Reprezentarea latentă este tăiată în **petice** (_patches_) mici, de exemplu de 2 × 2, fiecare petic devine un token, iar tokenurile trec printr-un [Transformer](/modele-lingvistice/arhitectura-transformer/) asemănător cu cel al modelelor de limbaj. Ca la modelele de limbaj, calitatea crește previzibil cu dimensiunea modelului și cu puterea de calcul folosită la antrenare.
+
+Stable Diffusion 3 (Stability AI, 2024) și FLUX.1 (Black Forest Labs, 2024, 12 miliarde de parametri) folosesc astfel de transformere, antrenate prin [potrivirea fluxului](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/#potrivirea-fluxului). În ele, tokenurile textului și peticele imaginii trec împreună prin aceleași straturi de atenție, așa că textul și imaginea se influențează reciproc la fiecare strat.
+
+## Ghidarea fără clasificator
+
+O rețea condiționată de text urmează descrierea doar vag. Soluția folosită de aproape toate generatoarele este **ghidarea fără clasificator** (_classifier-free guidance_, CFG), propusă de Jonathan Ho și Tim Salimans în 2021. La antrenare, textul este înlocuit cu un text gol într-o mică parte din exemple (de obicei 10–20%), așa că aceeași rețea învață să elimine zgomotul și cu text, și fără. La generare, rețeaua este rulată de două ori la fiecare pas, iar cele două estimări ale zgomotului se combină.
+
+$$
+\tilde\varepsilon = \varepsilon_\theta(x_t, t, \varnothing) + w \left( \varepsilon_\theta(x_t, t, c) - \varepsilon_\theta(x_t, t, \varnothing) \right)
+$$
+
+Aici $c$ este textul, $\varnothing$ este textul gol, iar $w$ este **scala de ghidare** (_guidance scale_). Diferența dintre cele două estimări arată ce schimbă textul în imagine, iar o valoare $w > 1$ amplifică această schimbare. Pentru Stable Diffusion, valoarea implicită este $w = 7{,}5$. O valoare prea mică duce la imagini care ignoră o parte din descriere, iar una prea mare la culori exagerate și la un aspect artificial. Pentru că rețeaua rulează de două ori, ghidarea dublează și costul fiecărui pas.
+
+**Promptul negativ** (_negative prompt_) folosește același mecanism. Textul gol $\varnothing$ este înlocuit cu o descriere a ceea ce nu vrem să apară, de exemplu „neclar, text, degete în plus”, iar generarea este împinsă în direcția opusă acestei descrieri. Laboratorul despre difuzie scrie formula ghidării [în Python](/laboratoare/difuzie-imagini-si-sunete/imagini-din-text/#generarea-cu-ghidarea-fără-clasificator), pentru Stable Diffusion 1.5, și compară imaginile obținute cu mai multe valori ale scalei.
+
+## Editarea imaginilor
+
+Același model poate modifica o imagine existentă, nu doar să creeze una nouă.
+
+- **De la imagine la imagine** (_image-to-image_): imaginea existentă este trecută prin procesul direct doar până la un pas intermediar, iar procesul invers pornește de acolo, cu o descriere nouă. Metoda a fost publicată în 2021 sub numele SDEdit. Parametrul numit de obicei **intensitate** (_strength_) alege pasul de pornire. La o intensitate de 0,3 se schimbă doar detaliile, iar la 0,8 din imaginea inițială rămân doar compoziția și culorile principale.
+- **Completarea unei zone** (_inpainting_): o mască arată ce zonă trebuie regenerată, iar restul imaginii este păstrat neschimbat la fiecare pas. Așa se șterge un obiect dintr-o fotografie sau se adaugă unul nou.
+- **Controlul structurii**: ControlNet (2023) îi dă modelului o intrare suplimentară, de exemplu conturul unui desen, poziția corpului unei persoane sau o hartă de adâncime, pe care imaginea generată o respectă.
+- **Personalizarea**: metode precum DreamBooth (Google, 2022) sau ajustarea fină cu LoRA învață modelul o persoană, un obiect sau un stil nou din câteva fotografii, de la 3–5 până la câteva zeci. Aceeași tehnică îi permite oricui să genereze imagini false cu o persoană reală, pornind de la fotografiile ei publice.
+
+## Modele autoregresive pentru imagini
+
+Difuzia nu este singura cale. Primul DALL·E (OpenAI, 2021) genera imaginile ca pe un text: imaginea era împărțită în tokenuri, iar un Transformer le genera unul după altul. DALL·E 2 (2022) a trecut la difuzie. În 2025, OpenAI a revenit la generarea autoregresivă. Generatorul de imagini bazat pe GPT-4o este descris de companie ca un model autoregresiv integrat direct în modelul de limbaj, nu ca un model de difuzie separat. OpenAI pune pe seama acestei integrări faptul că modelul urmează mai bine instrucțiunile complicate, folosește contextul conversației și scrie mai corect textul din imagini.
+
+Pentru multe sisteme comerciale, de exemplu cele din familia Gemini, arhitectura exactă nu este publică. Combinațiile sunt frecvente: un model de limbaj planifică imaginea, iar un model de difuzie îi desenează detaliile.
+
+## Limitele generatoarelor de imagini
+
+- **Numărarea și pozițiile**: o descriere precum „trei mere la stânga unei căni albastre” iese adesea greșit, cu patru mere sau cu cana în altă parte.
+- **Textul din imagini**: multă vreme, literele generate au fost deformate. Modelele recente scriu mult mai bine, dar pot greși la cuvintele lungi și la diacritice precum „ș” și „ț”.
+- **Prejudecățile** (_bias_): modelele reproduc stereotipurile din datele de antrenare. Fără alte detalii în descriere, „un director” sau „un medic” apar cel mai des ca bărbați, iar „o asistentă medicală” ca femeie.
+- **Drepturile de autor**: modelele sunt antrenate pe miliarde de imagini adunate de pe internet. Primele versiuni Stable Diffusion au fost antrenate pe părți din LAION-5B, un set de 5,85 miliarde de perechi de imagini și descrieri. Artiști ale căror lucrări au ajuns în date fără acordul lor și agenții foto precum Getty Images au dat în judecată companiile care dezvoltă astfel de modele.
+
+## Cum recunoaștem o imagine generată
+
+Semnele vizuale cunoscute, precum mâinile cu șase degete sau textul fără sens, sunt tot mai rare. Unele pot apărea încă:
+
+- detalii care nu se potrivesc între ele, de exemplu cercei diferiți, ochelari care se contopesc cu părul, umbre în direcții diferite sau reflexii care nu corespund scenei;
+- obiecte din fundal care se topesc unele în altele sau se termină brusc și inscripții fără sens pe firme și plăcuțe;
+- o piele perfect netedă și o lumină de studio în locuri în care nu ar avea cum să existe.
+
+Mai sigur decât semnele vizuale este contextul. Contează cine a publicat imaginea și unde a apărut prima dată. O căutare inversă de imagini, de exemplu cu Google Lens sau TinEye, arată adesea sursa originală. Un eveniment real și important apare la mai multe surse independente, precum agențiile de presă și instituțiile implicate. O singură imagine spectaculoasă, fără nicio altă confirmare, este un semnal de alarmă.
+
+Există și metode tehnice de a urmări **proveniența** (_provenance_) unei imagini:
+
+- **C2PA** (_Coalition for Content Provenance and Authenticity_) este un standard susținut de Adobe, Microsoft, Google, OpenAI și alte companii. Imaginea primește metadate semnate digital, numite Content Credentials, care spun cum a fost creată și modificată. Metadatele se pierd însă ușor, de exemplu la o captură de ecran sau când o rețea de socializare recomprimă imaginea.
+- **Filigranele digitale invizibile** (_invisible watermarks_), precum SynthID de la Google DeepMind, sunt ascunse chiar în pixeli și rezistă, până la un punct, la recomprimare, decupare și schimbarea culorilor. Pot fi verificate doar pentru imaginile generate de serviciile care le aplică.
+- **Detectoarele automate**, care promit să spună dacă o imagine este generată, greșesc în ambele direcții. Pot declara generată o fotografie reală și pot rata o imagine generată, mai ales după ce a fost recomprimată.
+
+:::note[Ce spune legislația europeană]
+Regulamentul european privind inteligența artificială (_AI Act_, Regulamentul (UE) 2024/1689) le cere furnizorilor de sisteme generative să marcheze conținutul generat într-un format care poate fi detectat automat. Cei care publică imagini, clipuri sau înregistrări audio generate ori manipulate, care par să arate persoane, locuri sau evenimente reale (_deepfake_), trebuie să spună clar că acestea sunt artificiale.
+:::
+
+## Bibliografie
+
+- Coalition for Content Provenance and Authenticity (f.a.). [C2PA Specifications](https://spec.c2pa.org/specifications/).
+- Esser, P. et al. (2024). [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206). _ICML 2024_.
+- Ho, J. și Salimans, T. (2022). [Classifier-Free Diffusion Guidance](https://arxiv.org/abs/2207.12598). Preprint arXiv:2207.12598.
+- Hu, E. J. et al. (2022). [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685). _ICLR 2022_.
+- Meng, C. et al. (2022). [SDEdit: Guided Image Synthesis and Editing with Stochastic Differential Equations](https://arxiv.org/abs/2108.01073). _ICLR 2022_.
+- OpenAI (2025). [Introducing 4o Image Generation](https://openai.com/index/introducing-4o-image-generation/). Blogul OpenAI.
+- Parlamentul European și Consiliul Uniunii Europene (2024). [Regulamentul (UE) 2024/1689 de stabilire a unor norme armonizate privind inteligența artificială](https://eur-lex.europa.eu/legal-content/RO/TXT/?uri=CELEX:32024R1689). _Jurnalul Oficial al Uniunii Europene_, seria L, 12 iulie 2024.
+- Peebles, W. și Xie, S. (2023). [Scalable Diffusion Models with Transformers](https://arxiv.org/abs/2212.09748). _ICCV 2023_.
+- Radford, A. et al. (2021). [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020). _ICML 2021_.
+- Ramesh, A. et al. (2021). [Zero-Shot Text-to-Image Generation](https://arxiv.org/abs/2102.12092). _ICML 2021_.
+- Ramesh, A. et al. (2022). [Hierarchical Text-Conditional Image Generation with CLIP Latents](https://arxiv.org/abs/2204.06125). Preprint arXiv:2204.06125.
+- Rombach, R. et al. (2022). [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752). _CVPR 2022_.
+- Ruiz, N. et al. (2023). [DreamBooth: Fine Tuning Text-to-Image Diffusion Models for Subject-Driven Generation](https://arxiv.org/abs/2208.12242). _CVPR 2023_.
+- Saharia, C. et al. (2022). [Photorealistic Text-to-Image Diffusion Models with Deep Language Understanding](https://arxiv.org/abs/2205.11487). _NeurIPS 2022_.
+- Schuhmann, C. et al. (2022). [LAION-5B: An open large-scale dataset for training next generation image-text models](https://arxiv.org/abs/2210.08402). _NeurIPS 2022_.
+- Zhang, L., Rao, A. și Agrawala, M. (2023). [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543). _ICCV 2023_.

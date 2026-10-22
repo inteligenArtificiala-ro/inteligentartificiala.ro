@@ -1,0 +1,89 @@
+---
+title: Rețeaua Actor-Critic
+description: Rețelele actor și critic în PyTorch, pentru un spațiu de acțiuni continue. Inițializarea ortogonală și deviația standard învățată separat de medie, ca parametru independent de stare.
+sidebar:
+  order: 3
+  label: Rețeaua Actor-Critic
+level: avansat
+tags:
+  - Învățare prin consolidare
+  - Control continuu
+---
+
+import SourceFile from '@components/SourceFile.astro';
+
+În metodele [actor-critic](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/#familii-de-metode), două componente lucrează împreună ca să îmbunătățească comportamentul agentului:
+1. **Actorul** (_actor_) este strategia de decizie $\pi_\theta(a \mid s)$. Primește starea curentă și decide ce acțiune execută agentul.
+2. **Criticul** (_critic_) aproximează funcția de valoare a stării, $V_\phi(s)$. Estimează recompensa cumulată pe care o putem aștepta pornind din acea stare și servește drept [linie de bază](/invatare-prin-consolidare/gradientul-politicii-reinforce/#linia-de-bază) la calculul avantajului acțiunii alese.
+
+Tot codul arhitecturii se află în fișierul `model.py`.
+
+## Inițializarea ortogonală
+
+:::note[De ce inițializare ortogonală și nu Kaiming/Xavier?]
+Când antrenăm rețele neuronale profunde pentru control continuu, felul în care inițializăm ponderile contează foarte mult pentru stabilitatea convergenței. Inițializarea ortogonală păstrează norma activărilor și a gradienților la propagarea directă și la retropropagare. Astfel, semnalul nici nu explodează, nici nu se stinge la începutul antrenării.
+:::
+
+<SourceFile path="laboratoare/control-continuu-ppo-halfcheetah/cod/model.py" symbols={['layer_init']} />
+
+Parametrul `std` al funcției `layer_init` stabilește amplitudinea inițială a ponderilor:
+- $\sqrt{2} \approx 1{,}414$ pentru straturile ascunse urmate de activarea neliniară `Tanh`,
+- $1{,}0$ pentru stratul final al criticului,
+- $0{,}01$ pentru stratul de ieșire al actorului. Cu o scară atât de mică, mediile inițiale $\mu(s)$ sunt foarte apropiate de zero, așa că agentul nu ia decizii extreme la începutul învățării.
+
+## Clasa ActorCritic
+
+Arhitectura completă reunește cele două rețele într-un singur modul PyTorch.
+
+<SourceFile path="laboratoare/control-continuu-ppo-halfcheetah/cod/model.py" symbols={['ActorCritic']} />
+
+### Separarea mediei de deviația standard
+
+În controlul continuu contează mult și felul în care modelăm deviația standard $\sigma$:
+
+```python
+self.actor_logstd = nn.Parameter(torch.zeros(1, act_dim))
+```
+
+:::tip[De ce deviația standard nu depinde de stare?]
+Observăm că `actor_logstd` nu este prezis de rețea din observația $s$. Este un tensor de parametri învățabili, independenți de stare (_state-independent parameter_). Dacă am prezice $\sigma$ direct din starea $s$, printr-un strat liniar, deviația standard ar scădea mult prea repede în stările vizitate des. Explorarea s-ar opri prea devreme, iar agentul ar rămâne blocat într-un minim local. Ca parametru global, $\sigma$ (și odată cu ea incertitudinea) scade treptat și controlat. Inițializarea cu zerouri dă $\sigma_0 = \exp(0) = 1{,}0$, adică o explorare generoasă în primele mii de pași.
+:::
+
+### Metodele clasei
+
+- `get_value(x)` evaluează starea $x$ cu ajutorul criticului și returnează scalarul $V(x)$.
+- `get_action_and_value(x, action=None)` este metoda principală. O folosim atât la colectarea datelor (când `action` este `None` și se eșantionează o acțiune nouă), cât și la optimizarea PPO (când primește acțiunile salvate în buffer și recalculează pentru ele log-probabilitățile și entropia cu ponderile curente).
+- `predict(x, deterministic=True)` servește la evaluare și la testarea finală. În modul determinist, ignoră zgomotul gaussian și returnează direct media $\mu(x)$, iar robotul se mișcă astfel cel mai stabil.
+
+## Verificarea locală
+
+Putem verifica rapid că rețeaua funcționează: creăm modelul și îi dăm un lot de observații fictive.
+
+```python
+import torch
+from model import ActorCritic
+
+# 17 observații de intrare, 6 acțiuni continue de ieșire
+agent = ActorCritic(obs_dim=17, act_dim=6)
+num_params = sum(p.numel() for p in agent.parameters() if p.requires_grad)
+print(f"Număr total de parametri: {num_params:,}")
+
+# Simulăm un lot de 4 observații din mediu
+fake_obs = torch.randn(4, 17)
+action, log_prob, entropy, value = agent.get_action_and_value(fake_obs)
+
+print("Forma acțiunilor:     ", tuple(action.shape))      # (4, 6)
+print("Forma log-prob:      ", tuple(log_prob.shape))    # (4,)
+print("Forma valorilor V(s):", tuple(value.shape))       # (4, 1)
+```
+
+Rezultatul este de aproximativ 11.000 de parametri, mult mai puțini decât la un model de limbaj. De aceea, rețeaua rulează foarte repede, atât la inferență, cât și la antrenare.
+
+Avem acum o rețea pentru strategie și una pentru funcția de valoare. Pasul următor este algoritmul care le actualizează ponderile, descris pe pagina [Algoritmul PPO și GAE](/laboratoare/control-continuu-ppo-halfcheetah/algoritmul-ppo-si-gae/).
+
+## Bibliografie
+
+- Andrychowicz, M. et al. (2021). [What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study](https://arxiv.org/abs/2006.05990). _ICLR 2021_.
+- Huang, S. et al. (2022). [The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/). ICLR Blog Track.
+- Konda, V. R. și Tsitsiklis, J. N. (2000). [Actor-Critic Algorithms](https://papers.nips.cc/paper/1999/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html). _Advances in Neural Information Processing Systems_, 12.
+- Saxe, A. M., McClelland, J. L. și Ganguli, S. (2014). [Exact solutions to the nonlinear dynamics of learning in deep linear neural networks](https://arxiv.org/abs/1312.6120). _ICLR 2014_.

@@ -1,0 +1,24 @@
+---
+import { getCollection } from 'astro:content';
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+const contributors = (await getCollection('contributori')).sort((a, b) =>
+  a.data.name.localeCompare(b.data.name, 'ro'),
+);
+---
+
+<CardGrid>
+  {
+    contributors.map((contributor) => (
+      <Card title={contributor.data.name}>
+        {contributor.data.role && <p>{contributor.data.role}</p>}
+        {contributor.data.bio && <p>{contributor.data.bio}</p>}
+        <p id={contributor.id}>
+          <a href={contributor.data.url} target='_blank' rel='noopener'>
+            {new URL(contributor.data.url).hostname}
+          </a>
+        </p>
+      </Card>
+    ))
+  }
+</CardGrid>

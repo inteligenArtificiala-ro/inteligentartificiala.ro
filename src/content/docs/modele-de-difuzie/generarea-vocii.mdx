@@ -1,0 +1,102 @@
+---
+title: Generarea vocii
+description: Cum produce un model o voce care sună omenesc, de la eșantioane, spectrograma mel și vocoder la sunetul împărțit în tokenuri și difuzia pentru vorbire. Clonarea vocii din câteva secunde de înregistrare și apelurile false cu voci clonate.
+sidebar:
+  order: 3
+level: intermediar
+tags:
+  - Modele de difuzie
+---
+
+import SpeechSynthesisDiagram from '@components/diagrams/SpeechSynthesisDiagram.astro';
+
+În câțiva ani, vocile sintetice au trecut de la tonul metalic al primelor aplicații de navigație la voci greu de deosebit de cele reale. **Sinteza vorbirii** (_text-to-speech_, TTS) citește cu voce tare un text, cu intonație și pauze firești. Asistenții vocali, precum cei din ChatGPT sau Gemini, ascultă întrebarea și răspund vorbind, aproape fără pauză. **Clonarea vocii** (_voice cloning_) imită vocea unei persoane anume, pornind de la o înregistrare de câteva secunde. Această ultimă posibilitate a dat naștere și unor înșelătorii noi, descrise la [finalul paginii](#clonarea-vocii).
+
+## Sunetul ca semnal
+
+Un microfon măsoară presiunea aerului de multe ori pe secundă. Fiecare măsurătoare este un **eșantion** (_sample_), iar numărul de măsurători pe secundă este **rata de eșantionare** (_sample rate_). Telefonia clasică folosește 8.000 de eșantioane pe secundă (8 kHz), un CD folosește 44.100, iar modelele de sinteză a vorbirii lucrează de obicei la 16.000–24.000. Șirul de eșantioane se numește **formă de undă** (_waveform_).
+
+Aici se află principala dificultate. O propoziție de zece cuvinte are câteva zeci de tokenuri de text, dar rostită în trei secunde, la 24 kHz, devine un șir de 72.000 de numere. Modelul trebuie să controleze precis toate aceste valori, iar urechea observă imediat un zgomot de fond, un sunet metalic sau o intonație nefirească.
+
+De aceea, sunetul este adesea transformat mai întâi într-o **spectrogramă** (_spectrogram_). Semnalul este tăiat în ferestre scurte, de câteva zeci de milisecunde, iar pentru fiecare fereastră se calculează, cu transformata Fourier, câtă energie are sunetul la fiecare frecvență. Rezultatul seamănă cu o imagine: pe orizontală este timpul, pe verticală frecvența, iar intensitatea fiecărui punct arată energia.
+
+**Spectrograma mel** (_mel spectrogram_) grupează frecvențele în benzi, de obicei 80, distribuite după felul în care le percepe urechea. Benzile sunt înguste la frecvențele joase, unde auzim diferențe mici, și largi la cele înalte. O secundă de vorbire devine astfel aproximativ 80–100 de coloane de câte 80 de valori, cu mult mai puțin decât 24.000 de eșantioane.
+
+## Lanțul clasic: model acustic și vocoder
+
+<SpeechSynthesisDiagram />
+
+Până în jurul anului 2022, cele mai multe sisteme de sinteză a vorbirii aveau două etape. **Modelul acustic** (_acoustic model_) transforma textul într-o spectrogramă mel. **Vocoderul** (_vocoder_) transforma apoi spectrograma într-o formă de undă, completând detaliile pe care spectrograma nu le păstrează.
+
+- **WaveNet** (DeepMind, 2016) a fost primul model care a produs o voce cu adevărat naturală. Genera forma de undă autoregresiv, câte un eșantion pe rând, deci zeci de mii de pași pentru o singură secundă de sunet, ceea ce l-a făcut la început foarte lent.
+- **Tacotron 2** (Google, 2017) producea spectrograma mel din text, iar un WaveNet o transforma în sunet. Ascultătorii i-au dat note de naturalețe aproape egale cu cele ale înregistrărilor reale: 4,53 față de 4,58, pe o scară de la 1 la 5.
+- **Vocoderele mai noi** generează toată forma de undă deodată. HiFi-GAN (2020) folosește o rețea generativă adversarială, iar WaveGrad și DiffWave (ambele din 2020) au fost primele vocodere bazate pe [difuzie](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/). Grad-TTS (2021) a aplicat difuzia și modelului acustic, generând spectrograma mel pornind de la zgomot.
+
+:::note[Ce este greu în limba română]
+Înainte de sunet, textul trebuie **normalizat**: numerele, abrevierile și datele se transformă în cuvinte. În română, numeralele se acordă cu substantivul: „2 lei” se citește „doi lei”, dar „2 case” se citește „două case”, iar „21 de case”, „douăzeci și una de case”.
+
+Fără diacritice, textul devine ambiguu: „fata” poate fi „fata”, „fată” sau „fața”, iar „peste” poate fi „peste” sau „pește”. Accentul nu are un loc fix, iar unele cuvinte scrise la fel se pronunță diferit după sens: „cópii” (copiile unui document) și „copíi” (mai mulți copii), „tórturi” (prăjituri) și „tortúri” (chinuri). Modelul trebuie să deducă din context varianta corectă.
+
+Pentru română există și mult mai puține ore de vorbire înregistrată decât pentru engleză. De aceea, multe modele vorbesc româna mai puțin natural sau cu un ușor accent străin.
+:::
+
+## Sunetul ca tokenuri
+
+Ideea care a schimbat domeniul în 2023 a fost ca sunetul să fie tratat ca un text. **Codecurile audio neuronale** (_neural audio codecs_), precum SoundStream (Google, 2021) și EnCodec (Meta, 2022), sunt autoencodere care comprimă sunetul într-un șir de simboluri dintr-un vocabular fix. EnCodec, de exemplu, descrie o secundă de sunet la 24 kHz prin 75 de cadre, iar fiecare cadru prin mai multe coduri: 8, la calitatea de 6 kbps, fiecare ales dintr-un vocabular de 1.024. Din 24.000 de numere pe secundă rămân 600 de tokenuri, iar decodorul codecului le poate transforma înapoi în sunet.
+
+Odată ce sunetul devine un șir de tokenuri, se pot folosi aceleași tehnici ca la [modelele de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/). **VALL-E** (Microsoft, 2023) este un model de limbaj care primește textul și o înregistrare de 3 secunde a unei voci, transformată în tokenuri, apoi generează tokenurile audio ale textului rostit cu acea voce. Antrenat pe 60.000 de ore de vorbire în engleză, VALL-E păstra nu doar timbrul vocii, ci și emoția și chiar zgomotul de fond din înregistrarea de pornire.
+
+Asistenții vocali recenți merg mai departe. GPT-4o (OpenAI, 2024) lucrează direct cu sunetul: înțelege întrebarea rostită și răspunde vorbind, cu același model, fără să transforme vorbirea în text la mijloc. OpenAI a raportat un timp mediu de răspuns de aproximativ 320 de milisecunde, apropiat de pauza firească dintr-o conversație între oameni.
+
+## Difuzia și potrivirea fluxului pentru vorbire
+
+Difuzia și [potrivirea fluxului](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/#potrivirea-fluxului) se folosesc și pentru vorbire, de obicei pe spectrograme mel, care seamănă cu niște imagini.
+
+- **Voicebox** (Meta, 2023), antrenat pe peste 50.000 de ore de vorbire, folosește potrivirea fluxului. Poate rosti un text nou cu o voce dată, poate înlocui un singur cuvânt dintr-o înregistrare sau poate elimina zgomotul de fond. Meta nu a publicat modelul, invocând riscul de folosire abuzivă.
+- **F5-TTS** (2024) este un model cu ponderi deschise care combină potrivirea fluxului cu un Transformer de difuzie și clonează o voce din câteva secunde de înregistrare.
+- **Sistemele combinate**, precum CosyVoice (Alibaba, 2024), folosesc un model de limbaj care decide ce se spune și cum (conținutul, ritmul, intonația), sub formă de tokenuri, iar un model antrenat prin potrivirea fluxului transformă aceste tokenuri într-un sunet de calitate.
+
+Muzica urmează aceleași idei. Stable Audio (Stability AI, 2023) este un model de difuzie latentă pentru sunet, iar serviciile comerciale precum Suno și Udio generează cântece întregi, cu voce și instrumente, pornind de la o descriere. Arhitectura lor nu este publică. Laboratorul despre difuzie generează [sunete dintr-o descriere](/laboratoare/difuzie-imagini-si-sunete/sunete-din-text/) cu AudioLDM 2, un model de difuzie latentă pentru sunet, și arată spectrograma mel din care vocoderul face sunetul.
+
+## Recunoașterea vorbirii
+
+Drumul invers, de la sunet la text, se numește **recunoașterea vorbirii** (_automatic speech recognition_, ASR). Whisper (OpenAI, 2022) este un Transformer antrenat pe 680.000 de ore de înregistrări în aproape 100 de limbi, printre care și româna. Ponderile lui sunt publice, iar modelul stă în spatele multor aplicații de subtitrare și de transcriere a ședințelor. Un asistent vocal combină de obicei ambele direcții: recunoașterea vorbirii, un model de limbaj și sinteza vorbirii, sau un singur model care le face pe toate.
+
+## Clonarea vocii
+
+Pentru a clona o voce, modelele moderne nu mai au nevoie să fie antrenate pe persoana respectivă. Primesc o înregistrare scurtă a vocii țintă ca parte a intrării, așa cum VALL-E primea cele 3 secunde, și continuă cu aceeași voce. Cu o ajustare fină pe câteva minute sau ore de înregistrări, imitația devine și mai fidelă. În 2024, OpenAI a prezentat Voice Engine, care clona o voce dintr-o înregistrare de 15 secunde, dar a limitat accesul la el din cauza riscurilor, mai ales într-un an cu multe alegeri.
+
+Clonarea are și folosiri legitime. Persoanele care își pierd vocea din cauza unei boli își pot păstra vocea proprie, filmele și cursurile pot fi dublate în alte limbi cu vocea autorului, iar cărțile pot fi citite cu voce tare pentru persoanele cu deficiențe de vedere. Problema este că vocea oricui poate fi luată din câteva secunde dintr-un clip publicat pe o rețea de socializare, dintr-un mesaj vocal sau dintr-o convorbire înregistrată.
+
+Detectarea vocilor clonate este și mai grea decât cea a imaginilor generate. Există filigrane audio, precum SynthID pentru sunet (Google DeepMind) sau AudioSeal (Meta, 2024), dar ele apar doar în sunetele generate de serviciile care le aplică.
+
+:::caution[Apelurile cu voci clonate]
+În înșelătoria cunoscută ca metoda „Accidentul”, cineva sună o persoană în vârstă, se prezintă drept un fiu, un nepot sau un polițist și spune că o rudă a provocat un accident și are nevoie urgent de bani. Cu o voce clonată, vocea de la telefon poate fi chiar cea a rudei.
+
+- **Verificarea**: închideți și sunați înapoi persoana, la numărul pe care îl aveți deja, nu la cel de pe care ați fost sunați.
+- **Cuvântul de control**: stabiliți în familie un cuvânt pe care îl știu doar membrii ei și cereți-l atunci când un apel pare ciudat.
+- **Instituțiile**: poliția nu cere bani ca să „rezolve” un dosar, iar banca nu cere la telefon coduri, parole sau datele cardului.
+- **Urgența**: graba este semnalul principal. Înșelătorul vrea ca banii să plece înainte ca cineva să apuce să verifice.
+- **Raportarea**: tentativele se semnalează la 112 sau la cea mai apropiată secție de poliție.
+:::
+
+## Bibliografie
+
+- Chen, N. et al. (2021). [WaveGrad: Estimating Gradients for Waveform Generation](https://arxiv.org/abs/2009.00713). _ICLR 2021_.
+- Chen, Y. et al. (2024). [F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching](https://arxiv.org/abs/2410.06885). Preprint arXiv:2410.06885.
+- Défossez, A. et al. (2022). [High Fidelity Neural Audio Compression](https://arxiv.org/abs/2210.13438). Preprint arXiv:2210.13438.
+- Du, Z. et al. (2024). [CosyVoice: A Scalable Multilingual Zero-shot Text-to-speech Synthesizer based on Supervised Semantic Tokens](https://arxiv.org/abs/2407.05407). Preprint arXiv:2407.05407.
+- Evans, Z. et al. (2024). [Fast Timing-Conditioned Latent Audio Diffusion](https://arxiv.org/abs/2402.04825). _ICML 2024_.
+- Kong, J., Kim, J. și Bae, J. (2020). [HiFi-GAN: Generative Adversarial Networks for Efficient and High Fidelity Speech Synthesis](https://arxiv.org/abs/2010.05646). _NeurIPS 2020_.
+- Kong, Z. et al. (2021). [DiffWave: A Versatile Diffusion Model for Audio Synthesis](https://arxiv.org/abs/2009.09761). _ICLR 2021_.
+- Le, M. et al. (2023). [Voicebox: Text-Guided Multilingual Universal Speech Generation at Scale](https://arxiv.org/abs/2306.15687). _NeurIPS 2023_.
+- OpenAI (2024). [Hello GPT-4o](https://openai.com/index/hello-gpt-4o/). Blogul OpenAI.
+- OpenAI (2024). [Navigating the Challenges and Opportunities of Synthetic Voices](https://openai.com/index/navigating-the-challenges-and-opportunities-of-synthetic-voices/). Blogul OpenAI.
+- Popov, V. et al. (2021). [Grad-TTS: A Diffusion Probabilistic Model for Text-to-Speech](https://arxiv.org/abs/2105.06337). _ICML 2021_.
+- Radford, A. et al. (2023). [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356). _ICML 2023_.
+- San Roman, R. et al. (2024). [Proactive Detection of Voice Cloning with Localized Watermarking](https://arxiv.org/abs/2401.17264). _ICML 2024_.
+- Shen, J. et al. (2018). [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884). _ICASSP 2018_.
+- Stevens, S. S., Volkmann, J. și Newman, E. B. (1937). [A Scale for the Measurement of the Psychological Magnitude Pitch](https://doi.org/10.1121/1.1915893). _The Journal of the Acoustical Society of America_, 8(3), 185–190.
+- van den Oord, A. et al. (2016). [WaveNet: A Generative Model for Raw Audio](https://arxiv.org/abs/1609.03499). Preprint arXiv:1609.03499.
+- Wang, C. et al. (2023). [Neural Codec Language Models are Zero-Shot Text to Speech Synthesizers](https://arxiv.org/abs/2301.02111). Preprint arXiv:2301.02111.
+- Zeghidour, N. et al. (2021). [SoundStream: An End-to-End Neural Audio Codec](https://arxiv.org/abs/2107.03312). Preprint arXiv:2107.03312.

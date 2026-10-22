@@ -1,0 +1,206 @@
+/* Ajustări peste tema Exquisitus. Regulile de aici nu sunt într-un strat (@layer), deci au prioritate față de
+   variabilele și regulile temei, care sunt în @layer exquisitus. */
+
+/* Coloana principală și structura cu bara laterală folosesc mai bine ecranele late. */
+:root {
+  --sl-exquisitus-measure: 46rem;
+}
+
+/* Un registru sobru, de publicație academică: Source Sans 3 pentru titluri și interfață, Source Serif 4 pentru
+   text, ambele găzduite pe domeniul site-ului (pachetele @fontsource-variable din astro.config.mjs). */
+:root {
+  --sl-font: 'Source Sans 3 Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sl-exquisitus-font-register: var(--sl-font);
+  --sl-exquisitus-font-reading: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
+  --sl-line-height: 1.7;
+}
+
+/* Culori: gri neutre, reci, și un singur accent, albastrul închis. Modul întunecat este implicit în temă. */
+:root {
+  --sl-color-white: oklch(0.96 0.004 255);
+  --sl-color-gray-1: oklch(0.91 0.005 255);
+  --sl-color-gray-2: oklch(0.84 0.006 255);
+  --sl-color-gray-3: oklch(0.72 0.008 255);
+  --sl-color-gray-4: oklch(0.54 0.01 255);
+  --sl-color-gray-5: oklch(0.37 0.012 255);
+  --sl-color-gray-6: oklch(0.25 0.012 255);
+  --sl-color-gray-7: oklch(0.21 0.012 255);
+  --sl-color-black: oklch(0.175 0.012 255);
+  --sl-color-accent-low: oklch(0.3 0.07 258);
+  --sl-color-accent: oklch(0.68 0.12 255);
+  --sl-color-accent-high: oklch(0.82 0.08 252);
+  --sl-exquisitus-cta: var(--sl-color-accent-high);
+  --sl-exquisitus-cta-ink: var(--sl-color-black);
+  /* O linie subțire sub bara de sus, în locul umbrei. */
+  --sl-exquisitus-header-shadow: 0 1px 0 var(--sl-color-gray-5);
+}
+
+:root[data-theme='light'] {
+  --sl-color-white: oklch(0.2 0.02 260);
+  --sl-color-gray-1: oklch(0.26 0.015 260);
+  --sl-color-gray-2: oklch(0.32 0.012 260);
+  --sl-color-gray-3: oklch(0.46 0.012 260);
+  --sl-color-gray-4: oklch(0.62 0.01 260);
+  --sl-color-gray-5: oklch(0.85 0.006 260);
+  --sl-color-gray-6: oklch(0.94 0.004 260);
+  --sl-color-gray-7: oklch(0.97 0.003 260);
+  --sl-color-black: oklch(1 0 0);
+  --sl-color-accent-low: oklch(0.95 0.02 258);
+  --sl-color-accent: oklch(0.42 0.14 260);
+  --sl-color-accent-high: oklch(0.32 0.13 262);
+  --sl-exquisitus-cta: var(--sl-color-accent-high);
+  --sl-exquisitus-cta-ink: var(--sl-color-black);
+  --sl-exquisitus-header-shadow: 0 1px 0 var(--sl-color-gray-5);
+}
+
+/* Blocurile de cod arată la fel în ambele moduri: tema vitesse-dark (astro.config.mjs), pe fundalul întunecat al temei
+   Exquisitus. Culorile --cod-* sunt cele din modul întunecat, pentru editoarele Python (src/components/Python.astro). */
+:root {
+  --cod-text: oklch(0.84 0.006 255);
+  --cod-text-estompat: oklch(0.72 0.008 255);
+  --cod-linie: oklch(0.37 0.012 255);
+}
+
+:root[data-theme='light'] {
+  --sl-exquisitus-code-bg: oklch(0.205 0.012 245);
+  --sl-exquisitus-code-edge: inset 0 1px 0 oklch(1 0 0 / 0.1), inset 0 -1px 0 oklch(0 0 0 / 0.3);
+}
+
+/* Titluri semibold, cu spațiere strânsă. */
+h1#_top,
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
+.card .title,
+.sl-link-card .title {
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.hero h1 {
+  font-size: clamp(2.25rem, 1rem + 2.6vw, 3.4rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+}
+
+.sl-link-button {
+  font-weight: 600;
+}
+
+/* Colțuri aproape drepte și fără ridicarea elementelor la trecerea cursorului. */
+:is(.sidebar-content, starlight-toc) a {
+  border-radius: 2px;
+}
+
+.sl-link-button.primary,
+.sl-link-button.secondary,
+.card,
+.sl-link-card,
+.pagination-links a,
+.starlight-aside,
+site-search button[data-open-modal],
+site-search dialog {
+  border-radius: 4px;
+}
+
+@media (hover: hover) {
+  .sl-link-button.primary:hover,
+  .card:hover,
+  .sl-link-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* Pictogramele cardurilor, fără fundalul colorat. */
+.card .icon {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-color-text-accent);
+}
+
+/* Lista „Bibliografie” de la sfârșitul paginilor: literă mai mică, fără buline, cu rândurile de continuare
+   retrase (indentare suspendată), ca într-o bibliografie tipărită. */
+.sl-heading-wrapper:has(> h2#bibliografie) + ul {
+  padding-inline-start: 0;
+  font-size: var(--sl-text-sm);
+  list-style: none;
+}
+
+.sl-heading-wrapper:has(> h2#bibliografie) + ul > li {
+  padding-inline-start: 1.5em;
+  text-indent: -1.5em;
+}
+
+/* Formulele lungi se derulează orizontal în loc să iasă din coloana de text. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.5rem;
+}
+
+/* Paginile de documentație (cu bara laterală) folosesc toată lățimea ecranului:
+   bara laterală stă lipită de marginea stângă, cuprinsul de cea dreaptă, iar textul
+   umple spațiul dintre ele. Pagina principală își păstrează compoziția centrată. */
+[data-has-sidebar] .page {
+  --sl-content-width: 100%;
+}
+
+@media (min-width: 72rem) {
+  html[data-has-sidebar] {
+    --sl-exquisitus-shell-inset: 0px;
+    /* Cuprinsul din dreapta („Pe această pagină”) primește mai mult loc decât cei 15rem ai temei. */
+    --sl-exquisitus-toc-width: 20rem;
+  }
+
+  html[data-has-sidebar] header.header {
+    padding-inline: var(--sl-nav-pad-x);
+  }
+}
+
+/* Bara de sus urcă în afara ecranului la derularea în jos și revine la derularea
+   în sus (atributul e pus de scriptul din src/components/starlight/Head.astro). */
+header.header,
+.sl-menu-button,
+mobile-starlight-toc nav {
+  transition: transform 0.25s ease;
+}
+
+.sidebar-pane {
+  transition: inset-block-start 0.25s ease;
+}
+
+.right-sidebar {
+  transition: padding-top 0.25s ease;
+}
+
+html[data-bara-ascunsa] header.header {
+  transform: translateY(-100%);
+}
+
+html[data-bara-ascunsa] .sl-menu-button,
+html[data-bara-ascunsa] mobile-starlight-toc nav {
+  transform: translateY(calc(-1 * var(--sl-nav-height)));
+}
+
+@media (min-width: 50rem) {
+  html[data-bara-ascunsa] .sidebar-pane {
+    inset-block-start: 0;
+  }
+}
+
+@media (min-width: 72rem) {
+  html[data-bara-ascunsa] .right-sidebar {
+    padding-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header.header,
+  .sl-menu-button,
+  mobile-starlight-toc nav,
+  .sidebar-pane,
+  .right-sidebar {
+    transition: none;
+  }
+}

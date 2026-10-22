@@ -1,0 +1,65 @@
+---
+/**
+ * O parte dintr-un fișier Python al unui laborator, din public/, așa că pagina arată exact codul care se descarcă.
+ *
+ * ```mdx
+ * import SourceFile from '@components/SourceFile.astro';
+ *
+ * <SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['GPTConfig', 'gelu']} />
+ * <SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/data.py" lines={[1, 16]} />
+ * ```
+ *
+ * O metodă se alege cu `Clasă.metodă`, de exemplu `GPT.generate`. Fără `symbols` și `lines`, se afișează tot fișierul.
+ */
+import { readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { Code } from '@astrojs/starlight/components';
+
+interface Props {
+  /** Calea fișierului, relativă la public/. */
+  path: string;
+  /** Clase, funcții sau constante de la nivelul de sus al fișierului, cu comentariile de deasupra lor. */
+  symbols?: string[];
+  /** Un interval de linii, numerotate de la 1, inclusiv capetele. */
+  lines?: [number, number];
+}
+
+const { path, symbols, lines } = Astro.props;
+const source = readFileSync(join(process.cwd(), 'public', path), 'utf8').replace(/\n+$/, '').split('\n');
+
+function extract(symbol: string) {
+  // `Clasă.metodă` alege o metodă, cu indentarea ei din fișier.
+  const [owner, method] = symbol.split('.');
+  const indent = method ? '    ' : '';
+  const name = method ?? owner;
+  const definition = new RegExp(`^${indent}(?:(?:class|def)\\s+${name}\\b|${name}\\s*=)`);
+  const from = method ? source.findIndex((line) => new RegExp(`^class\\s+${owner}\\b`).test(line)) : 0;
+  let start = from === -1 ? -1 : source.findIndex((line, i) => i >= from && definition.test(line));
+  if (start === -1) throw new Error(`${symbol} nu există în ${path}.`);
+  let end = start;
+  const body = new RegExp(`^${indent}\\s`);
+  if (/^\s*(class|def)\s/.test(source[start])) {
+    // Corpul continuă cât timp liniile sunt goale sau mai indentate decât definiția.
+    while (end + 1 < source.length && (!source[end + 1].trim() || body.test(source[end + 1]))) end++;
+  } else {
+    // O constantă se termină când parantezele deschise s-au închis.
+    let depth = 0;
+    for (; end < source.length; end++) {
+      depth += (source[end].match(/[[({]/g) ?? []).length - (source[end].match(/[\])}]/g) ?? []).length;
+      if (depth <= 0) break;
+    }
+  }
+  // Decoratorii și comentariile lipite de definiție fac parte din ea.
+  while (start > 0 && new RegExp(`^${indent}(@|#)`).test(source[start - 1])) start--;
+  while (!source[end].trim()) end--;
+  return source.slice(start, end + 1).join('\n');
+}
+
+const code = symbols
+  ? symbols.map(extract).join('\n\n\n')
+  : lines
+    ? source.slice(lines[0] - 1, lines[1]).join('\n')
+    : source.join('\n');
+---
+
+<Code code={code} lang='python' title={basename(path)} />

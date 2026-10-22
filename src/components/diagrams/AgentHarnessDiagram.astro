@@ -1,0 +1,83 @@
+---
+// Procesul de execuție a unui sistem agentic: utilizator, harnașament (harness), model lingvistic (LLM) și instrumente.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram agent-harness-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 20 740 310' role='img' aria-labelledby='agent-harness-title agent-harness-desc'>
+      <title id='agent-harness-title'>Un sistem agentic: harnașamentul (harness), modelul și mediul</title>
+      <desc id='agent-harness-desc'>
+        Utilizatorul îi dă harnașamentului (harness) un obiectiv. Harnașamentul gestionează contextul și trimite instrucțiunile modelului de limbaj. Modelul decide ce instrumente apelează și emite apeluri structurate, harnașamentul le execută în mediu (terminal, fișiere, rețea), iar rezultatele revin în context până când sarcina este terminată.
+      </desc>
+      <defs>
+        <marker
+          id='harness-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <!-- Săgeți flux -->
+      <g class='arrow' marker-end='url(#harness-arrow)'>
+        <!-- Utilizator -> Harnașament -->
+        <path d='M125 155 H168'></path>
+        <!-- Harnașament -> Model (prompt + context) -->
+        <path d='M335 125 V75 H438'></path>
+        <!-- Model -> Harnașament (apel de instrument) -->
+        <path d='M535 105 V155 H347'></path>
+        <!-- Harnașament -> Instrumente (execuție) -->
+        <path d='M335 185 V235 H438'></path>
+        <!-- Instrumente -> Harnașament (observație / feedback) -->
+        <path d='M535 265 V215 H347'></path>
+        <!-- Harnașament -> Utilizator (rezultat final) -->
+        <path d='M170 170 H127'></path>
+      </g>
+
+      <!-- Utilizator -->
+      <Box x={15} y={125} width={110} height={60} kind='neutral' lines={['Utilizator', '(obiectiv)']} />
+
+      <!-- Harnașamentul (Harness) -->
+      <rect class='group' x={160} y={90} width={185} height={130} rx='8'></rect>
+      <text class='title' x={252} y={112} text-anchor='middle'>Harnașament (Harness)</text>
+      <Box x={175} y={125} width={155} height={40} kind='embedding' lines={['Fereastră de context', 'și istoric']} />
+      <Box x={175} y={172} width={155} height={38} kind='neutral' lines={['Validare și permisiuni']} />
+
+      <!-- Modelul (LLM) -->
+      <rect class='group' x={430} y={35} width={285} height={80} rx='8'></rect>
+      <text class='title' x={572} y={57} text-anchor='middle'>Model de limbaj (LLM)</text>
+      <Box x={445} y={67} width={120} height={38} kind='attention' lines={['Raționament', '(planificare)']} />
+      <Box x={580} y={67} width={120} height={38} kind='highlight' lines={['Apel de instrument', '(JSON)']} />
+
+      <!-- Mediu & Instrumente -->
+      <rect class='group' x={430} y={205} width={285} height={85} rx='8'></rect>
+      <text class='title' x={572} y={227} text-anchor='middle'>Mediu și instrumente externe</text>
+      <Box x={445} y={237} width={80} height={42} kind='feed-forward' lines={['Terminal', 'și bash']} />
+      <Box x={535} y={237} width={85} height={42} kind='norm' lines={['Fișiere', '(citire/scriere)']} />
+      <Box x={630} y={237} width={75} height={42} kind='output' lines={['Web / API', 'subagenți']} />
+
+      <!-- Etichete pe săgeți -->
+      <text class='label' x={372} y={68} text-anchor='middle'>context + instrumente</text>
+      <text class='label' x={395} y={148} text-anchor='middle'>apel structurat</text>
+      <text class='label' x={388} y={228} text-anchor='middle'>execuția comenzii</text>
+      <text class='label' x={395} y={192} text-anchor='middle'>ieșire / eroare</text>
+    </svg>
+  </div>
+  <figcaption>
+    La fiecare pas, harnașamentul (harness) îi trimite modelului starea curentă, preia apelul de instrument emis de model, execută acțiunea în mediu și adaugă rezultatul în context, până când sarcina este terminată.
+  </figcaption>
+</figure>
+
+<style>
+  .agent-harness-diagram svg {
+    min-width: 38rem;
+    max-width: 48rem;
+  }
+</style>

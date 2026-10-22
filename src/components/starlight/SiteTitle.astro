@@ -1,0 +1,65 @@
+---
+// Logo-ul text, monocrom: „InteligențA” în culoarea titlurilor, „Artificială.RO” în gri. Cei doi „A” sunt împletiți:
+// al doilea trece peste primul în partea de sus și pe sub el în partea de jos (o copie a primului „A”, decupată la
+// jumătatea de jos, stă deasupra).
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class='site-title' translate='no'>
+  <span aria-hidden='true'
+    ><span class='ink'>Inteligenț</span><span class='aa'
+      ><span class='ink'>A</span><span class='muted second'>A</span><span class='ink first-over'>A</span></span
+    ><span class='muted'>rtificială.RO</span></span
+  >
+  <span class='sr-only'>Inteligență Artificială, prima pagină</span>
+</a>
+
+<style>
+  .site-title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    font-size: var(--sl-text-h4);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .ink {
+    color: var(--sl-color-white);
+  }
+
+  .muted {
+    color: var(--sl-color-gray-3);
+  }
+
+  .aa {
+    position: relative;
+    display: inline-block;
+  }
+
+  .aa > span {
+    display: inline-block;
+  }
+
+  .second {
+    margin-inline-start: -0.32em;
+  }
+
+  /* Un contur în culoarea fundalului, desenat sub literă, lasă un mic spațiu acolo unde un „A” trece peste celălalt,
+     ca împletitura să se vadă și fără culori diferite. */
+  .second,
+  .first-over {
+    -webkit-text-stroke: 0.08em var(--sl-color-bg);
+    paint-order: stroke fill;
+  }
+
+  /* Copia primului „A”, decupată la jumătatea de jos, ca să treacă peste al doilea. */
+  .first-over {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    clip-path: inset(52% 0 0 0);
+  }
+</style>

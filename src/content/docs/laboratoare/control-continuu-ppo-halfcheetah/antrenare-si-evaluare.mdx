@@ -1,0 +1,130 @@
+---
+title: Antrenare și evaluare
+description: Antrenăm agentul timp de 1 milion de pași, urmărim curbele de învățare în TensorBoard, apoi evaluăm strategia determinist și înregistrăm un videoclip cu robotul alergând.
+sidebar:
+  order: 5
+  label: Antrenare și evaluare
+level: avansat
+tags:
+  - Învățare prin consolidare
+  - Control continuu
+---
+
+import SourceFile from '@components/SourceFile.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Acum că avem rețeaua [Actor-Critic](/laboratoare/control-continuu-ppo-halfcheetah/arhitectura-actor-critic/) și [algoritmul PPO](/laboratoare/control-continuu-ppo-halfcheetah/algoritmul-ppo-si-gae/), le punem împreună în scriptul `train.py`, care rulează antrenarea completă.
+
+## Configurația de antrenare
+
+Principalii parametri ai antrenării sunt grupați în clasa `PPOConfig`:
+
+<SourceFile path="laboratoare/control-continuu-ppo-halfcheetah/cod/train.py" symbols={['PPOConfig']} />
+
+Câteva alegeri merită explicate:
+- `num_envs = 4` înseamnă 4 simulări care rulează în paralel. Astfel, datele se colectează mai repede, iar corelația temporală dintre pașii succesivi scade.
+- `num_steps = 2048` înseamnă că fiecare mediu rulează 2.048 de pași înaintea fiecărei actualizări, deci un lot are în total $4 \times 2.048 = 8.192$ de tranziții.
+- `update_epochs = 10` și `num_minibatches = 32` înseamnă că fiecare lot este împărțit în 32 de mini-loturi de câte 256 de tranziții și parcurs de 10 ori. Experiența colectată este folosită astfel de mai multe ori.
+- `anneal_lr = True` înseamnă că rata de învățare scade liniar de la $3 \cdot 10^{-4}$ la $0$, așa că spre sfârșitul antrenării ponderile se modifică tot mai puțin și se stabilizează.
+
+## Procesul complet de antrenare
+
+Funcția `train` alternează două faze: interacțiunea cu mediul și optimizarea parametrilor.
+
+<SourceFile path="laboratoare/control-continuu-ppo-halfcheetah/cod/train.py" symbols={['train']} />
+
+### Ce se întâmplă la fiecare iterație
+
+<Steps>
+1. **Colectarea traiectoriilor**: agentul acționează în cele 4 medii MuJoCo și eșantionează acțiuni din distribuția normală prezisă de actor. Salvăm stările, acțiunile, log-probabilitățile, recompensele și valorile stării $V(s)$.
+2. **Estimarea avantajelor GAE**: la sfârșitul lotului, `buffer.compute_gae()` parcurge datele în sens invers și calculează avantajele $\hat{A}_t$ și recompensele cumulate țintă.
+3. **Optimizarea pe mini-loturi**: rețeaua parcurge mini-loturile timp de 10 epoci și optimizează funcția de pierdere totală, dată de formula
+   $$\mathcal{L}(\theta, \phi) = -\mathcal{L}^{CLIP}(\theta) + c_1 \mathcal{L}^{VF}(\phi) - c_2 H(\pi_\theta)$$
+   unde $\mathcal{L}^{VF}$ este eroarea pătratică a criticului (opțional trunchiată), iar $H$ este bonusul de entropie. $\mathcal{L}^{CLIP}$ apare cu minus pentru că este un obiectiv pe care vrem să-l maximizăm, iar optimizatorul minimizează pierderea.
+4. **Oprirea timpurie cu KL**: dacă divergența Kullback-Leibler aproximativă dintre strategia veche și cea nouă depășește pragul de $0{,}015$, optimizarea pe lotul curent se oprește mai devreme. Așa protejăm strategia de pași prea mari.
+</Steps>
+
+## Rularea locală a antrenării
+
+Pentru a porni antrenarea pe calculator, rulați comanda de mai jos:
+
+```bash
+python train.py
+```
+
+În consolă apar rezultatele fiecărui episod încheiat și viteza de eșantionare:
+
+```text
+Începem antrenarea: HalfCheetah-v4__ppo_halfcheetah__42__1745000000
+Total pași: 1,000,000 | Lot: 8192 | Mini-lot: 256
+Dispozitiv de calcul: cpu
+Pasul    4000: recompensă episod =   -85.3, durată = 1000
+Pasul   32000: recompensă episod =   120.4, durată = 1000
+Iterația   5/122 | Pierdere actor: -0.0084 | Pierdere critic: 0.1420 | Viteza: 2150 pași/s
+...
+Pasul  500000: recompensă episod =  2840.1, durată = 1000
+...
+Pasul 1000000: recompensă episod =  4620.8, durată = 1000
+Model salvat cu succes în: checkpoints/ppo_halfcheetah.pt
+```
+
+## Cum învață robotul să alerge
+
+Pe parcursul antrenării, de 1 milion de pași, robotul trece prin trei etape distincte:
+
+<Steps>
+1. **Faza inițială (0–100.000 de pași)**: recompensele sunt negative sau apropiate de zero (între -100 și +100). Robotul nu își poate menține echilibrul, cade și se zbate dezordonat.
+2. **Descoperirea locomoției (100.000–400.000 de pași)**: criticul învață să deosebească stările bune de cele proaste, iar avantajele GAE îl împing pe actor să folosească piciorul din spate ca pârghie de propulsie. Recompensa pe episod urcă constant, spre 2.000–3.000 de puncte.
+3. **Galopul stabil (500.000–1.000.000 de pași)**: cele două picioare se sincronizează într-un ciclu periodic de alergare, lin și rapid. Recompensa pe episod trece de pragul de 4.000–5.000 de puncte, iar penalizarea pentru acțiuni rămâne mică.
+</Steps>
+
+## Monitorizarea cu TensorBoard
+
+Pentru a urmări curbele de învățare în timp real, deschideți un al doilea terminal în directorul laboratorului și porniți TensorBoard:
+
+```bash
+tensorboard --logdir runs
+```
+
+Deschideți apoi adresa `http://localhost:6006` în browser. Graficul `charts/episodic_return` arată direct cât de bine aleargă robotul, iar `losses/approx_kl` arată cât de mult se îndepărtează noua strategie de cea anterioară la fiecare iterație.
+
+## Evaluarea și generarea videoclipului
+
+:::tip[Evaluare deterministă: media $\mu(s)$ fără zgomot]
+După ce modelul a fost salvat în `checkpoints/ppo_halfcheetah.pt`, scriptul `evaluate.py` evaluează comportamentul în mod determinist: alege direct media $\mu(s)$, fără zgomotul stocastic de explorare. Fără zgomot gaussian, rulările sunt reproductibile, iar recompensa pe episod variază puțin. Vedem astfel performanța reală a strategiei învățate.
+:::
+
+<SourceFile path="laboratoare/control-continuu-ppo-halfcheetah/cod/evaluate.py" symbols={['evaluate']} />
+
+Pentru 5 episoade de test și un videoclip al alergării, salvat în directorul `videoclipuri/`, rulați comanda de mai jos:
+
+```bash
+python evaluate.py --checkpoint checkpoints/ppo_halfcheetah.pt --episoade 5 --video
+```
+
+```text
+Evaluăm modelul din checkpoints/ppo_halfcheetah.pt pe 5 episoade...
+Episodul 1: recompensă =  4820.3, durată = 1000 pași
+Episodul 2: recompensă =  4795.1, durată = 1000 pași
+Episodul 3: recompensă =  4910.4, durată = 1000 pași
+Episodul 4: recompensă =  4850.7, durată = 1000 pași
+Episodul 5: recompensă =  4885.2, durată = 1000 pași
+--------------------------------------------------
+Recompensă medie:  4852.3 ± 41.2
+Durată medie:      1000.0 pași
+Videoclipurile au fost salvate în directorul 'videoclipuri/'.
+```
+
+## Pași următori și experimente
+
+Cu codul din acest laborator puteți încerca ușor și alte medii MuJoCo din Gymnasium. Este suficient să schimbați parametrul `env_id` din `PPOConfig`:
+- `Hopper-v4` este un robot cu un singur picior, care învață să sară înainte fără să-și piardă echilibrul vertical.
+- `Walker2d-v4` este un robot biped, cu două picioare independente.
+- `Ant-v4` este un patruped cu 8 articulații, care învață să se deplaseze stabil.
+
+## Bibliografie
+
+- Andrychowicz, M. et al. (2021). [What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study](https://arxiv.org/abs/2006.05990). _ICLR 2021_.
+- Henderson, P. et al. (2018). [Deep Reinforcement Learning that Matters](https://arxiv.org/abs/1709.06560). _AAAI 2018_.
+- Huang, S. et al. (2022). [The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/). ICLR Blog Track.
+- Schulman, J. et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). Preprint arXiv:1707.06347.

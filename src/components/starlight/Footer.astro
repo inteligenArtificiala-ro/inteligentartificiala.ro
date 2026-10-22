@@ -1,0 +1,71 @@
+---
+import Default from '@astrojs/starlight/components/Footer.astro';
+import Citare from '@components/Citare.astro';
+import ConsentBanner from '@components/layout/ConsentBanner.astro';
+import { SITE } from '../../consts';
+
+const { entry } = Astro.locals.starlightRoute;
+const year = new Date().getFullYear();
+---
+
+{entry.data.level && <Citare />}
+
+<Default><slot /></Default>
+
+<div class='site-footer' data-pagefind-ignore>
+  <nav aria-label='Linkuri din subsol'>
+    <ul>
+      <li><a href='/despre/'>Despre proiect</a></li>
+      <li><a href='/contribuitori/'>Contribuitori</a></li>
+      <li><a href='https://github.com/inteligentArtificiala-ro' target='_blank' rel='noopener'>GitHub</a></li>
+      <li><a href={`mailto:${SITE.email}`}>Contact</a></li>
+      <li><a href='/cookie-uri/'>Cookie-uri</a></li>
+      <li><button type='button' data-deschide-consimtamant>Setări cookie-uri</button></li>
+    </ul>
+  </nav>
+  <p>© {year} {SITE.name}</p>
+</div>
+
+<ConsentBanner />
+
+<style>
+  .site-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--sl-color-hairline);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0 0 0.75rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  a,
+  button {
+    color: var(--sl-color-gray-2);
+  }
+
+  a:hover,
+  button:hover {
+    color: var(--sl-color-accent-high);
+  }
+
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  p {
+    margin: 0;
+  }
+</style>

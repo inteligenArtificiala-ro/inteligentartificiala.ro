@@ -1,0 +1,138 @@
+---
+title: Tokenizare și reprezentări vectoriale
+description: Cum transformăm text în numere, ce sunt vectorii de sens și cum se obțin din rețele neuronale. Explicăm tokenizarea, reprezentările dense și aplicații precum căutarea semantică.
+sidebar:
+  order: 1
+level: incepator
+tags:
+  - Modele de limbaj mari (LLM)
+  - Procesare limbaj natural
+---
+
+Modelele de inteligență artificială nu înțeleg textul așa cum îl înțelegem noi. Ele lucrează doar cu numere. Pentru ca un model să poată procesa cuvinte, propoziții sau documente întregi, trebuie să transformăm textul în reprezentări numerice. Acest proces are două părți principale: **tokenizarea** (_tokenization_) și **reprezentările vectoriale** (_embeddings_).
+
+## Tokenizarea: de la text la ID-uri
+
+Tokenizarea este primul pas: transformăm textul într-o secvență de tokenuri. Un token poate fi un cuvânt întreg, o parte de cuvânt sau chiar un caracter.
+
+### De ce nu folosim cuvinte întregi?
+
+Dacă am folosi fiecare cuvânt ca token separat, am avea probleme:
+
+- **Vocabularul ar fi imens:** limba engleză are sute de mii de cuvinte, iar în română fiecare cuvânt are multe forme flexionate (un verb are zeci de forme).
+- **Cuvinte rare:** multe cuvinte apar doar de câteva ori în datele de antrenare.
+- **Cuvinte necunoscute:** nu am putea gestiona cuvinte noi sau greșeli de scriere.
+
+### Metode de tokenizare
+
+#### Tokenizare la nivel de cuvânt (word-level)
+
+Fiecare cuvânt devine un token. Metoda este simplă, dar ineficientă pentru texte diverse.
+
+```python
+text = "Rețele neuronale învață din date"
+tokens = text.split()
+# ['Rețele', 'neuronale', 'învață', 'din', 'date']
+```
+
+#### Tokenizare la nivel de subcuvânt (subword)
+
+Este metoda folosită de modelele moderne (BPE, WordPiece, Unigram). Cuvintele frecvente rămân întregi, iar cele rare se descompun:
+
+```python
+# Exemplu cu BPE (Byte Pair Encoding)
+text = "learning"
+# Tokenuri posibile: ["learn", "ing"] sau ["l", "earn", "ing"]
+```
+
+Acesta este principiul din spatele tokenizatoarelor folosite de GPT, BERT și alte modele mari.
+
+## Reprezentări vectoriale: de la ID-uri la vectori
+
+După ce obținem ID-urile tokenurilor, trebuie să le transformăm în vectori. O reprezentare vectorială este un vector dens asociat unui token, de obicei cu câteva sute până la peste 10.000 de dimensiuni (cel mai mare model GPT-3, de exemplu, folosește 12.288). Tokenurile cu sens asemănător primesc vectori apropiați.
+
+### Cum funcționează
+
+Fiecare token are un vector asociat într-o **matrice de reprezentări vectoriale** (_embedding matrix_). Când modelul vede un token, înlocuiește ID-ul cu vectorul corespunzător:
+
+```python
+import numpy as np
+
+# Matricea de reprezentări vectoriale: vocab_size x embedding_dim
+embeddings_matrix = np.random.randn(10000, 256)
+
+# ID-ul tokenului
+token_id = 42
+
+# Reprezentarea vectorială a tokenului
+embedding_vector = embeddings_matrix[token_id]
+print(embedding_vector.shape)  # (256,)
+```
+
+### Proprietăți interesante
+
+Reprezentările vectoriale moderne au proprietăți surprinzătoare. Vectorii cuvintelor cu sens asemănător sunt apropiați în spațiul vectorial:
+
+- **Cuvinte similare:** „câine” și „cățel” au vectori apropiați.
+- **Relații matematice:** în unele spații, de exemplu în cel al modelului word2vec, `vector("rege") - vector("bărbat") + vector("femeie")` ≈ `vector("regină")`.
+- **Context:** modelele moderne (BERT, GPT) produc reprezentări vectoriale contextuale, în care același cuvânt are vectori diferiți în contexte diferite.
+
+## De la tokenizare la reprezentarea vectorială
+
+Acesta este fluxul complet pentru un singur token:
+
+1. **Text neprelucrat** → „învățare”
+2. **Tokenizare** → ID-ul 3847 (dintr-un vocabular de 10.000 de tokenuri)
+3. **Căutarea în matricea de reprezentări vectoriale** → un vector de 256 de dimensiuni
+4. **Intrarea în rețeaua neuronală** → vectorul este prelucrat de straturile modelului
+
+## Aplicații practice
+
+### Căutare semantică
+
+Reprezentările vectoriale permit căutarea după sens, nu după cuvinte-cheie exacte:
+
+```python
+# Exemplu conceptual
+query_embedding = embedding("cum învăț programare")
+document_embeddings = [embedding(d) for d in documents]
+
+# Căutăm documentul cu cea mai mare asemănare cosinus
+similarities = [cosine_similarity(query_embedding, doc) for doc in document_embeddings]
+best_match = documents[similarities.index(max(similarities))]
+```
+
+### Clasificarea textului
+
+Reprezentările vectoriale pot fi folosite ca intrare pentru clasificatori simpli:
+
+```python
+# Reprezentarea vectorială medie a întregii propoziții
+sentence_embedding = np.mean([embedding(token) for token in tokens], axis=0)
+
+# Clasificare cu regresie logistică sau cu o rețea simplă
+classification = classifier.predict(sentence_embedding)
+```
+
+## Comparație cu codificarea one-hot
+
+| Aspect | Codificare one-hot | Reprezentări vectoriale dense |
+|--------|--------------------|-------------------------------|
+| Dimensiune | Mărimea vocabularului (zeci sau sute de mii) | De la câteva sute la peste 10.000 |
+| Structură | Toate valorile 0, în afară de una (vector rar) | Vector dens |
+| Semnificație | Fiecare cuvânt este independent de celelalte | Cuvintele similare au vectori apropiați |
+| Valori | 1 sau 0 | Numere reale continue |
+
+## Bibliografie
+
+- Brown, T. B. et al. (2020). [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165). _NeurIPS 2020_.
+- Devlin, J. et al. (2019). [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805). _NAACL 2019_.
+- Kudo, T. (2018). [Subword Regularization: Improving Neural Network Translation Models with Multiple Subword Candidates](https://arxiv.org/abs/1804.10959). _ACL 2018_.
+- Kudo, T. și Richardson, J. (2018). [SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing](https://arxiv.org/abs/1808.06226). _EMNLP 2018_.
+- Mikolov, T. et al. (2013). [Efficient Estimation of Word Representations in Vector Space](https://arxiv.org/abs/1301.3781). Preprint arXiv:1301.3781.
+- Mikolov, T., Yih, W. și Zweig, G. (2013). [Linguistic Regularities in Continuous Space Word Representations](https://aclanthology.org/N13-1090/). _NAACL 2013_.
+- Petrov, A. et al. (2023). [Language Model Tokenizers Introduce Unfairness Between Languages](https://arxiv.org/abs/2305.15425). _NeurIPS 2023_.
+- Reimers, N. și Gurevych, I. (2019). [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084). _EMNLP 2019_.
+- Schuster, M. și Nakajima, K. (2012). [Japanese and Korean voice search](https://doi.org/10.1109/ICASSP.2012.6289079). _ICASSP 2012_.
+- Sennrich, R., Haddow, B. și Birch, A. (2016). [Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909). _ACL 2016_.
+- Wu, Y. et al. (2016). [Google’s Neural Machine Translation System: Bridging the Gap between Human and Machine Translation](https://arxiv.org/abs/1609.08144). Preprint arXiv:1609.08144.

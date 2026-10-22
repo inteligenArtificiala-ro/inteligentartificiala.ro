@@ -1,0 +1,48 @@
+---
+// Interacțiunea agent-mediu din învățarea prin consolidare.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram agent-environment-diagram'>
+  <svg viewBox='-50 20 560 240' role='img' aria-labelledby='agent-env-title agent-env-desc'>
+    <title id='agent-env-title'>Interacțiunea dintre agent și mediu</title>
+    <desc id='agent-env-desc'>
+      La pasul t, agentul alege o acțiune după strategia sa. Mediul răspunde cu starea următoare și cu o recompensă, pe
+      care agentul le folosește la pasul următor.
+    </desc>
+    <defs>
+      <marker
+        id='agent-env-arrow'
+        viewBox='0 0 10 10'
+        refX='9'
+        refY='5'
+        markerWidth='6'
+        markerHeight='6'
+        orient='auto-start-reverse'
+      >
+        <path d='M 0 0 L 10 5 L 0 10 z'></path>
+      </marker>
+    </defs>
+
+    <g class='arrow' marker-end='url(#agent-env-arrow)'>
+      <path d='M350 62 H430 V208 H352'></path>
+      <path d='M170 208 H90 V62 H168'></path>
+    </g>
+
+    <Box x={170} y={36} width={180} height={52} kind='embedding' lines={['Agent', 'strategia π(a | s)']} />
+    <Box x={170} y={182} width={180} height={52} kind='neutral' lines={['Mediu']} />
+
+    <text class='label' x='440' y='132'>acțiunea</text>
+    <text class='label math' x='440' y='150'>aₜ</text>
+    <text class='label' x='80' y='126' text-anchor='end'>starea sₜ₊₁</text>
+    <text class='label' x='80' y='146' text-anchor='end'>recompensa rₜ₊₁</text>
+  </svg>
+  <figcaption>La fiecare pas, agentul acționează, iar mediul răspunde cu o stare nouă și cu o recompensă.</figcaption>
+</figure>
+
+<style>
+  .agent-environment-diagram svg {
+    max-width: 30rem;
+  }
+</style>

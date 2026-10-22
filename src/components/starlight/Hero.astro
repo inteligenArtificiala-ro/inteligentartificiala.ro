@@ -1,0 +1,259 @@
+---
+import { getCollection } from 'astro:content';
+import { LinkButton } from '@astrojs/starlight/components';
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import { pluralize } from '../../utils/format';
+import LearningPaths from '../LearningPaths.astro';
+
+// Hero-ul temei Exquisitus, cu secțiunile documentației în coloana din dreapta în locul imaginii.
+// Secțiunile vin din bara laterală, deci apar aici automat odată cu grupurile din astro.config.mjs.
+// Lângă hero stă harta traseelor: Starlight randează hero-ul înaintea conținutului paginii. Pe ecranele late harta
+// apare deasupra hero-ului. Pe cele înguste, unde harta devine o listă lungă, titlul paginii rămâne primul. În HTML
+// hero-ul este mereu primul, ca titlul (h1) să fie primul și pentru cititoarele de ecran.
+type SidebarEntry = StarlightRouteData['sidebar'][number];
+type Link = Extract<SidebarEntry, { type: 'link' }>;
+
+const { entry, sidebar } = Astro.locals.starlightRoute;
+const { title = entry.data.title, tagline, actions = [] } = entry.data.hero || {};
+
+const links = (entries: SidebarEntry[]): Link[] =>
+  entries.flatMap((e) => (e.type === 'link' ? [e] : links(e.entries)));
+
+// Paginile se rotesc cu titlul lor, nu cu eticheta din bara laterală, care uneori repetă numele secțiunii.
+const titluri = new Map((await getCollection('docs')).map((d) => [`/${d.id}/`, d.data.title]));
+
+const sectiuni = sidebar
+  .filter((e) => e.type === 'group' && e.label !== 'Proiect')
+  .map((e) => ({
+    label: e.label,
+    pagini: links([e]).map((l) => ({ titlu: titluri.get(l.href) ?? l.label, href: l.href })),
+  }))
+  .filter((s) => s.pagini.length > 0);
+
+const pagini = (n: number) => pluralize(n, 'pagină', 'pagini');
+---
+
+<div class='prima-pagina'>
+  <div class='hero'>
+    <div class='sl-flex stack'>
+      <div class='sl-flex copy'>
+        <h1 id='_top' data-page-title set:html={title} />
+        {tagline && <div class='tagline' set:html={tagline} />}
+      </div>
+      {
+        actions.length > 0 && (
+          <div class='sl-flex actions'>
+            {actions.map(({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
+              <LinkButton {href} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
+                {text}
+                {icon?.html && <Fragment set:html={icon.html} />}
+              </LinkButton>
+            ))}
+          </div>
+        )
+      }
+    </div>
+    {
+      sectiuni.length > 0 && (
+        <nav class='hero-html sectiuni' aria-label='Secțiuni'>
+          <ul>
+            {sectiuni.map((s) => (
+              <li data-pagini={JSON.stringify(s.pagini)}>
+                <a href={s.pagini[0].href}>
+                  <span class='antet'>
+                    <span class='nume'>{s.label}</span>
+                    <span class='pagini'>{pagini(s.pagini.length)}</span>
+                  </span>
+                  <span class='pagina'>{s.pagini[0].titlu}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+  </div>
+  <div class='harta-trasee'>
+    <LearningPaths />
+  </div>
+</div>
+
+<style>
+  .prima-pagina {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Pe ecranele înguste harta vine după hero, deci are nevoie de spațiu și dedesubt, înaintea conținutului. */
+  .harta-trasee {
+    margin-bottom: var(--sl-exquisitus-space-3xl);
+  }
+
+  /* Harta urcă deasupra hero-ului doar când stă lângă lista traseelor (același prag ca în LearningPaths.astro).
+     Sub el, lista și harta stau una sub alta și ar împinge titlul mult prea jos. */
+  @container (min-width: 60rem) {
+    .harta-trasee {
+      order: -1;
+      margin-bottom: 0;
+    }
+  }
+
+  .sectiuni {
+    width: 100%;
+    text-align: start;
+  }
+
+  .sectiuni ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sectiuni li + li {
+    border-top: 1px solid var(--sl-color-hairline);
+  }
+
+  .sectiuni a {
+    display: flex;
+    flex-direction: column;
+    padding: 0.6rem 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .nume {
+    font-family: var(--sl-exquisitus-font-register);
+    font-size: var(--sl-text-lg);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--sl-color-white);
+  }
+
+  .antet {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .pagini {
+    flex-shrink: 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  /* Pagina afișată acum din secțiune. Nu contează la lățimea coloanei, ca aceasta să nu se schimbe la rotire;
+     titlurile lungi trec pe rândul următor. */
+  .pagina {
+    contain: inline-size;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  .pagina.ascunsa {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+
+  .sectiuni a:hover .nume,
+  .sectiuni a:focus-visible .nume,
+  .sectiuni a:hover .pagina,
+  .sectiuni a:focus-visible .pagina {
+    color: var(--sl-color-accent-high);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pagina {
+      transition: none;
+    }
+  }
+
+  /* Pe ecranele late lista stă în coloana din dreapta, cu lățimea ei proprie. */
+  @media (min-width: 50rem) {
+    .hero > .sectiuni {
+      width: min(100%, 22rem);
+    }
+  }
+
+  /* De aici tema dă coloanei din dreapta lățimea conținutului, așa că o fixăm. */
+  @media (min-width: 72rem) {
+    .hero > .sectiuni {
+      width: 22rem;
+    }
+  }
+</style>
+
+<script>
+  // Fiecare secțiune din dreapta hero-ului își afișează pe rând paginile, cât timp hero-ul este pe ecran.
+  // Rândurile se schimbă decalat, iar rotirea se oprește pe rândul de sub cursor sau cu focus,
+  // ca linkul să nu se schimbe chiar înainte de clic.
+  const INTERVAL = 3500;
+  const DECALAJ = 600;
+  const FADE = 250; // durata tranziției .pagina din CSS
+
+  interface Pagina {
+    titlu: string;
+    href: string;
+  }
+
+  const nav = document.querySelector<HTMLElement>('.sectiuni');
+  const randuri = [...document.querySelectorAll<HTMLLIElement>('.sectiuni li[data-pagini]')].map((li) => ({
+    link: li.querySelector('a') as HTMLAnchorElement,
+    eticheta: li.querySelector('.pagina') as HTMLElement,
+    pagini: JSON.parse(li.dataset.pagini ?? '[]') as Pagina[],
+    index: 0,
+    oprit: false,
+    timer: 0,
+  }));
+  const miscareRedusa = matchMedia('(prefers-reduced-motion: reduce)');
+  let vizibil = false;
+
+  function avanseaza(rand: (typeof randuri)[number]) {
+    if (rand.oprit || rand.pagini.length < 2) return;
+    rand.index = (rand.index + 1) % rand.pagini.length;
+    const { titlu, href } = rand.pagini[rand.index];
+    rand.eticheta.classList.add('ascunsa');
+    setTimeout(() => {
+      rand.eticheta.textContent = titlu;
+      rand.link.href = href;
+      rand.eticheta.classList.remove('ascunsa');
+    }, FADE);
+  }
+
+  function opreste() {
+    for (const rand of randuri) clearTimeout(rand.timer);
+  }
+
+  function porneste() {
+    opreste();
+    if (!vizibil || document.hidden || miscareRedusa.matches) return;
+    randuri.forEach((rand, i) => {
+      const pas = () => {
+        avanseaza(rand);
+        rand.timer = window.setTimeout(pas, INTERVAL);
+      };
+      rand.timer = window.setTimeout(pas, INTERVAL + i * DECALAJ);
+    });
+  }
+
+  for (const rand of randuri) {
+    const li = rand.link.parentElement as HTMLLIElement;
+    li.addEventListener('pointerenter', () => (rand.oprit = true));
+    li.addEventListener('pointerleave', () => (rand.oprit = false));
+    li.addEventListener('focusin', () => (rand.oprit = true));
+    li.addEventListener('focusout', () => (rand.oprit = false));
+  }
+
+  if (nav && randuri.length > 0) {
+    new IntersectionObserver(([entry]) => {
+      vizibil = entry.isIntersecting;
+      porneste();
+    }).observe(nav);
+    document.addEventListener('visibilitychange', porneste);
+    miscareRedusa.addEventListener('change', porneste);
+  }
+</script>

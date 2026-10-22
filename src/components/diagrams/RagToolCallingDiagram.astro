@@ -1,0 +1,97 @@
+---
+// Diagrame RAG și Tool Calling: conectarea matricelor statice de ponderi la lumea reală dinamică.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+---
+
+<figure class='diagram rag-tool-calling-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 10 740 310' role='img' aria-labelledby='rag-diagram-title rag-diagram-desc'>
+      <title id='rag-diagram-title'>Conectarea modelului la lumea reală prin RAG și apel de instrumente</title>
+      <desc id='rag-diagram-desc'>
+        Ponderile modelului de limbaj nu se mai schimbă după antrenare. Prin generarea augmentată prin regăsire (RAG), modelul primește informații actuale din lumea reală, iar prin apelul de instrumente (tool calling) poate acționa asupra mediului.
+      </desc>
+      <defs>
+        <marker
+          id='rag-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <!-- Săgeți flux -->
+      <g class='arrow' marker-end='url(#rag-arrow)'>
+        <!-- Utilizator -> Orchestrare prompt -->
+        <path d='M115 165 H155'></path>
+        <!-- Orchestrare prompt -> RAG (interogare de căutare) -->
+        <path d='M237 195 V205'></path>
+        <!-- Orchestrare prompt -> Fereastră de context (întrebare) -->
+        <path d='M315 165 H345 V230 H370'></path>
+        <!-- Documente -> RAG (indexare) -->
+        <path d='M115 255 H145'></path>
+        <!-- RAG -> Fereastră de context (fragmente dovedite) -->
+        <path d='M335 255 H370'></path>
+        <!-- Fereastră de context -> Model (prompt + dovezi) -->
+        <path d='M470 210 V190'></path>
+        <!-- Model -> Tool Calling (acțiune intenționată) -->
+        <path d='M470 115 V95'></path>
+        <!-- Tool Calling -> Harnașament -->
+        <path d='M375 62 H340'></path>
+        <!-- Harnașament -> Mediu extern (apel API / comandă) -->
+        <path d='M150 50 H120'></path>
+        <!-- Mediu extern -> Harnașament (rezultat / observație) -->
+        <path d='M115 68 H145'></path>
+        <!-- Model -> Răspuns final ancorat -->
+        <path d='M565 150 H605'></path>
+      </g>
+
+      <!-- Utilizator -->
+      <Box x={15} y={135} width={100} height={60} kind='neutral' lines={['Utilizator', '(întrebare)']} />
+
+      <!-- Orchestrare prompt -->
+      <Box x={160} y={135} width={155} height={60} kind='neutral' lines={['Orchestrare', '(prompt și interogare)']} />
+
+      <!-- Mediu extern -->
+      <Box x={15} y={25} width={100} height={60} kind='neutral' lines={['Mediu extern', '(API, fișiere, web)']} />
+
+      <!-- Documente & baze de date -->
+      <Box x={15} y={225} width={100} height={60} kind='neutral' lines={['Documente', 'și baze de date']} />
+
+      <!-- Componenta RAG (Recuperare / Regăsire) -->
+      <rect class='group' x={150} y={210} width={185} height={85} rx='8'></rect>
+      <text class='title' x={242} y={228} text-anchor='middle'>RAG (Regăsire)</text>
+      <Box x={160} y={238} width={165} height={45} kind='embedding' lines={['Căutare vectorială', 'și fragmente (chunks)']} />
+
+      <!-- Fereastra de context -->
+      <rect class='group' x={375} y={210} width={190} height={85} rx='8'></rect>
+      <text class='title' x={470} y={228} text-anchor='middle'>Memorie de lucru</text>
+      <Box x={385} y={238} width={170} height={45} kind='highlight' lines={['Fereastră de context', '(întrebare + dovezi)']} />
+
+      <!-- Modelul (Ponderi statice) -->
+      <rect class='group' x={375} y={115} width={190} height={70} rx='8'></rect>
+      <Box x={385} y={125} width={170} height={50} kind='attention' lines={['Model (LLM)', 'Ponderi statice în matrice']} />
+
+      <!-- Tool Calling (Acțiune) -->
+      <rect class='group' x={375} y={20} width={190} height={70} rx='8'></rect>
+      <text class='title' x={470} y={38} text-anchor='middle'>Acțiune</text>
+      <Box x={385} y={45} width={170} height={35} kind='output' lines={['Apel de instrument', '(funcție JSON)']} />
+
+      <!-- Harnașament -->
+      <rect class='group' x={150} y={20} width={185} height={70} rx='8'></rect>
+      <text class='title' x={242} y={38} text-anchor='middle'>Harnașament (Harness)</text>
+      <Box x={160} y={45} width={165} height={35} kind='norm' lines={['Execuția comenzilor', 'și apeluri API']} />
+
+      <!-- Răspuns final -->
+      <Box x={610} y={120} width={115} height={65} kind='highlight' lines={['Răspuns ancorat', 'și verificat']} />
+    </svg>
+  </div>
+  <figcaption>
+    Cum trece un model dincolo de ponderile fixe: RAG aduce date actuale în fereastra de context, iar apelul de instrumente (tool calling) execută acțiuni concrete în mediul extern.
+  </figcaption>
+</figure>

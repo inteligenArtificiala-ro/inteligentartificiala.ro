@@ -1,0 +1,84 @@
+---
+// Un pas de generare: contextul intră în model, modelul dă probabilități pentru următorul token, tokenul ales se adaugă la
+// context. Probabilitățile au fost calculate cu SmolLM2 135M (q8, versiunea din public/modele/), la temperatura 1.
+import '../../styles/diagrams.css';
+import Box from './Box.astro';
+
+const candidates = [
+  { token: 'the', probability: 0.428 },
+  { token: 'Buch', probability: 0.172 },
+  { token: 'located', probability: 0.049 },
+  { token: 'called', probability: 0.023 },
+];
+const barWidth = 140;
+const percent = (value: number) => `${(value * 100).toLocaleString('ro-RO', { maximumFractionDigits: 1 })}%`;
+---
+
+<figure class='diagram generation-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='0 40 700 260' role='img' aria-labelledby='generation-title generation-desc'>
+      <title id='generation-title'>Un pas de generare a textului</title>
+      <desc id='generation-desc'>
+        Contextul „The capital of Romania is” intră în model. Modelul calculează probabilitățile următorului token: „the”
+        42,8%, „Buch” 17,2%, „located” 4,9%, „called” 2,3%. Tokenul ales, „the”, se adaugă la context și pasul se repetă.
+      </desc>
+      <defs>
+        <marker
+          id='generation-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      <g class='arrow' marker-end='url(#generation-arrow)'>
+        <path d='M210 140 H248'></path>
+        <path d='M370 140 H408'></path>
+        <path d='M545 205 V238'></path>
+        <path d='M440 258 H115 V172'></path>
+      </g>
+
+      <text class='title' x='115' y='95' text-anchor='middle'>Context</text>
+      <Box x={20} y={110} width={190} height={60} kind='neutral' lines={['The capital of', 'Romania is']} />
+      <Box x={250} y={110} width={120} height={60} kind='embedding' lines={['Model', 'de limbaj']} />
+
+      <text class='title' x='545' y='60' text-anchor='middle'>Următorul token</text>
+      {
+        candidates.map(({ token, probability }, index) => {
+          const y = 78 + index * 30;
+          return (
+            <g>
+              <text x='470' y={y + 15} text-anchor='end'>
+                „{token}”
+              </text>
+              <rect class='bar-track' x='480' y={y + 3} width={barWidth} height='16' rx='3' />
+              <rect class='bar' x='480' y={y + 3} width={probability * barWidth} height='16' rx='3' />
+              <text class='label' x={480 + barWidth + 8} y={y + 15}>
+                {percent(probability)}
+              </text>
+            </g>
+          );
+        })
+      }
+
+      <Box x={440} y={240} width={210} height={36} kind='output' lines={['Tokenul ales „the”']} />
+      <text class='label' x='280' y='250' text-anchor='middle'>se adaugă la context</text>
+    </svg>
+  </div>
+  <figcaption>
+    Un pas de generare cu SmolLM2 135M, modelul din demo-ul de mai jos, pentru contextul „The capital of Romania is”.
+    Tokenurile încep cu un spațiu, omis aici. Pasul se repetă pentru fiecare token nou.
+  </figcaption>
+</figure>
+
+<style>
+  .generation-diagram svg {
+    min-width: 34rem;
+    max-width: 44rem;
+  }
+</style>

@@ -1,0 +1,184 @@
+---
+title: Generarea textului
+description: Cum scrie modelul antrenat o poveste, token cu token. Procesul de generare, temperatura, eșantionarea top-k, tokenul de sfârșit și câteva povești scrise de modelul din laborator.
+sidebar:
+  order: 5
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+---
+
+import Python from '@components/Python.astro';
+import SourceFile from '@components/SourceFile.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+export const labSetup = String.raw`
+import os, sys
+from js import location
+from pyodide.http import open_url
+
+# Fișierul tokenizer.py al laboratorului și eșantionul de povești, copiate în sistemul de fișiere din browser.
+LAB = location.origin + "/laboratoare/model-lingvistic-de-la-zero/"
+for path in ["cod/tokenizer.py", "date/povesti.txt"]:
+    name = path.split("/")[-1]
+    if not os.path.exists(name):
+        text = open_url(LAB + path).read()
+        with open(name, "w", encoding="utf-8") as f:
+            f.write(text)
+sys.path.insert(0, ".")
+`;
+
+La antrenare, modelul vede textul întreg și prezice toate pozițiile deodată. La generare, textul nu există încă, așa că modelul îl scrie câte un token la fiecare pas, după schema din secțiunea [cum este generat textul](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#cum-este-generat-textul).
+
+## Procesul de generare
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/model.py" symbols={['GPT.generate']} />
+
+La fiecare token generat, procesul parcurge aceiași cinci pași.
+
+<Steps>
+1. **Trunchierea contextului** păstrează cel mult ultimele 256 de tokenuri din secvență, pentru că modelul are doar 256 de poziții învățate.
+2. **Extragerea scorurilor** păstrează doar scorurile nenormalizate (_logits_) ale ultimei poziții, singura de care avem nevoie pentru următorul token.
+3. **Scalarea și filtrarea** împart scorurile la temperatura $T$ și, opțional, păstrează doar cele mai mari $k$ scoruri (eșantionare top-k).
+4. **Calculul probabilităților și alegerea tokenului** folosesc funcția softmax, care transformă scorurile rămase într-o distribuție de probabilitate. Din această distribuție, `torch.multinomial` extrage la întâmplare noul token.
+5. **Adăugarea tokenului** lipește tokenul ales la finalul secvenței. Procesul continuă până când modelul generează tokenul de sfârșit `<|endoftext|>` sau până se ajunge la limita de `max_new_tokens` pași.
+</Steps>
+
+Decoratorul `@torch.no_grad()` oprește calculul gradienților, de care nu avem nevoie la generare. La fiecare pas, modelul recalculează toată fereastra, deși s-a schimbat doar tokenul nou. Modelele mari evită această risipă cu [memoria cache pentru chei și valori](/modele-lingvistice/arhitectura-transformer/#memoria-cache-pentru-chei-și-valori-kv-cache). Pentru povești de câteva sute de tokenuri și un model de 14,6 milioane de parametri, varianta simplă este suficient de rapidă.
+
+## Temperatura și eșantionarea top-k
+
+:::tip[Între varietate și coerență]
+**Temperatura** $T$ stabilește cât de ascuțită este distribuția softmax.
+- Sub $1$ (de exemplu $T = 0{,}8$), diferențele dintre scoruri se accentuează, iar continuările cele mai probabile sunt alese mai des.
+- Peste $1$, distribuția devine mai plată: textul este mai variat, dar riscul de a ieși ceva fără sens crește.
+- **Top-k** taie coada lungă a distribuției. Tokenurile foarte puțin probabile nu mai pot fi alese deloc, așa că propozițiile deraiază mai rar.
+:::
+
+Exemplul de mai jos înlocuiește rețeaua cu un model mult mai simplu, construit din eșantionul de povești: un **model de bigrame** (_bigram model_). În el, scorul următorului token depinde doar de tokenul curent și este logaritmul numărului de apariții ale perechii. Procesul de generare este același ca în `generate`.
+
+<Python
+  packages={['numpy']}
+  setup={labSetup}
+  code={String.raw`
+import numpy as np
+from tokenizer import WordTokenizer, build_vocab
+
+vocab, _ = build_vocab(["povesti.txt"], size=2000)
+tokenizer = WordTokenizer(vocab)
+with open("povesti.txt", encoding="utf-8") as f:
+    ids = tokenizer.encode(f.read())
+
+# Scorul perechii (a, b) este logaritmul numărului de apariții ale lui b după a.
+# Perechile care nu apar în eșantion primesc -inf, adică probabilitatea zero.
+V = len(tokenizer)
+counts = np.zeros((V, V))
+np.add.at(counts, (ids[:-1], ids[1:]), 1)
+logits_table = np.where(counts > 0, np.log(np.maximum(counts, 1)), -np.inf)
+
+def generate(idx, max_new_tokens, temperature=1.0, top_k=None, eos_id=None, rng=None):
+    for _ in range(max_new_tokens):
+        logits = logits_table[idx[-1]] / temperature
+        if top_k is not None:
+            kth = np.sort(logits)[-top_k]
+            logits = np.where(logits < kth, -np.inf, logits)
+        probs = np.exp(logits - logits.max())
+        probs /= probs.sum()
+        next_id = int(rng.choice(V, p=probs))
+        idx = idx + [next_id]
+        if next_id == eos_id:
+            break
+    return idx
+
+def probabilities(token, temperature):
+    logits = logits_table[tokenizer.token_to_id[token]] / temperature
+    probs = np.exp(logits - logits.max())
+    probs /= probs.sum()
+    top = np.argsort(probs)[::-1][:5]
+    return ", ".join(f"{tokenizer.id_to_token[i]} {probs[i]:.0%}" for i in top)
+
+for temperature in [0.5, 1.0, 2.0]:
+    print(f"După „the”, la temperatura {temperature}: {probabilities('the', temperature)}")
+print()
+
+prompt = tokenizer.encode("Once upon a time")
+for temperature, top_k in [(0.8, 50), (1.5, None)]:
+    rng = np.random.default_rng(seed=1)
+    out = generate(prompt, 40, temperature, top_k, tokenizer.eot_id, rng)
+    print(f"Temperatura {temperature}, top_k {top_k}:")
+    print(" ", tokenizer.decode(out))
+`}
+/>
+
+La temperatura 0,5, primele continuări după „the” primesc o parte mult mai mare din probabilitate decât la temperatura 1. La temperatura 2, probabilitatea se împarte între mult mai multe cuvinte. Fiecare pereche de cuvinte din textele generate este plauzibilă, dar propozițiile nu au sens, pentru că modelul de bigrame vede un singur token înapoi. Modelul GPT vede până la 256 de tokenuri înapoi, așa că poate păstra un personaj sau o întâmplare pe parcursul mai multor propoziții.
+
+## Scriptul de generare
+
+Fișierul `sample.py` încarcă un model salvat și scrie povești pornind de la un prompt.
+
+<SourceFile path="laboratoare/model-lingvistic-de-la-zero/cod/sample.py" />
+
+Funcția `write` este folosită și în timpul antrenării, pentru poveștile afișate la fiecare evaluare. Ea trece modelul în modul de evaluare, ca _dropout_-ul să fie oprit, apoi îl readuce în modul în care l-a găsit.
+
+## Povești generate local
+
+Mai jos sunt două povești scrise, cu setările implicite, de modelul preantrenat timp de 10 minute în rularea de pe pagina despre [preantrenare](/laboratoare/model-lingvistic-de-la-zero/preantrenare/#rularea).
+
+```bash
+python sample.py checkpoints/pretrain/model.pt
+```
+
+```text
+Once upon a time, there was a little girl named Sue. She had a toy with her toy. Sue loved
+to play with her toy train. One day, Sue's toy car went to play with her. She wanted to be
+friends with her toy car. Sue was sad. She had an idea. Sue asked her mom, "What is that
+toy car?" Her mom said, "I can help you find my toy car." Sue thought for a moment and
+then came over. She used her toy car to make it go fast again. Sue was so happy and
+thanked her mom. The toy car played with the car all day long. And they lived happily ever
+after.
+
+Once upon a time there was a young boy named Tim. Tim loved to explore the big road with
+his mom. One day, he decided to go on a walk in the park. As Tim set his mom walked, Tim
+saw a big hill. He was very curious about what was inside. Tim asked his mom, "Mom, can
+you help me open the hill?" His mom said, "Yes, but be careful. Don't worry, it will come
+back." But Tim's mom knew they would be careful. They went to the hill. Tim looked and saw
+his mom in the hill. He knew it would be fun to go back home soon. Tim looked at his mom
+and knew his mom was safe. Later, Tim's mom went home, but they were tired. Tim was happy.
+He put his toys on his mom's bed and went back to bed.
+```
+
+Gramatica este aproape corectă, iar poveștile au început, conflict și final. Logica slăbește însă pe parcurs: o mașinuță „se joacă” cu Sue, iar un deal are ceva „înăuntru”. Ambele povești se opresc singure, cu tokenul `<|endoftext|>`, înainte de limita de 200 de tokenuri.
+
+Modelul salvat după doar 250 de pași, cu pierderea 3,2, scrie astfel.
+
+```bash
+python sample.py checkpoints/pretrain/step-250.pt -n 1
+```
+
+```text
+Once upon a time there was a little girl named Amy. Jane was a big, and her mom. He loved
+to play with her mom. One day, Kitty, she saw a big garden, "I don't want to be careful!"
+said Sue. Sam said, "Let's find it." Spot was very happy to help her for a bird. They all
+played with the bird. They worked together every day.
+```
+
+Forma unei povești există deja, dar numele se schimbă de la o propoziție la alta. La o temperatură mare, chiar și modelul final pierde firul.
+
+```bash
+python sample.py checkpoints/pretrain/model.pt "Tom and his dog" -n 1 --temperature 1.6
+```
+
+```text
+Tom and his dog played with his blocks when it turned too short and strong for their moms
+all day. He felt jealous when he played, every day, they got more careful and proud of the
+blocks too. Tom learned that sometimes more hard even more hard than trying to get new
+toys that is small than making him happy to be happy.
+```
+
+Modelul preantrenat continuă orice text ca pe începutul unei povești. Nu știe să urmeze o cerere, de exemplu să folosească anumite cuvinte. Va învăța acest lucru în etapa următoare, prin [ajustarea fină supervizată](/laboratoare/model-lingvistic-de-la-zero/ajustare-fina-supervizata/).
+
+## Bibliografie
+
+- Fan, A., Lewis, M. și Dauphin, Y. (2018). [Hierarchical Neural Story Generation](https://arxiv.org/abs/1805.04833). _ACL 2018_.
+- Holtzman, A. et al. (2020). [The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751). _ICLR 2020_.
+- Radford, A. et al. (2019). [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf). Raport tehnic OpenAI.

@@ -1,0 +1,143 @@
+---
+import Default from '@astrojs/starlight/components/Head.astro';
+import { SITE } from '../../consts';
+
+const { entry, id, lastUpdated } = Astro.locals.starlightRoute;
+const title = entry?.data?.title ?? SITE.name;
+const description = entry?.data?.description ?? SITE.description;
+const canonicalUrl = new URL(Astro.url.pathname, SITE.url).href;
+const isHome = !id || id === 'index' || entry?.id === 'index';
+const is404 = id === '404' || entry?.id === '404';
+const ogImageUrl = `${SITE.url}/og-image.png`;
+
+// Paginile deschise, cele mai recente primele, pentru harta traseelor de pe prima pagină
+// (src/components/LearningPaths.astro). Lista rămâne în browser și nu este trimisă nicăieri. Fără localStorage
+// (fereastră privată, date blocate), harta nu arată paginile vizitate.
+const rememberVisit = `try {
+  const key = 'pagini-vizitate';
+  const page = location.pathname.replace(/\\/?$/, '/');
+  const pages = JSON.parse(localStorage.getItem(key) ?? '[]').filter((p) => p !== page);
+  localStorage.setItem(key, JSON.stringify([page, ...pages].slice(0, 300)));
+} catch {}`;
+
+// Structuri Schema.org (JSON-LD)
+const schemas: Record<string, unknown>[] = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE.name,
+    url: SITE.url,
+    description: SITE.description,
+    inLanguage: 'ro',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Inteligență Artificială',
+    url: SITE.url,
+    logo: `${SITE.url}/favicon.png`,
+    sameAs: ['https://github.com/inteligentArtificiala-ro'],
+  },
+];
+
+if (!isHome && !is404) {
+  schemas.push({
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: title,
+    description: description,
+    url: canonicalUrl,
+    inLanguage: 'ro',
+    image: ogImageUrl,
+    ...(lastUpdated && { dateModified: lastUpdated.toISOString() }),
+    publisher: {
+      '@type': 'Organization',
+      name: 'Inteligență Artificială',
+      url: SITE.url,
+      logo: `${SITE.url}/favicon.png`,
+    },
+    author: {
+      '@type': 'Person',
+      ...SITE.author,
+    },
+  });
+
+  // Breadcrumbs
+  const parts = Astro.url.pathname.split('/').filter(Boolean);
+  if (parts.length > 0) {
+    const itemListElement = [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Acasă',
+        item: `${SITE.url}/`,
+      },
+    ];
+
+    let currentPath = '';
+    parts.forEach((part, idx) => {
+      currentPath += `/${part}`;
+      itemListElement.push({
+        '@type': 'ListItem',
+        position: idx + 2,
+        name: idx === parts.length - 1 ? title : part.replace(/-/g, ' '),
+        item: `${SITE.url}${currentPath}/`,
+      });
+    });
+
+    schemas.push({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement,
+    });
+  }
+}
+---
+
+<Default><slot /></Default>
+
+<!-- Pictograme dispozitive mobile și desktop -->
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+
+<!-- Meta-taguri avansate de indexare -->
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+<!-- Imagini Open Graph și Twitter Cards -->
+<meta property="og:image" content={ogImageUrl} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={`${title} - Inteligență Artificială`} />
+<meta name="twitter:image" content={ogImageUrl} />
+
+<!-- Date structurate Schema.org JSON-LD -->
+{schemas.map((schema) => (
+  <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+))}
+
+{!isHome && !is404 && <script is:inline set:html={rememberVisit} />}
+
+<script>
+  // Ascunde bara de sus la derularea în jos și o readuce la derularea în sus.
+  const root = document.documentElement;
+  const header = document.querySelector<HTMLElement>('header.header');
+  const menu = document.getElementById('starlight__sidebar');
+  let lastY = window.scrollY;
+
+  window.addEventListener(
+    'scroll',
+    () => {
+      const y = window.scrollY;
+      // Pragul ignoră tremuratul de câțiva pixeli al derulării pe touchpad și mobil.
+      if (Math.abs(y - lastY) < 8) return;
+      const menuOpen = menu?.matches(':popover-open') ?? false;
+      const hide = y > lastY && y > (header?.offsetHeight ?? 0) && !menuOpen;
+      root.toggleAttribute('data-bara-ascunsa', hide);
+      lastY = y;
+    },
+    { passive: true },
+  );
+
+  // Navigarea cu tastatura în bară o face din nou vizibilă.
+  header?.addEventListener('focusin', () => root.removeAttribute('data-bara-ascunsa'));
+</script>

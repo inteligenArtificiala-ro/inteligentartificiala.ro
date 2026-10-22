@@ -1,0 +1,120 @@
+---
+title: Imagini și sunete cu modele de difuzie
+description: Laborator practic în care generăm imagini și sunete cu modele de difuzie cu ponderi deschise, în Python, cu bibliotecile Diffusers și Transformers, pe propriul calculator sau în Google Colab.
+sidebar:
+  order: 1
+  label: Introducere
+level: incepator
+tags:
+  - Modele de difuzie
+---
+
+import Colab from '@components/Colab.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Paginile despre [modelele de difuzie](/modele-de-difuzie/ce-sunt-modelele-de-difuzie/) explică ideea: o rețea neuronală învață să estimeze zgomotul dintr-o imagine, iar generarea pornește de la zgomot pur, pe care îl curăță pas cu pas. În acest laborator rulăm modele reale, cu [ponderi deschise](/concepte-de-baza/chatgpt-gemini-claude-grok-deepseek/#ponderi-deschise-și-modele-închise), publicate pe [Hugging Face Hub](https://huggingface.co/models). Generăm pisici pornind de la zgomot, imagini pornind de la o descriere și sunete pornind de la un text.
+
+Instrumentul principal este **Diffusers**, biblioteca open-source a companiei Hugging Face pentru modele de difuzie. Este biblioteca soră a bibliotecii Transformers, folosită în laboratorul despre [un model de limbaj local](/laboratoare/model-local-transformers/prezentare/). Diffusers încarcă ponderile în PyTorch și oferă două niveluri de lucru: **pipeline-uri** gata făcute, care generează o imagine în câteva linii de cod, și componentele din care sunt construite, adică rețelele neuronale și **metodele de eșantionare** (_schedulers_), care pot fi folosite separat. Codificatoarele de text și vocoderul vin din Transformers. Biblioteca are o [documentație oficială](https://huggingface.co/docs/diffusers/index) foarte bună, pe care nu o traducem aici. Laboratorul arată codul minim, explică ce se întâmplă în fiecare pas și trimite la documentație pentru detalii.
+
+Codul este scris pentru Diffusers 0.41, Transformers 5.20 și PyTorch 2.14.
+
+## Etapele laboratorului
+
+<Steps>
+1. **Introducere** (această pagină): instalarea, rularea în Google Colab și prima imagine, generată cu un pipeline.
+2. [**Procesul de difuzie, pas cu pas**](/laboratoare/difuzie-imagini-si-sunete/procesul-de-difuzie/): procesul invers scris de mână, pe un model care generează pisici, comparația dintre DDPM și DDIM și procesul direct, verificat pe formula lui.
+3. [**De la text la imagine**](/laboratoare/difuzie-imagini-si-sunete/imagini-din-text/): Stable Diffusion desfăcut în componente, cu ghidarea fără clasificator scrisă de mână, apoi scala de ghidare și generarea de la imagine la imagine.
+4. [**Sunete din text**](/laboratoare/difuzie-imagini-si-sunete/sunete-din-text/): sunete generate dintr-o descriere cu AudioLDM 2 și drumul de la reprezentarea latentă la spectrograma mel și apoi, prin vocoder, la sunet.
+</Steps>
+
+## Cerințe de sistem
+
+- **Python** 3.10 sau mai nou.
+- **Pachete Python**: `torch`, `diffusers`, `transformers`, `accelerate`, `scipy` (pentru fișierele WAV) și `matplotlib` (pentru spectrogramă).
+- **Spațiu pe disc**: aproximativ 8 GB pentru toate modelele. Modelul care generează pisici ocupă 455 MB, Stable Diffusion 1.5, în varianta pe 16 biți, aproximativ 2,7 GB, iar AudioLDM 2 aproximativ 4,5 GB.
+- **Hardware**: o placă grafică NVIDIA cu cel puțin 8 GB de memorie sau un cip Apple Silicon. Codul rulează și pe procesor (CPU), dar mult mai încet, pentru că fiecare imagine cere zeci de treceri prin rețea.
+
+## Instalare
+
+Pentru a crea un mediu virtual și a instala pachetele, rulați comenzile de mai jos:
+
+```bash
+mkdir difuzie && cd difuzie
+python3 -m venv .venv
+source .venv/bin/activate
+pip install torch diffusers transformers accelerate scipy matplotlib
+```
+
+Pe Linux și Windows, varianta de PyTorch potrivită pentru placa grafică se alege de pe [pagina de instalare PyTorch](https://pytorch.org/get-started/locally/). Alte metode de instalare a bibliotecii Diffusers sunt descrise în [ghidul de instalare](https://huggingface.co/docs/diffusers/installation).
+
+## Rularea în Google Colab
+
+Laboratorul poate rula și în [Google Colab](https://colab.research.google.com), un serviciu Google care rulează notebookuri Jupyter în browser, fără nicio instalare pe calculatorul propriu.
+
+Fiecare pagină a laboratorului are un **notebook** Jupyter cu tot codul ei, în ordine, care se deschide în Colab cu butonul **Deschidere în Google Colab**. Prima celulă instalează pachetele, iar celulele următoare se rulează de sus în jos. Imaginile și sunetele generate apar direct în notebook. Modelele se descarcă în mașina virtuală a Colab, nu pe calculatorul propriu, și se șterg odată cu ea, la sfârșitul sesiunii.
+
+<Colab notebook='laboratoare/difuzie-imagini-si-sunete/notebooks/01-prezentare.ipynb' />
+
+## Prima imagine
+
+Cel mai scurt drum de la nimic la o imagine este un pipeline. Salvați codul de mai jos în fișierul `prima_imagine.py`:
+
+```python
+import torch
+from diffusers import DiffusionPipeline
+
+# Placa grafică NVIDIA (cuda), placa grafică a unui cip Apple Silicon (mps) sau, dacă nu există niciuna, procesorul.
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+dtype = torch.float16 if device != "cpu" else torch.float32
+
+# La prima rulare, fișierele modelului (aproximativ 2,7 GB) se descarcă de pe Hugging Face Hub.
+pipe = DiffusionPipeline.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5", dtype=dtype, variant="fp16")
+pipe = pipe.to(device)
+
+prompt = "a watercolor painting of an orange cat sleeping on a park bench"
+generator = torch.Generator("cpu").manual_seed(0)
+image = pipe(prompt, generator=generator).images[0]
+image.save("prima_imagine.png")
+```
+
+Apoi rulați:
+
+```bash
+python prima_imagine.py
+```
+
+Bara de progres din terminal numără 50 de pași, valoarea implicită pentru acest model. Fiecare pas este o trecere completă prin rețeaua care estimează zgomotul, iar rezultatul este o imagine de 512 × 512 pixeli, salvată în `prima_imagine.png`.
+
+[Stable Diffusion 1.5](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5) este un model de [difuzie latentă](/modele-de-difuzie/generarea-imaginilor/#difuzia-în-spațiul-latent) publicat în 2022, cu un U-Net de aproximativ 860 de milioane de parametri. Calitatea imaginilor este sub cea a modelelor de azi, dar arhitectura lui este exact cea descrisă pe pagina despre [generarea imaginilor](/modele-de-difuzie/generarea-imaginilor/), iar modelul încape ușor în memoria unei plăci grafice obișnuite. Codificatorul de text a fost antrenat în principal pe descrieri în engleză, așa că îi scriem în engleză. Câteva lucruri merită observate în cod.
+
+- **`DiffusionPipeline`** citește fișierul `model_index.json` al modelului și alege singur clasa potrivită, aici `StableDiffusionPipeline`. Pipeline-ul încarcă toate componentele: tokenizatorul și codificatorul de text, U-Net-ul, autoencoderul VAE și metoda de eșantionare. Pagina [De la text la imagine](/laboratoare/difuzie-imagini-si-sunete/imagini-din-text/) le folosește pe rând, de mână.
+- **`dtype=torch.float16`** încarcă ponderile pe 16 biți, cu jumătate din memoria necesară pe 32 de biți, iar **`variant="fp16"`** descarcă fișierele salvate deja pe 16 biți, deci și descărcarea este de două ori mai mică. Pe procesor, calculele rămân pe 32 de biți, pentru că pe 16 biți sunt lente sau nu sunt suportate. Pagina despre [memorie și cuantizare](/laboratoare/model-local-transformers/memorie-si-dispozitive/) din laboratorul despre modelele de limbaj explică pe larg tipurile de date.
+- **`generator`** fixează zgomotul de pornire. Cu aceeași valoare pentru `manual_seed`, generarea pornește de la același zgomot și duce la aceeași imagine. Generatorul este creat pe procesor, ca zgomotul să fie același pe orice dispozitiv. Imaginile obținute pe dispozitive diferite pot totuși să difere puțin, din cauza diferențelor de rotunjire din calcule.
+
+:::note[Filtrul de siguranță]
+Pipeline-ul Stable Diffusion 1.5 include un **filtru de siguranță** (_safety checker_), un clasificator care verifică fiecare imagine generată. Dacă o consideră nepotrivită, pipeline-ul o înlocuiește cu o imagine neagră și afișează un avertisment. Filtrul greșește uneori și blochează imagini nevinovate. Un alt `manual_seed` sau o descriere ușor schimbată rezolvă de obicei problema.
+:::
+
+Diffusers are pipeline-uri și pentru modele mult mai noi, precum Stable Diffusion 3.5 sau FLUX. Ele se încarcă la fel, cu `DiffusionPipeline.from_pretrained`, dar au nevoie de mai multă memorie, iar unele cer acceptarea licenței pe pagina modelului. Lista lor este în [documentația Diffusers](https://huggingface.co/docs/diffusers/api/pipelines/overview).
+
+## Unde ajung fișierele modelului
+
+Diffusers folosește aceeași memorie cache ca Transformers, directorul `~/.cache/huggingface/hub`, descris pe pagina despre [primul model de limbaj rulat local](/laboratoare/model-local-transformers/prezentare/#unde-ajung-fișierele-modelului). Modelele descărcate pot fi listate și șterse cu comanda `hf cache`. Toate opțiunile sunt descrise în [ghidul despre memoria cache](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+
+## Licențele modelelor
+
+Modelele din laborator nu au nevoie de autentificare pe Hugging Face Hub, dar fiecare are licența lui, descrisă pe pagina modelului.
+
+- [**google/ddpm-cat-256**](https://huggingface.co/google/ddpm-cat-256), modelul care generează pisici, este publicat sub licența Apache 2.0.
+- [**Stable Diffusion 1.5**](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5) este publicat sub licența CreativeML OpenRAIL-M, care permite folosirea și redistribuirea modelului, dar interzice o listă de utilizări dăunătoare.
+- [**AudioLDM 2**](https://huggingface.co/cvssp/audioldm2) este publicat sub licența CC BY-NC-SA 4.0, care permite doar folosirea necomercială.
+
+Imaginile și sunetele generate pot părea reale. Pagina despre [generarea imaginilor](/modele-de-difuzie/generarea-imaginilor/#cum-recunoaștem-o-imagine-generată) arată cum le recunoaștem și ce cere legislația europeană atunci când sunt publicate.
+
+## Bibliografie
+
+- Ho, J., Jain, A. și Abbeel, P. (2020). [Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239). _NeurIPS 2020_.
+- Liu, H. et al. (2024). [AudioLDM 2: Learning Holistic Audio Generation with Self-supervised Pretraining](https://arxiv.org/abs/2308.05734). _IEEE/ACM Transactions on Audio, Speech, and Language Processing_.
+- Paszke, A. et al. (2019). [PyTorch: An Imperative Style, High-Performance Deep Learning Library](https://arxiv.org/abs/1912.01703). _NeurIPS 2019_.
+- Rombach, R. et al. (2022). [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752). _CVPR 2022_.
+- von Platen, P. et al. (2022). [Diffusers: State-of-the-art diffusion models](https://github.com/huggingface/diffusers). Repozitoriu GitHub.

@@ -1,0 +1,104 @@
+---
+// Un pas de antrenare PPO (cu model de valoare) comparat cu un pas GRPO (avantaje calculate în grup).
+import '../../styles/diagrams.css';
+import Box, { type BoxProps } from './Box.astro';
+
+const width = 220;
+const columns = [
+  {
+    x: 70,
+    title: 'PPO',
+    note: 'Patru modele (strategie, referință, recompensă, valoare)',
+    boxes: [
+      { kind: 'neutral', lines: ['Prompt x'] },
+      { kind: 'embedding', lines: ['Strategia (modelul de limbaj)'] },
+      { kind: 'neutral', lines: ['Un răspuns y'] },
+      { kind: 'output', lines: ['Model de recompensă', '− β · KL față de referință'] },
+      { kind: 'feed-forward', lines: ['Model de valoare (critic)', 'V(s) pentru fiecare token'] },
+      { kind: 'attention', lines: ['Avantaje cu GAE', 'și actualizare cu decupare'] },
+    ],
+  },
+  {
+    x: 430,
+    title: 'GRPO',
+    note: 'Fără model de valoare',
+    boxes: [
+      { kind: 'neutral', lines: ['Prompt x'] },
+      { kind: 'embedding', lines: ['Strategia (modelul de limbaj)'] },
+      { kind: 'neutral', lines: ['G răspunsuri la același prompt'] },
+      { kind: 'output', lines: ['G recompense', 'de la model sau reguli'] },
+      { kind: 'norm', lines: ['Normalizare în grup', 'Âᵢ = (rᵢ − medie) / abatere'] },
+      { kind: 'attention', lines: ['Actualizare cu decupare', 'și penalizare KL în pierdere'] },
+    ],
+  },
+];
+
+const top = 60;
+const step = 66;
+const boxHeight = 44;
+
+const boxes: BoxProps[] = columns.flatMap(({ x, boxes }) =>
+  boxes.map(({ kind, lines }, index) => ({ x, y: top + index * step, width, height: boxHeight, kind, lines })),
+);
+const arrows = columns.flatMap(({ x, boxes }) =>
+  boxes.slice(1).map((_, index) => {
+    const center = x + width / 2;
+    return `M${center} ${top + index * step + boxHeight} V${top + (index + 1) * step}`;
+  }),
+);
+---
+
+<figure class='diagram ppo-grpo-diagram'>
+  <div class='diagram-scroll'>
+    <svg viewBox='40 20 640 470' role='img' aria-labelledby='ppo-grpo-title ppo-grpo-desc'>
+      <title id='ppo-grpo-title'>PPO și GRPO</title>
+      <desc id='ppo-grpo-desc'>
+        În PPO, strategia generează un răspuns, modelul de recompensă îl evaluează, cu o penalizare KL față de modelul de
+        referință, iar un model de valoare estimează avantajele. În GRPO, strategia generează un grup de G răspunsuri la
+        același prompt, recompensele lor sunt normalizate în interiorul grupului și devin avantaje, fără model de
+        valoare.
+      </desc>
+      <defs>
+        <marker
+          id='ppo-grpo-arrow'
+          viewBox='0 0 10 10'
+          refX='9'
+          refY='5'
+          markerWidth='6'
+          markerHeight='6'
+          orient='auto-start-reverse'
+        >
+          <path d='M 0 0 L 10 5 L 0 10 z'></path>
+        </marker>
+      </defs>
+
+      {
+        columns.map(({ x, title, note }) => (
+          <>
+            <text class='title' x={x + width / 2} y='45' text-anchor='middle'>
+              {title}
+            </text>
+            <text class='label' x={x + width / 2} y={top + 6 * step + 4} text-anchor='middle'>
+              {note}
+            </text>
+          </>
+        ))
+      }
+      <g class='arrow' marker-end='url(#ppo-grpo-arrow)'>
+        {arrows.map((d) => <path d={d} />)}
+      </g>
+      {boxes.map((box) => <Box {...box} />)}
+    </svg>
+  </div>
+  <figcaption>
+    Un pas de antrenare în cele două metode. GRPO înlocuiește modelul de valoare cu o comparație între răspunsurile la
+    același prompt.
+  </figcaption>
+</figure>
+
+<style>
+  .ppo-grpo-diagram svg {
+    min-width: 36rem;
+    max-width: 44rem;
+  }
+</style>

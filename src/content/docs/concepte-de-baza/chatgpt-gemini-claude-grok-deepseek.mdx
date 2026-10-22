@@ -1,0 +1,98 @@
+---
+title: Ce sunt ChatGPT, Gemini, Claude, Grok și DeepSeek?
+description: ChatGPT, Gemini, Claude, Grok și DeepSeek sunt asistenți conversaționali construiți pe modele de limbaj mari. Pagina explică ce au în comun, cine îi dezvoltă și prin ce diferă.
+sidebar:
+  order: 4
+level: incepator
+tags:
+  - Concepte de bază
+  - Modele de limbaj mari (LLM)
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+ChatGPT, Gemini, Claude, Grok și DeepSeek sunt **asistenți conversaționali** (_chatbots_), adică aplicații în care scriem un mesaj în limbaj natural și primim un răspuns generat automat. Toți sunt construiți pe [modele de limbaj mari](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) (LLM) și sunt dezvoltați de companii de tehnologie din Statele Unite și din China.
+
+Multe detalii interne ale acestor sisteme, de exemplu datele exacte de antrenare sau numărul de parametri, nu sunt făcute publice. De aceea, pagina descrie principiile comune și doar informațiile tehnice confirmate public. Versiunile modelelor se schimbă des, așa că ne oprim la arhitectură și la trăsăturile generale.
+
+## Definiție
+
+Numele unui asistent se referă de obicei la un **produs**: aplicația web sau mobilă, cu interfața ei, istoricul conversațiilor și instrumentele integrate. În spatele produsului se află unul sau mai multe **modele**, adică rețelele neuronale care generează efectiv textul. De exemplu, ChatGPT este produsul, iar modelele pe care rulează fac parte din familia GPT, dezvoltată de OpenAI. La Gemini, Claude, Grok și DeepSeek, același nume se folosește de obicei și pentru produs, și pentru familia de modele.
+
+Aceleași modele sunt oferite și dezvoltatorilor, printr-o **interfață de programare** (_application programming interface_, API). Astfel, un model poate fi integrat și în produsele și aplicațiile altor companii.
+
+## Ce au în comun
+
+Toate aceste sisteme urmează, în linii mari, aceeași rețetă.
+
+<Steps>
+1. Un model cu arhitectură [Transformer](/modele-lingvistice/avem-nevoie-doar-de-atentie/) este **preantrenat** (_pretrained_) pe cantități uriașe de text și cod sursă, cu un singur obiectiv: să prezică următorul token.
+2. Modelul trece apoi printr-o **ajustare fină** (_fine-tuning_) pe seturi de date cu conversații, din care învață să urmeze instrucțiuni.
+3. Modelul este **aliniat cu preferințele umane** (_aligned_), ca răspunsurile să fie utile, coerente și fără conținut periculos.
+4. Peste model, produsul adaugă instrucțiuni de sistem (_system prompt_), filtre de siguranță și **instrumente** (_tools_), precum căutarea pe web în timp real, interpretorul de cod sau analiza fișierelor încărcate.
+</Steps>
+
+Modelele actuale sunt și **multimodale** (_multimodal_). Pe lângă text, pot prelucra imagini și, în funcție de sistem, fișiere audio sau video. Unele variante sunt antrenate să scrie mai întâi pași intermediari de **raționament** (_reasoning_) și abia apoi răspunsul final. Asta le face mult mai bune la matematică, logică și programare.
+
+:::caution[Limitele comune tuturor LLM-urilor]
+Toate aceste sisteme au limitele oricărui model de limbaj. Pot da răspunsuri false pe un ton foarte sigur ([halucinații](/modele-lingvistice/halucinatii/)), pot prelua distorsiunile (_bias_) din datele de antrenare și nu știu nimic despre evenimentele de după antrenare, decât dacă primesc informații noi printr-o căutare sau direct în conversație.
+:::
+
+## Exemple de sisteme
+
+### ChatGPT
+
+ChatGPT este dezvoltat de **OpenAI**, o companie din San Francisco. A fost lansat pe 30 noiembrie 2022 și a făcut cunoscuți asistenții conversaționali în toată lumea. Rulează pe modele din familia GPT (_generative pre-trained transformer_). În august 2025, OpenAI a publicat și modele cu ponderi deschise, numite gpt-oss.
+
+### Gemini
+
+Gemini este dezvoltat de **Google**, prin divizia Google DeepMind. Asistentul a fost lansat în martie 2023 sub numele Bard și a fost redenumit Gemini în februarie 2024, după familia de modele prezentată în decembrie 2023. Este strâns legat de serviciile Google (Search, Gmail, Docs, Android). Separat, Google publică și modele mai mici, cu ponderi deschise, din familia Gemma.
+
+### Claude
+
+Claude este dezvoltat de **Anthropic**, o companie din San Francisco fondată în 2021 de foști cercetători de la OpenAI. Primele versiuni Claude au fost lansate în martie 2023. Anthropic este cunoscută pentru accentul pe care îl pune pe siguranța AI și pentru tehnici precum Constitutional AI. Modelele Claude sunt închise: ponderile lor nu sunt publice.
+
+### Grok
+
+Grok este dezvoltat de **xAI**, o companie fondată în 2023 de Elon Musk. A fost lansat în noiembrie 2023 și este integrat în rețeaua socială X, de unde are acces în timp real la postări. În martie 2024, xAI a publicat ponderile primului model, Grok-1, sub o licență deschisă (Apache 2.0).
+
+### DeepSeek
+
+DeepSeek este dezvoltat de compania cu același nume, **DeepSeek**, cu sediul în Hangzhou (China). Compania a fost fondată în 2023 și este finanțată de High-Flyer, un fond de investiții specializat în tranzacționare cantitativă. Modelele DeepSeek-V3 (decembrie 2024) și DeepSeek-R1 (ianuarie 2025) au fost lansate cu ponderi deschise, sub licența MIT. R1 a atras atenția în toată lumea pentru că raționa aproape la fel de bine ca cele mai avansate modele proprietare, la o fracțiune din costul de antrenare raportat până atunci.
+
+## Comparație
+
+| Sistem | Companie | Țara | Lansare publică | Ponderi deschise |
+| --- | --- | --- | --- | --- |
+| ChatGPT | OpenAI | Statele Unite | noiembrie 2022 | doar gama gpt-oss |
+| Gemini | Google | Statele Unite | martie 2023 (ca Bard) | doar familia separată Gemma |
+| Claude | Anthropic | Statele Unite | martie 2023 | nu (proprietar) |
+| Grok | xAI | Statele Unite | noiembrie 2023 | doar unele versiuni (Grok-1) |
+| DeepSeek | DeepSeek | China | 2023 (primele modele) | da, pentru modelele principale (V3, R1) |
+
+## Ponderi deschise și modele închise
+
+:::note[Diferența în practică]
+- **Ponderi deschise** (_open weights_): parametrii obținuți la antrenare pot fi descărcați liber, iar modelul poate rula local, pe hardware potrivit. Asta înseamnă că îl putem folosi în privat (fără conexiune la serverele furnizorului), îl putem adapta prin ajustare fină pe date proprii și îi putem studia în detaliu comportamentul. Faptul că ponderile sunt publice nu înseamnă neapărat că sunt publice și codul complet sau datele folosite la preantrenare.
+- **Model închis** (_closed_ / proprietar): poate fi folosit doar prin platforma sau API-ul furnizorului. Cererile sunt procesate pe serverele companiei, după regulile ei de confidențialitate, iar furnizorul poate oricând să actualizeze sau să retragă versiunile disponibile.
+:::
+
+Diferența se vede chiar în această documentație. Demo-ul de pe pagina despre [modele de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#un-model-compact-în-browser) rulează un model mic, cu ponderi deschise, direct în browser, iar datele nu părăsesc deloc dispozitivul.
+
+## Cum alegem un asistent conversațional
+
+Cât de bine se descurcă un model depinde de sarcină și se schimbă cu fiecare versiune nouă, așa că orice clasament se învechește repede. Pentru o alegere bună, merită urmărite câteva criterii: calitatea răspunsurilor pe exemple din domeniul care ne interesează, cât de bine scrie în română, instrumentele disponibile (căutare pe web, rulare de cod), timpul de răspuns (latența), costul per token, cerințele de confidențialitate a datelor și posibilitatea de a rula modelul local. Indiferent de asistentul ales, răspunsurile importante trebuie verificate în surse primare, independente.
+
+Când un astfel de model este integrat într-un harnașament software, adică un sistem care îi permite să ruleze comenzi și să acționeze pas cu pas asupra mediului de lucru, vorbim despre [comportament agentic](/comportament-agentic/ce-este-comportamentul-agentic/).
+
+## Bibliografie
+
+- Bai, Y. et al. (2022). [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073). Preprint arXiv:2212.08073.
+- DeepSeek-AI (2024). [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437). Preprint arXiv:2412.19437.
+- DeepSeek-AI (2025). [DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948). Preprint arXiv:2501.12948.
+- Gemini Team, Google (2023). [Gemini: A Family of Highly Capable Multimodal Models](https://arxiv.org/abs/2312.11805). Preprint arXiv:2312.11805.
+- Gemma Team, Google DeepMind (2024). [Gemma: Open Models Based on Gemini Research and Technology](https://arxiv.org/abs/2403.08295). Preprint arXiv:2403.08295.
+- OpenAI (2022). [Introducing ChatGPT](https://openai.com/index/chatgpt/). Blogul OpenAI.
+- OpenAI (2025). [gpt-oss-120b & gpt-oss-20b Model Card](https://arxiv.org/abs/2508.10925). Preprint arXiv:2508.10925.
+- Ouyang, L. et al. (2022). [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155). _NeurIPS 2022_.
+- xAI (2024). [Open Release of Grok-1](https://x.ai/news/grok-os). Blogul xAI.

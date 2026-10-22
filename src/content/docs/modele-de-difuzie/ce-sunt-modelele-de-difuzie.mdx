@@ -1,0 +1,196 @@
+---
+title: Ce sunt modelele de difuzie
+description: Cum generează un model de difuzie o imagine pornind de la zgomot pur, prin procesul direct care adaugă zgomot și rețeaua care învață să-l elimine. Pagina include un exemplu care rulează direct în browser.
+sidebar:
+  order: 1
+level: incepator
+tags:
+  - Modele de difuzie
+---
+
+import DiffusionProcessDiagram from '@components/diagrams/DiffusionProcessDiagram.astro';
+import Python from '@components/Python.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Un **model de difuzie** (_diffusion model_) generează date noi, de exemplu o imagine, pornind de la zgomot aleator pe care îl curăță treptat, în zeci de pași. Seamănă cu ecranul unui televizor fără semnal, plin de „purici”, care s-ar limpezi încet până ar deveni o fotografie. Pe acest principiu funcționează generatoare de imagini precum Stable Diffusion, FLUX, DALL·E 3 și Imagen, generatoare video precum Sora și Veo și o parte dintre modelele care sintetizează vocea.
+
+Un [model de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) scrie răspunsul câte un token pe rând, de la stânga la dreapta. Un model de difuzie lucrează altfel: la fiecare pas, produce o versiune puțin mai curată a întregului rezultat. Mai întâi apar compoziția și culorile, apoi formele, iar detaliile fine apar la sfârșit.
+
+## Definiție
+
+Un model de difuzie are două procese, care merg în direcții opuse.
+
+- **Procesul direct** (_forward process_) pornește de la o imagine reală și îi adaugă, pas cu pas, puțin **zgomot gaussian** (_Gaussian noise_), adică valori aleatoare mici, distribuite după o curbă în formă de clopot. După $T$ pași (în articolele clasice, $T = 1.000$), din imagine nu mai rămâne nimic recognoscibil. Procesul este fixat dinainte și nu are nimic de învățat.
+- **Procesul invers** (_reverse process_) face drumul înapoi. O [rețea neuronală](/retele-neuronale/ce-sunt-retelele-neuronale/) primește o imagine cu zgomot și numărul pasului și estimează ce zgomot conține imaginea. Dacă scădem o parte din acest zgomot, obținem o imagine puțin mai curată. Repetat de la zgomot pur până la pasul 0, procesul invers produce o imagine nouă.
+
+<DiffusionProcessDiagram />
+
+Ideea a fost propusă în 2015 de Jascha Sohl-Dickstein și colegii săi și vine din fizica statistică, unde difuzia descrie felul în care o picătură de cerneală se împrăștie într-un pahar cu apă. A devenit practică în 2020, odată cu articolul despre **DDPM** (_denoising diffusion probabilistic models_) al lui Jonathan Ho, Ajay Jain și Pieter Abbeel. Până atunci, cele mai bune imagini generate veneau de la **rețelele generative adversariale** (_generative adversarial networks_, GAN), în care două rețele concurează: una generează imagini, iar cealaltă încearcă să le deosebească de cele reale. În 2021, Prafulla Dhariwal și Alex Nichol au arătat că modelele de difuzie depășesc rețelele GAN la calitatea imaginilor, iar de atunci difuzia a devenit metoda dominantă.
+
+## Procesul direct: cum se adaugă zgomotul
+
+Pentru calculator, o imagine este un șir de numere: intensitatea fiecărui pixel, pe fiecare canal de culoare. Notăm acest șir cu $x_0$ și îl scalăm în intervalul $[-1, 1]$. Imaginea cu zgomot de la pasul $t$, notată $x_t$, este o combinație între imaginea inițială și zgomot.
+
+$$
+x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1 - \bar\alpha_t}\, \varepsilon, \qquad \varepsilon \sim \mathcal{N}(0, I)
+$$
+
+Aici $\varepsilon$ este un vector de zgomot gaussian, de aceeași dimensiune cu imaginea, iar $\bar\alpha_t$ (citit „alfa barat”) este un număr între 0 și 1 care spune cât din imagine mai rămâne la pasul $t$. La $t = 0$, $\bar\alpha_0 \approx 1$ și avem imaginea originală. La $t = T$, $\bar\alpha_T \approx 0$ și avem doar zgomot. Felul în care scade $\bar\alpha_t$ de la un pas la altul se numește **programul de zgomot** (_noise schedule_). DDPM folosea un program liniar, iar programul în formă de cosinus, propus în 2021 de Alex Nichol și Prafulla Dhariwal, păstrează mai multă informație în pașii de la mijloc.
+
+Formula are o proprietate importantă: putem sări direct la orice pas $t$, fără să calculăm pașii de dinainte. Asta face antrenarea eficientă, pentru că fiecare exemplu de antrenare poate folosi alt pas, ales la întâmplare.
+
+## Antrenarea: rețeaua învață să recunoască zgomotul
+
+Rețeaua, notată $\varepsilon_\theta$ (unde $\theta$ sunt parametrii ei), învață să ghicească zgomotul dintr-o imagine. Un pas de antrenare arată astfel:
+
+<Steps>
+1. Alegem o imagine $x_0$ din setul de antrenare.
+2. Alegem la întâmplare un pas $t$ între 1 și $T$ și un zgomot gaussian $\varepsilon$.
+3. Calculăm imaginea cu zgomot $x_t$, cu formula procesului direct.
+4. Rețeaua primește $x_t$ și $t$ și estimează zgomotul, $\varepsilon_\theta(x_t, t)$.
+5. Comparăm estimarea cu zgomotul adevărat și ajustăm parametrii prin [retropropagare](/retele-neuronale/retropropagare/) și coborâre pe gradient, ca să micșorăm eroarea pătratică.
+   $$L = \left\lVert \varepsilon - \varepsilon_\theta(x_t, t) \right\rVert^2$$
+</Steps>
+
+Este o problemă obișnuită de regresie: rețeaua primește o intrare și învață să prezică un număr pentru fiecare pixel. Antrenarea este stabilă, spre deosebire de cea a rețelelor GAN, unde cele două rețele concurente se pot dezechilibra ușor.
+
+A estima zgomotul este echivalent cu a estima imaginea curată. Dacă știm $x_t$ și zgomotul estimat $\hat\varepsilon$, putem inversa formula procesului direct.
+
+$$
+\hat{x}_0 = \frac{x_t - \sqrt{1 - \bar\alpha_t}\, \hat\varepsilon}{\sqrt{\bar\alpha_t}}
+$$
+
+DDPM și primele versiuni Stable Diffusion folosesc o rețea de tip **U-Net**, creată în 2015 pentru segmentarea imaginilor medicale. Ea micșorează imaginea în mai multe etape, apoi o mărește la loc, cu legături directe între nivelurile care au aceeași rezoluție. Modelele mai noi folosesc un [Transformer](/modele-lingvistice/arhitectura-transformer/), așa cum arată pagina despre [generarea imaginilor](/modele-de-difuzie/generarea-imaginilor/).
+
+## Generarea: de la zgomot la imagine
+
+La generare pornim de la zgomot pur, $x_T \sim \mathcal{N}(0, I)$, și coborâm pas cu pas până la $t = 0$. La fiecare pas, rețeaua estimează zgomotul $\hat\varepsilon$, iar din el obținem o estimare a imaginii curate, $\hat x_0$. Apoi calculăm $x_{t-1}$, o imagine cu ceva mai puțin zgomot decât $x_t$, combinând cele două estimări în proporțiile potrivite pentru pasul $t - 1$.
+
+$$
+x_{t-1} = \sqrt{\bar\alpha_{t-1}}\, \hat{x}_0 + \sqrt{1 - \bar\alpha_{t-1}}\, \hat\varepsilon
+$$
+
+Aceasta este regula metodei **DDIM** (_denoising diffusion implicit models_, 2020), folosită și în exemplul de mai jos. Cu ea, generarea este deterministă: același zgomot inițial duce mereu la aceeași imagine. DDPM adaugă în plus, la fiecare pas, puțin zgomot nou, ales la întâmplare.
+
+Fiecare pas înseamnă o trecere completă prin rețea, deci numărul de pași decide direct cât durează generarea. DDPM avea nevoie de 1.000 de pași, iar DDIM obține imagini bune în aproximativ 50. Modelele **distilate** (_distilled_), antrenate să imite în câțiva pași rezultatul obținut în zeci de pași, generează o imagine în 1–4 pași. Un exemplu este SDXL Turbo (Stability AI, 2023).
+
+Ordinea în care apar detaliile are o explicație simplă. Când zgomotul este mare, rețeaua nu poate ști care dintre multele imagini posibile se află sub el, așa că cea mai bună estimare a ei este o medie a lor, adică o imagine încețoșată. Pe măsură ce zgomotul scade, estimarea se poate fixa pe o singură variantă. Generarea trece astfel de la ansamblu la detalii, cam cum lucrează un pictor care face întâi schița.
+
+## Un exemplu care rulează în browser
+
+Exemplul de mai jos rulează procesul direct și procesul invers pe un set de antrenare minuscul: patru desene de 7 × 7 pixeli, cu literele A, I, O și X. Pentru un set atât de mic nu avem nevoie de o rețea antrenată, pentru că putem calcula exact cea mai bună estimare a imaginii curate. Pentru o imagine cu zgomot $x_t$, calculăm cât de probabil este ca ea să provină din fiecare desen $x^{(i)}$, apoi facem media desenelor, ponderată cu aceste probabilități.
+
+$$
+p_i \propto \exp\left(-\frac{\lVert x_t - \sqrt{\bar\alpha_t}\, x^{(i)} \rVert^2}{2(1 - \bar\alpha_t)}\right), \qquad \hat{x}_0 = \sum_i p_i\, x^{(i)}
+$$
+
+Este răspunsul pe care l-ar da o rețea antrenată perfect pe aceste patru desene. Programul de zgomot este o variantă simplificată a celui în formă de cosinus, cu $T = 50$ de pași.
+
+<Python
+  packages={['numpy']}
+  code={String.raw`
+import numpy as np
+
+# Setul de antrenare: patru desene de 7 x 7 pixeli (# este alb, . este negru)
+desene = {
+    "A": ["..###..", ".#...#.", "#.....#", "#######", "#.....#", "#.....#", "#.....#"],
+    "I": [".#####.", "...#...", "...#...", "...#...", "...#...", "...#...", ".#####."],
+    "O": [".#####.", "#.....#", "#.....#", "#.....#", "#.....#", "#.....#", ".#####."],
+    "X": ["#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#"],
+}
+date = np.array([[1.0 if c == "#" else -1.0 for c in "".join(d)] for d in desene.values()])
+
+def afiseaza(imagini, titluri):
+    nuante = " .:-=+*#%@"
+    print("  ".join(f"{t:^7}" for t in titluri))
+    for rand in range(7):
+        bucati = []
+        for img in imagini:
+            valori = np.clip((img.reshape(7, 7)[rand] + 1) / 2, 0, 1)
+            bucati.append("".join(nuante[round(v * 9)] for v in valori))
+        print("  ".join(bucati))
+    print()
+
+# Cât din imagine rămâne la pasul t: aproape toată la t = 0, aproape nimic la t = T
+T = 50
+alfa_bar = np.clip(np.cos(np.linspace(0, 1, T + 1) * np.pi / 2) ** 2, 1e-4, 0.9999)
+rng = np.random.default_rng(seed=1)
+
+# 1. Procesul direct: adăugăm zgomot peste desenul „A”
+pasi = [0, 15, 30, 50]
+zgomotoase = [np.sqrt(alfa_bar[t]) * date[0] + np.sqrt(1 - alfa_bar[t]) * rng.normal(size=49) for t in pasi]
+print("Procesul direct\n")
+afiseaza(zgomotoase, [f"t={t}" for t in pasi])
+
+# 2. Cât de probabil este ca imaginea cu zgomot x_t să provină din fiecare desen
+def probabilitati_desene(x_t, t):
+    distante = np.sum((x_t - np.sqrt(alfa_bar[t]) * date) ** 2, axis=1)
+    scoruri = -distante / (2 * (1 - alfa_bar[t]))
+    p = np.exp(scoruri - scoruri.max())
+    return p / p.sum()
+
+# 3. Procesul invers: pornim de la zgomot pur și scoatem zgomotul pas cu pas
+x = rng.normal(size=49)
+estimari, titluri = [], []
+print("Procesul invers\n")
+for t in range(T, 0, -1):
+    p = probabilitati_desene(x, t)
+    x0_estimat = p @ date
+    zgomot_estimat = (x - np.sqrt(alfa_bar[t]) * x0_estimat) / np.sqrt(1 - alfa_bar[t])
+    x = np.sqrt(alfa_bar[t - 1]) * x0_estimat + np.sqrt(1 - alfa_bar[t - 1]) * zgomot_estimat
+    if t % 5 == 0 and t >= 30:
+        print(f"t={t}  " + "  ".join(f"{nume}{pi:5.0%}" for nume, pi in zip(desene, p)))
+    if t in (50, 45, 40):
+        estimari.append(x0_estimat)
+        titluri.append(f"t={t}")
+
+print()
+afiseaza(estimari + [x], titluri + ["final"])
+`}
+/>
+
+La $t = 50$, imaginea este aproape numai zgomot, cele patru desene sunt aproape la fel de probabile, iar estimarea imaginii curate este media lor, o suprapunere a celor patru litere. În câțiva pași, probabilitățile se concentrează pe un singur desen, iar procesul invers îl reconstruiește. Valoarea `seed` alege zgomotul de pornire, iar o altă valoare poate duce la alt desen.
+
+Exemplul arată și o limită. O estimare perfectă pentru un set de antrenare finit poate produce doar copii ale imaginilor din acel set. Fenomenul se numește **memorare** (_memorization_). O rețea reală, antrenată pe sute de milioane sau miliarde de imagini, nu ajunge la această estimare perfectă. În schimb, învață regulile generale ale imaginilor (margini, texturi, forme, lumină) și le poate combina în imagini noi. De ce se întâmplă asta atât de bine este încă un subiect de cercetare. Memorarea nu dispare însă complet. În 2023, Nicholas Carlini și colegii săi au extras din Stable Diffusion imagini aproape identice cu unele din setul de antrenare, mai ales imagini care apăreau de multe ori în date.
+
+## Potrivirea fluxului
+
+Multe modele recente, precum Stable Diffusion 3 și FLUX.1, folosesc o metodă înrudită, numită **potrivirea fluxului** (_flow matching_), în varianta ei cea mai simplă, **fluxul rectificat** (_rectified flow_). Aici imaginea și zgomotul sunt legate printr-o linie dreaptă.
+
+$$
+x_t = (1 - t)\, x_0 + t\, \varepsilon, \qquad t \in [0, 1]
+$$
+
+Rețeaua învață **viteza** (_velocity_) $v = \varepsilon - x_0$, adică direcția în care se schimbă $x_t$ atunci când $t$ crește. Generarea pornește de la zgomot, la $t = 1$, și se deplasează în pași mici în sens opus vitezei, până la $t = 0$. Pentru că drumurile dintre zgomot și imagini sunt aproape drepte, pot fi parcurse cu mai puțini pași. Principiul rămâne același: un proces fix care transformă datele în zgomot și o rețea care învață să-l inverseze.
+
+## Difuzie sau generare token cu token
+
+| Aspect | Model de limbaj (autoregresiv) | Model de difuzie |
+|--------|--------------------------------|------------------|
+| Ce produce la un pas | Un singur token nou | O versiune mai curată a întregului rezultat |
+| Ordinea | De la stânga la dreapta | De la ansamblu la detalii |
+| Numărul de pași | Cât de lung este răspunsul | Ales dinainte, de la 1–4 la câteva zeci |
+| Revenirea asupra unei alegeri | Un token generat rămâne în text | Fiecare pas poate corecta tot rezultatul |
+| Unde domină | Text și cod | Imagini, video și o parte din audio |
+
+Granița dintre cele două familii nu este strictă. Există modele de limbaj bazate pe difuzie, precum LLaDA (2025), Mercury (Inception Labs, 2025) și modelul experimental Gemini Diffusion (Google, 2025). LLaDA, de exemplu, nu folosește zgomot gaussian: ascunde tokenurile textului în spatele unei măști, iar rețeaua le reconstituie pe toate deodată, în mai mulți pași. Invers, unele generatoare de imagini, precum cel bazat pe GPT-4o, lansat în ChatGPT în 2025, lucrează autoregresiv, câte un token de imagine pe rând.
+
+Paginile următoare arată cum este aplicată difuzia la [imagini](/modele-de-difuzie/generarea-imaginilor/), la [voce](/modele-de-difuzie/generarea-vocii/) și la [video](/modele-de-difuzie/generarea-video/), împreună cu semnele după care putem recunoaște conținutul generat. Laboratorul [Imagini și sunete cu modele de difuzie](/laboratoare/difuzie-imagini-si-sunete/prezentare/) rulează aceleași idei pe modele reale, cu biblioteca Diffusers, de la procesul de difuzie scris de mână până la imagini și sunete generate din text.
+
+## Bibliografie
+
+- Carlini, N. et al. (2023). [Extracting Training Data from Diffusion Models](https://arxiv.org/abs/2301.13188). _USENIX Security 2023_.
+- Esser, P. et al. (2024). [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206). _ICML 2024_.
+- Goodfellow, I. J. et al. (2014). [Generative Adversarial Networks](https://arxiv.org/abs/1406.2661). _NeurIPS 2014_.
+- Ho, J., Jain, A. și Abbeel, P. (2020). [Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239). _NeurIPS 2020_.
+- Inception Labs (2025). [Mercury: Ultra-Fast Language Models Based on Diffusion](https://arxiv.org/abs/2506.17298). Preprint arXiv:2506.17298.
+- Kadkhodaie, Z. et al. (2024). [Generalization in diffusion models arises from geometry-adaptive harmonic representations](https://arxiv.org/abs/2310.02557). _ICLR 2024_.
+- Lipman, Y. et al. (2023). [Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747). _ICLR 2023_.
+- Liu, X., Gong, C. și Liu, Q. (2023). [Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow](https://arxiv.org/abs/2209.03003). _ICLR 2023_.
+- Nichol, A. și Dhariwal, P. (2021). [Improved Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2102.09672). _ICML 2021_.
+- Nie, S. et al. (2025). [Large Language Diffusion Models](https://arxiv.org/abs/2502.09992). Preprint arXiv:2502.09992.
+- Ronneberger, O., Fischer, P. și Brox, T. (2015). [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597). _MICCAI 2015_.
+- Sauer, A. et al. (2023). [Adversarial Diffusion Distillation](https://arxiv.org/abs/2311.17042). Preprint arXiv:2311.17042.
+- Sohl-Dickstein, J. et al. (2015). [Deep Unsupervised Learning using Nonequilibrium Thermodynamics](https://arxiv.org/abs/1503.03585). _ICML 2015_.
+- Song, J., Meng, C. și Ermon, S. (2021). [Denoising Diffusion Implicit Models](https://arxiv.org/abs/2010.02502). _ICLR 2021_.
+- Song, Y. et al. (2021). [Score-Based Generative Modeling through Stochastic Differential Equations](https://arxiv.org/abs/2011.13456). _ICLR 2021_.

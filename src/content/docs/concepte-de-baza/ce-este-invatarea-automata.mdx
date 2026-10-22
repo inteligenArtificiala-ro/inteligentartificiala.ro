@@ -1,0 +1,153 @@
+---
+title: Ce este învățarea automată (machine learning)
+description: "Învățarea automată (machine learning) este ramura AI în care sistemele învață regulile direct din date. Pagina explică cele trei tipuri de învățare, cum se antrenează un model și include un exemplu care rulează în browser."
+sidebar:
+  order: 2
+  label: Învățare automată
+level: incepator
+tags:
+  - Concepte de bază
+  - Învățare automată
+---
+
+import Python from '@components/Python.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Așa cum am văzut pe pagina [Ce este inteligența artificială](/concepte-de-baza/ce-este-inteligenta-artificiala/), AI este un domeniu larg, care cuprinde reguli logice, algoritmi de căutare în spații de stări și metode statistice. Cele mai multe progrese din ultimii ani vin însă dintr-o singură ramură a lui, **învățarea automată** (_machine learning_).
+
+Într-un program clasic, programatorul scrie explicit toate regulile. Învățarea automată întoarce lucrurile pe dos: sistemul primește exemple concrete și descoperă singur relațiile matematice din spatele lor.
+
+## Definiție
+
+Diferența față de programarea tradițională se vede cel mai bine dacă punem cele două abordări una lângă alta.
+
+- **Programare tradițională**: date + reguli $\to$ răspunsuri. Programatorul scrie de mână toate cazurile și condițiile logice (`if / else`).
+- **Învățare automată**: date + răspunsuri $\to$ reguli (model). Algoritmul primește mii sau milioane de exemple și ajustează treptat o structură matematică (numită **model**) până când aceasta dă rezultatele așteptate.
+
+În 1959, Arthur Samuel, unul dintre pionierii domeniului, definea învățarea automată astfel.
+> „Domeniul de studiu care oferă calculatoarelor capacitatea de a învăța fără a fi programate explicit.”
+
+Definiția formală folosită și astăzi îi aparține lui Tom Mitchell (1997).
+> Un program de calculator învață dintr-o **experiență** $E$, în raport cu o clasă de **sarcini** $T$ și o măsură a **performanței** $P$, dacă performanța sa la sarcinile din $T$, măsurată prin $P$, se îmbunătățește odată cu acumularea experienței $E$.
+
+Să luăm ca exemplu filtrarea mesajelor nesolicitate (_spam_).
+- **Sarcina ($T$)** este să decidem dacă un e-mail primit este legitim sau spam.
+- **Experiența ($E$)** este formată din mesajele mai vechi, pe care utilizatorii le-au marcat deja.
+- **Performanța ($P$)** este procentul de mesaje noi clasificate corect.
+
+## Cele trei tipuri de învățare
+
+După tipul de semnal pe care îl primește algoritmul în timpul antrenării, învățarea automată se împarte în trei mari categorii.
+
+### 1. Învățare supervizată (supervised learning)
+
+În **învățarea supervizată** (_supervised learning_), datele de antrenare conțin atât intrările, numite **caracteristici** (_features_), cât și răspunsurile corecte pentru ele, numite **etichete** (_labels_). Modelul învață o funcție care leagă intrările de etichete, $f(x) \approx y$.
+
+Problemele supervizate sunt, în mare, de două feluri.
+- **Clasificarea**: eticheta este o categorie dintr-o listă fixă. Așa funcționează detectarea bolilor pe o radiografie, recunoașterea cifrelor scrise de mână sau semnalarea tranzacțiilor bancare frauduloase.
+- **Regresia**: eticheta este o valoare numerică continuă. Exemple tipice sunt prognoza temperaturii de mâine, estimarea prețului unei locuințe după suprafață și zonă sau estimarea duratei unei curse de taxi.
+
+### 2. Învățare nesupervizată (unsupervised learning)
+
+În **învățarea nesupervizată** (_unsupervised learning_), datele nu au etichete. Algoritmul explorează datele și caută singur tipare, structuri sau grupări care nu se văd la prima vedere.
+
+Iată câteva exemple obișnuite.
+- **Gruparea** (_clustering_): împarte datele în grupuri de elemente asemănătoare. De exemplu, un magazin își poate împărți clienții după felul în care cumpără, fără să stabilească dinainte categoriile.
+- **Reducerea dimensionalității**: comprimă zeci de variabile în două sau trei dimensiuni, ca să putem vizualiza datele (de exemplu cu PCA sau t-SNE).
+- **Reprezentările vectoriale** (_embeddings_): transformă obiecte complexe (cuvinte, imagini, utilizatori) în vectori de numere, astfel încât obiectele cu sens asemănător să ajungă aproape unele de altele.
+
+### 3. Învățare prin consolidare (reinforcement learning)
+
+În [**învățarea prin consolidare**](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/) (_reinforcement learning_) nu există un set fix de date etichetate. Avem un **agent** care interacționează direct cu un **mediu**.
+
+Agentul alege o acțiune, observă cum se schimbă starea mediului și primește o **recompensă** numerică (pozitivă sau negativă). Prin încercări și erori, își îmbunătățește [strategia de decizie](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/#strategia-de-decizie-policy) astfel încât să obțină o recompensă cumulată cât mai mare pe termen lung. Învățarea prin consolidare este folosită în jocuri (AlphaGo), pentru [controlul roboților în simulări fizice](/laboratoare/control-continuu-ppo-halfcheetah/prezentare/) și la [alinierea modelelor de limbaj mari](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/).
+
+## Cum învață un model
+
+Antrenarea unui model are nevoie de trei lucruri: o formă pentru model, o măsură a erorii și o metodă prin care eroarea scade treptat.
+
+<Steps>
+1. **Modelul** este o familie de funcții care depind de niște parametri: **ponderile** ($w$) și un termen liber (_bias_, notat $b$). Cel mai simplu exemplu este o relație liniară.
+   $$\hat{y} = w \cdot x + b$$
+2. **Funcția de pierdere** (_loss function_) măsoară cât de departe este predicția $\hat{y}$ a modelului de valoarea reală $y$. Pentru regresie se folosește adesea eroarea pătratică medie.
+   $$L = \frac{1}{N} \sum_{i=1}^N (\hat{y}_i - y_i)^2$$
+3. **Optimizarea** pornește de la niște valori inițiale pentru $w$ și $b$ (de obicei aleatoare, uneori zero). Prin [coborâre pe gradient](/retele-neuronale/ce-sunt-retelele-neuronale/#cum-învață-o-rețea-neuronală), calculăm derivata pierderii în raport cu fiecare parametru și modificăm puțin ponderile în direcția în care pierderea scade.
+   $$w \leftarrow w - \eta \frac{\partial L}{\partial w}$$
+   unde $\eta$ este **rata de învățare** (_learning rate_).
+</Steps>
+
+### Generalizarea și prevenirea supraînvățării
+
+Un model nu trebuie să memoreze datele pe care a fost antrenat, ci să **generalizeze**, adică să dea rezultate bune și pe date noi, pe care nu le-a văzut.
+
+- **Subînvățare** (_underfitting_): modelul este prea simplu ca să surprindă relația reală din date. De exemplu, încercăm să aproximăm o parabolă cu o dreaptă.
+- **Supraînvățare** (_overfitting_): modelul este prea complex și învață pe de rost inclusiv zgomotul și detaliile întâmplătoare din datele de antrenare. Poate ajunge la eroare zero pe datele de antrenare, dar greșește mult pe date noi.
+
+:::tip[Cum împărțim datele]
+Ca să vedem cât de bine generalizează modelul și să evităm supraînvățarea, împărțim întotdeauna datele disponibile în trei părți separate.
+- **Setul de antrenare** (_train set_) este partea pe care modelul calculează gradienții și își ajustează ponderile.
+- **Setul de validare** (_validation set_) ne arată cum se descurcă modelul în timpul antrenării și ne ajută să alegem hiperparametrii.
+- **Setul de testare** (_test set_) rămâne neatins până la evaluarea finală, dinaintea lansării.
+:::
+
+## Exemplu interactiv în Python
+
+Exemplul de mai jos rulează direct în browser, prin WebAssembly, și arată mecanismul de bază al învățării automate. Un model liniar pornește de la $w = 0$ și $b = 0$ și, prin coborâre pe gradient, găsește singur panta ($w$) și ordonata la origine ($b$) a unei serii de observații.
+
+<Python
+  packages={['numpy']}
+  code={String.raw`
+import numpy as np
+
+# Date reale: y = 2.5 * x + 1.0 (cu puțin zgomot adăugat)
+rng = np.random.default_rng(seed=42)
+x = np.linspace(-2, 2, 20)
+y_adevarat = 2.5 * x + 1.0 + rng.normal(0, 0.1, size=len(x))
+
+# Pornim cu parametrii modelului la zero
+w = 0.0
+b = 0.0
+rata_invatare = 0.1
+
+print(f"Valori țintă reale:  w = 2.50, b = 1.00")
+print(f"Punct de plecare:    w = {w:.2f}, b = {b:.2f}\n")
+
+# Procesul de antrenare (100 de pași de gradient)
+for pas in range(1, 101):
+    # Propagare directă: calculul predicției
+    y_pred = w * x + b
+    eroare = y_pred - y_adevarat
+    pierdere = np.mean(eroare ** 2)
+
+    # Calculul analitic al gradienților
+    grad_w = 2 * np.mean(eroare * x)
+    grad_b = 2 * np.mean(eroare)
+
+    # Actualizarea ponderilor
+    w -= rata_invatare * grad_w
+    b -= rata_invatare * grad_b
+
+    if pas in (1, 10, 50, 100):
+        print(f"Pasul {pas:>3}: pierdere = {pierdere:6.4f} | w = {w:5.2f}, b = {b:5.2f}")
+`}
+/>
+
+Observăm că, după doar 100 de pași ghidați de eroare, $w$ și $b$ ajung foarte aproape de valorile folosite la generarea datelor ($2{,}5$ și $1{,}0$).
+
+## De la învățarea clasică la învățarea profundă
+
+Algoritmii clasici de învățare automată, precum regresia logistică, arborii de decizie sau mașinile cu vectori suport (SVM), au nevoie ca datele inițiale să fie transformate mai întâi, de mână, în caracteristici relevante. Această muncă de specialist se numește **ingineria caracteristicilor** (_feature engineering_).
+
+Când datele sunt nestructurate (imagini, sunet sau texte lungi), abordarea clasică își atinge limitele. Aici intervine **învățarea profundă** (_deep learning_): folosim [rețele neuronale artificiale](/retele-neuronale/ce-sunt-retelele-neuronale/) cu zeci sau sute de straturi, așezate unul după altul.
+
+Fiecare strat învață să extragă reprezentări tot mai abstracte direct din datele neprelucrate: de la muchii și texturi într-o imagine până la concepte și relații de sens în arhitecturile [Transformer](/modele-lingvistice/arhitectura-transformer/), pe care se bazează [modelele de limbaj mari (LLM)](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/).
+
+## Bibliografie
+
+- Goodfellow, I., Bengio, Y. și Courville, A. (2016). [_Deep Learning_](https://www.deeplearningbook.org/). MIT Press.
+- Hastie, T., Tibshirani, R. și Friedman, J. (2009). [_The Elements of Statistical Learning_](https://hastie.su.domains/ElemStatLearn/) (ed. a 2-a). Springer.
+- LeCun, Y., Bengio, Y. și Hinton, G. (2015). [Deep learning](https://doi.org/10.1038/nature14539). _Nature_, 521(7553), 436–444.
+- Mitchell, T. M. (1997). _Machine Learning_. McGraw-Hill.
+- Samuel, A. L. (1959). [Some Studies in Machine Learning Using the Game of Checkers](https://doi.org/10.1147/rd.33.0210). _IBM Journal of Research and Development_, 3(3), 210–229.
+- Silver, D. et al. (2016). [Mastering the game of Go with deep neural networks and tree search](https://doi.org/10.1038/nature16961). _Nature_, 529(7587), 484–489.
+- Sutton, R. S. și Barto, A. G. (2018). [_Reinforcement Learning: An Introduction_](http://incompleteideas.net/book/the-book-2nd.html) (ed. a 2-a). MIT Press.

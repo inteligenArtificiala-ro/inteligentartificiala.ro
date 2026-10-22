@@ -1,0 +1,125 @@
+---
+title: Gradientul strategiei și REINFORCE
+description: REINFORCE, propus de Ronald Williams în 1992, ajustează direct parametrii unei strategii (policy) în direcția care crește recompensa așteptată. Explicăm formula gradientului și linia de bază, cu un exemplu care rulează în pagină.
+sidebar:
+  order: 2
+level: avansat
+tags:
+  - Învățare prin consolidare
+---
+
+import Python from '@components/Python.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+**REINFORCE** este punctul de plecare al metodelor bazate pe **gradientul strategiei** (_policy gradient_). Ronald Williams l-a publicat în 1992, în articolul [„Simple statistical gradient-following algorithms for connectionist reinforcement learning”](https://link.springer.com/article/10.1007/BF00992696). Aceeași idee stă la baza metodelor de azi, inclusiv PPO și GRPO, folosite la alinierea [modelelor de limbaj mari](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/).
+
+Pagina folosește noțiunile introduse în [Învățare prin consolidare](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/): stare, acțiune, recompensă, strategie și recompensă cumulată.
+
+## Motivație
+
+O strategie $\pi_\theta$ este o funcție cu parametrii $\theta$, de exemplu o rețea neuronală care primește starea curentă și dă probabilitățile acțiunilor posibile. Vrem să maximizăm valoarea așteptată a recompensei cumulate.
+
+$$
+J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}\left[ R(\tau) \right]
+$$
+
+unde $\tau = (s_0, a_0, r_1, s_1, a_1, \ldots)$ este o **traiectorie** (_trajectory_), adică un episod complet generat urmând strategia, iar $R(\tau)$ este recompensa lui totală.
+
+Aici nu putem aplica direct coborârea pe gradient. Recompensa vine de la un mediu pe care de obicei nu îl putem deriva și pentru care nu avem o formulă, iar acțiunile sunt eșantionate aleatoriu. Gradientul strategiei ocolește ambele obstacole.
+
+## Formula gradientului
+
+Pentru orice distribuție de probabilitate $p_\theta(x)$ și orice funcție scalară $f(x)$ este adevărată următoarea identitate.
+
+$$
+\nabla_\theta\, \mathbb{E}_{x \sim p_\theta}\left[ f(x) \right] = \mathbb{E}_{x \sim p_\theta}\left[ f(x)\, \nabla_\theta \log p_\theta(x) \right]
+$$
+
+Identitatea vine din proprietatea $\nabla p = p\, \nabla \log p$. Gradientul unei medii devine astfel tot o medie, pe care o putem estima din eșantioane, prin metoda Monte Carlo. Funcția $f$ nu trebuie să fie derivabilă, așa că recompensa poate veni din orice sursă externă.
+
+Probabilitatea unei traiectorii este produsul dintre probabilitățile acțiunilor (date de strategia $\pi_\theta$) și probabilitățile de tranziție ale mediului. Termenii care țin de mediu nu depind de $\theta$, așa că dispar la derivare. Rămâne următoarea expresie.
+
+$$
+\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}\left[ \sum_{t} \nabla_\theta \log \pi_\theta(a_t \mid s_t)\, G_t \right]
+$$
+
+unde $G_t$ este recompensa cumulată de la pasul $t$ până la sfârșitul episodului. O acțiune poate influența doar ce se întâmplă după ea, de aceea o ponderăm cu $G_t$, nu cu recompensa totală a episodului. Rezultatul se numește **teorema gradientului strategiei** (_policy gradient theorem_). Richard Sutton și colaboratorii lui l-au demonstrat în 2000.
+
+## Algoritmul
+
+REINFORCE estimează gradientul din episoade complete.
+
+<Steps>
+1. Generăm un episod cu strategia curentă $\pi_\theta$ și reținem stările, acțiunile și recompensele care apar pe parcurs.
+2. Pentru fiecare pas $t$ calculăm recompensa cumulată $G_t$, de la acel pas până la final.
+3. Actualizăm parametrii cu rata de învățare $\alpha$.
+   $$\theta \leftarrow \theta + \alpha \sum_{t} G_t\, \nabla_\theta \log \pi_\theta(a_t \mid s_t)$$
+</Steps>
+
+Intuitiv, acțiunile urmate de recompense mari devin mai probabile în episoadele următoare, iar cele care aduc puțin sunt descurajate. Termenul $\nabla_\theta \log \pi_\theta(a_t \mid s_t)$ arată în ce direcție trebuie mutați parametrii ca acțiunea aleasă să devină mai probabilă, iar numărul $G_t$ stabilește cât de mare este pasul.
+
+## Linia de bază
+
+Estimarea gradientului are o **varianță** (_variance_) mare. Două episoade generate cu aceeași strategie pot avea recompense foarte diferite, așa că actualizările oscilează. Dacă toate recompensele sunt pozitive, orice acțiune aleasă devine mai probabilă, chiar și una slabă, doar că mai puțin decât una foarte bună.
+
+Soluția este să scădem o **linie de bază** (_baseline_) $b(s_t)$, care nu depinde de acțiune.
+
+$$
+\nabla_\theta J(\theta) = \mathbb{E}\left[ \sum_{t} \nabla_\theta \log \pi_\theta(a_t \mid s_t)\, \big( G_t - b(s_t) \big) \right]
+$$
+
+Termenul scăzut are media zero, deci estimarea gradientului rămâne nedeplasată (_unbiased_), dar varianța scade mult. Acum devin mai probabile doar acțiunile mai bune decât linia de bază. O alegere firească pentru $b(s_t)$ este funcția de valoare $V(s_t)$, iar diferența $G_t - V(s_t)$ este o estimare a avantajului. Când $V$ este aproximată de o a doua rețea, metoda devine **actor-critic**.
+
+## Un automat cu trei manete
+
+Cea mai simplă problemă de acest fel este un **automat cu mai multe manete** (_multi-armed bandit_). Are o singură stare și trei acțiuni. Prima aduce recompensa 1 cu probabilitatea 0,2, a doua cu 0,5, iar a treia cu 0,8. Altfel, recompensa este 0. Agentul nu cunoaște aceste probabilități. Strategia este un softmax peste trei parametri. Pentru softmax, gradientul lui $\log \pi(a)$ este vectorul care are 1 pe poziția acțiunii alese, din care scădem vectorul probabilităților. Linia de bază este media mobilă a recompenselor.
+
+<Python
+  packages={['numpy']}
+  code={`
+import numpy as np
+
+rng = np.random.default_rng(seed=0)
+reward_probs = np.array([0.2, 0.5, 0.8])  # probabilitatea de câștig a fiecărei acțiuni
+theta = np.zeros(3)  # parametrii strategiei: câte un scor pentru fiecare acțiune
+alpha = 0.1  # rata de învățare
+baseline = 0.0  # media mobilă a recompenselor
+
+def policy(theta):
+    e = np.exp(theta - theta.max())
+    return e / e.sum()
+
+for step in range(1, 2001):
+    pi = policy(theta)
+    a = rng.choice(3, p=pi)
+    r = float(rng.random() < reward_probs[a])  # recompensa: 1 sau 0
+    # Pentru softmax, gradientul lui log π(a) este one_hot(a) - π.
+    grad_log_pi = -pi
+    grad_log_pi[a] += 1
+    theta += alpha * (r - baseline) * grad_log_pi
+    baseline += 0.01 * (r - baseline)
+    if step in (1, 100, 500, 2000):
+        print(f"Pasul {step:>4}: probabilitățile acțiunilor {np.round(policy(theta), 2)}")
+`}
+/>
+
+Strategia pornește uniformă și ajunge să aleagă aproape mereu a treia acțiune, cea mai profitabilă, deși agentul nu cunoaște probabilitățile de câștig. Merită să încercăm alte valori pentru rata de învățare sau pentru probabilitățile din `reward_probs`, ori să eliminăm linia de bază (`baseline = 0` la fiecare pas).
+
+## Limitări
+
+:::caution[Limitele unui algoritm on-policy]
+REINFORCE este un algoritm **on-policy**: învață doar din episoade generate de strategia curentă, așa că după fiecare actualizare episoadele vechi nu mai pot fi refolosite. Are nevoie de foarte multe episoade, iar varianța rămâne mare chiar și cu o linie de bază. Un pas de actualizare prea mare poate strica de tot o strategie deja bună, iar algoritmul își revine greu.
+:::
+
+Metodele apărute ulterior rezolvă aceste probleme. Metodele actor-critic învață o funcție de valoare, ca să estimeze mai precis avantajele. PPO (_proximal policy optimization_) limitează cât se poate schimba strategia la o actualizare și refolosește fiecare lot de episoade de mai multe ori. GRPO calculează avantajele comparând mai multe încercări pentru aceeași problemă. Ultimele două sunt descrise pe pagina [Învățare prin consolidare pentru LLM-uri](/modele-lingvistice/invatare-prin-consolidare-pentru-llm/).
+
+## Bibliografie
+
+- Greensmith, E., Bartlett, P. L. și Baxter, J. (2004). [Variance Reduction Techniques for Gradient Estimates in Reinforcement Learning](https://www.jmlr.org/papers/v5/greensmith04a.html). _Journal of Machine Learning Research_, 5, 1471–1530.
+- Konda, V. R. și Tsitsiklis, J. N. (2000). [Actor-Critic Algorithms](https://papers.nips.cc/paper/1999/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html). _Advances in Neural Information Processing Systems_, 12.
+- Lattimore, T. și Szepesvári, C. (2020). [_Bandit Algorithms_](https://tor-lattimore.com/downloads/book/book.pdf). Cambridge University Press.
+- Schulman, J. et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). Preprint arXiv:1707.06347.
+- Shao, Z. et al. (2024). [DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://arxiv.org/abs/2402.03300). Preprint arXiv:2402.03300.
+- Sutton, R. S. et al. (2000). [Policy Gradient Methods for Reinforcement Learning with Function Approximation](https://papers.nips.cc/paper/1999/hash/464d828b85b0bed98e80ade0a5c43b0f-Abstract.html). _Advances in Neural Information Processing Systems_, 12.
+- Sutton, R. S. și Barto, A. G. (2018). [_Reinforcement Learning: An Introduction_](http://incompleteideas.net/book/the-book-2nd.html) (ed. a 2-a). MIT Press.
+- Williams, R. J. (1992). [Simple statistical gradient-following algorithms for connectionist reinforcement learning](https://doi.org/10.1007/BF00992696). _Machine Learning_, 8(3–4), 229–256.

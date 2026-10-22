@@ -1,0 +1,177 @@
+---
+title: De la text la imagine
+description: Stable Diffusion desfăcut în componente cu Diffusers și Transformers. Codificatorul de text CLIP, U-Net-ul care lucrează în spațiul latent, autoencoderul VAE și ghidarea fără clasificator scrisă de mână, apoi scala de ghidare și generarea de la imagine la imagine.
+sidebar:
+  order: 3
+level: intermediar
+tags:
+  - Modele de difuzie
+---
+
+import Colab from '@components/Colab.astro';
+
+Pipeline-ul de pe [prima pagină](/laboratoare/difuzie-imagini-si-sunete/prezentare/) face, pe ascuns, patru lucruri: transformă descrierea în vectori, pornește de la o reprezentare latentă aleatoare, o curăță pas cu pas cu un U-Net ghidat de text și o decodează într-o imagine. Pe această pagină facem pașii de mână, cu componentele lui Stable Diffusion 1.5 încărcate separat. Pagina despre [generarea imaginilor](/modele-de-difuzie/generarea-imaginilor/) explică teoria din spatele fiecărei componente, iar ghidul oficial care acoperă aceleași subiecte este [Understanding pipelines, models and schedulers](https://huggingface.co/docs/diffusers/using-diffusers/write_own_pipeline).
+
+<Colab notebook='laboratoare/difuzie-imagini-si-sunete/notebooks/03-imagini-din-text.ipynb' />
+
+## Textul devine vectori
+
+Repozitoriul unui model din Diffusers are câte un director pentru fiecare componentă: `tokenizer`, `text_encoder`, `unet`, `vae` și `scheduler`. Fiecare se poate încărca separat, cu argumentul `subfolder`. Codul de mai jos transformă descrierea în vectori cu tokenizatorul și cu codificatorul de text al lui [CLIP](/modele-de-difuzie/generarea-imaginilor/#cum-ajunge-textul-în-imagine), care vin din biblioteca Transformers.
+
+```python
+import torch
+from transformers import CLIPTextModel, CLIPTokenizer
+
+model_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+text_encoder = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", variant="fp16", dtype=torch.float32)
+
+prompt = "a watercolor painting of an orange cat sleeping on a park bench"
+tokens = tokenizer(
+    prompt, padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt"
+)
+print("Primele tokenuri:", tokenizer.convert_ids_to_tokens(tokens.input_ids[0, :15]))
+with torch.no_grad():
+    embeddings = text_encoder(tokens.input_ids).last_hidden_state
+print("Vectorii textului:", tuple(embeddings.shape))
+```
+
+Tokenizatorul CLIP marchează sfârșitul fiecărui cuvânt cu `</w>`, adaugă la început tokenul special `<|startoftext|>`, apoi completează textul cu `<|endoftext|>` până la 77 de tokenuri, lungimea fixă pe care o primește codificatorul. O descriere mai lungă este tăiată la 77 de tokenuri. Codificatorul, cu aproximativ 123 de milioane de parametri, produce câte un vector de 768 de valori pentru fiecare token, deci o matrice de 77 × 768. Din acești vectori se calculează cheile și valorile din [atenția încrucișată](/modele-de-difuzie/generarea-imaginilor/#cum-ajunge-textul-în-imagine) a U-Net-ului.
+
+## Generarea, cu ghidarea fără clasificator
+
+Codul de mai jos generează o imagine cu toate componentele, fără pipeline. Reprezentarea latentă are 4 × 64 × 64 de valori, de 48 de ori mai puține decât cele 3 × 512 × 512 ale imaginii. La fiecare pas, U-Net-ul estimează zgomotul de două ori, o dată cu descrierea și o dată cu textul gol, iar cele două estimări se combină după formula **ghidării fără clasificator** (_classifier-free guidance_).
+
+$$
+\tilde\varepsilon = \varepsilon_\theta(x_t, t, \varnothing) + w \left( \varepsilon_\theta(x_t, t, c) - \varepsilon_\theta(x_t, t, \varnothing) \right)
+$$
+
+```python
+import torch
+from diffusers import AutoencoderKL, DDIMScheduler, UNet2DConditionModel
+from PIL import Image
+from transformers import CLIPTextModel, CLIPTokenizer
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+dtype = torch.float16 if device != "cpu" else torch.float32
+model_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+text_encoder = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", variant="fp16", dtype=dtype).to(device)
+unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", variant="fp16", dtype=dtype).to(device)
+vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", variant="fp16", dtype=dtype).to(device)
+scheduler = DDIMScheduler.from_pretrained(model_id, subfolder="scheduler")
+
+
+def encode(text):
+    ids = tokenizer(
+        text, padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt"
+    ).input_ids
+    with torch.no_grad():
+        return text_encoder(ids.to(device)).last_hidden_state
+
+
+cond = encode("a watercolor painting of an orange cat sleeping on a park bench")  # c
+uncond = encode("")  # ∅, textul gol
+w = 7.5  # scala de ghidare
+
+generator = torch.Generator("cpu").manual_seed(0)
+latents = torch.randn((1, 4, 64, 64), generator=generator).to(device, dtype)  # zgomot pur, în spațiul latent
+scheduler.set_timesteps(50)
+for t in scheduler.timesteps:
+    with torch.no_grad():
+        noise_cond = unet(latents, t, encoder_hidden_states=cond).sample
+        noise_uncond = unet(latents, t, encoder_hidden_states=uncond).sample
+    noise_pred = noise_uncond + w * (noise_cond - noise_uncond)
+    latents = scheduler.step(noise_pred, t, latents).prev_sample
+
+with torch.no_grad():
+    image = vae.decode(latents / vae.config.scaling_factor).sample  # din spațiul latent înapoi în pixeli
+pixels = ((image[0].clamp(-1, 1) + 1) * 127.5).permute(1, 2, 0).round().byte().cpu().numpy()
+Image.fromarray(pixels).save("pisica_de_mana.png")
+```
+
+Codul seamănă cu cel de pe [pagina anterioară](/laboratoare/difuzie-imagini-si-sunete/procesul-de-difuzie/#procesul-invers-scris-de-mână), cu trei diferențe.
+
+- **U-Net-ul primește și textul.** Argumentul `encoder_hidden_states` trimite vectorii descrierii în straturile de atenție încrucișată ale rețelei. U-Net-ul are aproximativ 860 de milioane de parametri, de peste 7 ori mai mulți decât cel care generează pisici.
+- **Ghidarea dublează costul.** Fiecare pas are două treceri prin U-Net. Pipeline-ul le face într-un singur lot, cu ambele texte deodată, ceea ce pe o placă grafică este mai rapid decât două treceri separate.
+- **Imaginea vine din decodorul VAE.** Procesul invers lucrează doar cu reprezentarea latentă. La final, decodorul autoencoderului VAE, cu aproximativ 84 de milioane de parametri, o transformă într-o imagine de 512 × 512 pixeli. Împărțirea la `vae.config.scaling_factor` (0,18215 pentru acest model) anulează scalarea aplicată la antrenare, care aducea valorile latente la o variație apropiată de 1.
+
+Pipeline-ul folosește implicit altă metodă de eșantionare, PNDM, așa că imaginea obținută aici nu este identică cu cea de pe prima pagină, deși zgomotul de pornire este același. Codul de mai sus funcționează cu orice metodă de eșantionare care nu are nevoie de pași suplimentari. Unele, de exemplu `EulerDiscreteScheduler`, cer ca zgomotul de pornire să fie înmulțit cu `scheduler.init_noise_sigma` și ca intrarea rețelei să treacă prin `scheduler.scale_model_input`. Pentru DDIM, ambele operații nu schimbă nimic, de aceea lipsesc din cod.
+
+## Scala de ghidare
+
+Parametrul `guidance_scale` al pipeline-ului este scala $w$ din formula de mai sus, cu valoarea implicită 7,5. Codul de mai jos generează aceeași imagine, cu același zgomot de pornire, pentru patru valori ale scalei și le pune una lângă alta.
+
+```python
+import torch
+from diffusers import StableDiffusionPipeline
+from PIL import Image
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+dtype = torch.float16 if device != "cpu" else torch.float32
+model_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+pipe = StableDiffusionPipeline.from_pretrained(model_id, dtype=dtype, variant="fp16").to(device)
+
+prompt = "a watercolor painting of an orange cat sleeping on a park bench"
+scales = [1.0, 3.0, 7.5, 15.0]
+grid = Image.new("RGB", (len(scales) * 512, 512))
+for column, w in enumerate(scales):
+    generator = torch.Generator("cpu").manual_seed(0)
+    image = pipe(prompt, guidance_scale=w, generator=generator).images[0]
+    grid.paste(image, (512 * column, 0))
+grid.save("scala_de_ghidare.png")
+```
+
+Cu $w = 1$, formula se reduce la estimarea cu text, iar pipeline-ul sare peste trecerea fără text. Imaginea urmează descrierea doar vag, adesea fără o compoziție clară. Pe măsură ce scala crește, imaginea respectă tot mai mult descrierea, iar la valori mari culorile devin exagerate și imaginea capătă un aspect artificial. Comparația din `scala_de_ghidare.png` arată unde se află echilibrul pentru descrierea aleasă.
+
+Alți parametri merită încercați la fel, în același cod.
+
+- **`negative_prompt`** înlocuiește textul gol $\varnothing$ din formulă cu o descriere a ceea ce nu vrem să apară, de exemplu `negative_prompt="blurry, low quality, text"`.
+- **`num_inference_steps`** schimbă numărul de pași, implicit 50. Cu metoda `DPMSolverMultistepScheduler`, aleasă cu `pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)`, de obicei ajung 20–25 de pași.
+- **`height`** și **`width`** schimbă dimensiunea imaginii, în multipli de 8. Modelul a fost antrenat pe imagini de 512 × 512 pixeli, iar la dimensiuni mult diferite apar des obiecte dublate.
+
+## De la imagine la imagine
+
+În generarea **de la imagine la imagine** (_image-to-image_), procesul invers nu pornește de la zgomot pur, ci de la o imagine existentă, trecută prin procesul direct până la un pas intermediar. Parametrul **`strength`** (intensitate) alege acest pas. Cu 50 de pași și o intensitate de 0,3, pipeline-ul adaugă zgomot cât pentru ultimii 15 pași și rulează doar acești 15 pași. Codul de mai jos pornește de la pisica generată mai sus, cu o descriere nouă, pentru trei valori ale intensității.
+
+```python
+import torch
+from diffusers import StableDiffusionImg2ImgPipeline
+from PIL import Image
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+dtype = torch.float16 if device != "cpu" else torch.float32
+model_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, dtype=dtype, variant="fp16").to(device)
+
+init_image = Image.open("pisica_de_mana.png").convert("RGB")  # imaginea generată mai sus, fără pipeline
+prompt = "an oil painting of an orange cat sleeping on a park bench, thick brush strokes"
+strengths = [0.3, 0.6, 0.9]
+grid = Image.new("RGB", ((len(strengths) + 1) * 512, 512))
+grid.paste(init_image, (0, 0))
+for column, strength in enumerate(strengths, start=1):
+    generator = torch.Generator("cpu").manual_seed(0)
+    image = pipe(prompt, image=init_image, strength=strength, generator=generator).images[0]
+    grid.paste(image, (512 * column, 0))
+grid.save("de_la_imagine_la_imagine.png")
+```
+
+Prima imagine din grilă este cea inițială. La intensitatea 0,3 se schimbă mai ales detaliile și textura, iar compoziția rămâne aceeași. La 0,9, aproape tot procesul invers este refăcut, așa că din imaginea inițială rămân doar culorile principale și așezarea generală. Metoda a fost publicată sub numele SDEdit și este descrisă pe pagina despre [editarea imaginilor](/modele-de-difuzie/generarea-imaginilor/#editarea-imaginilor). Pentru completarea unei zone (_inpainting_), Diffusers are pipeline-uri separate, descrise în [ghidul despre inpainting](https://huggingface.co/docs/diffusers/using-diffusers/inpaint).
+
+## Memorie și viteză
+
+Stable Diffusion 1.5 pe 16 biți încape ușor în memoria unei plăci grafice de 8 GB. Pentru modele mai mari sau pentru plăci grafice cu mai puțină memorie, Diffusers oferă câteva metode, fiecare cu o singură linie de cod.
+
+- **`pipe.enable_model_cpu_offload()`**, folosit în locul lui `pipe.to("cuda")`, ține componentele în memoria RAM și le mută pe placa grafică doar cât timp lucrează. Are nevoie de pachetul `accelerate`.
+- **`pipe.enable_attention_slicing()`** calculează atenția în bucăți, cu mai puțină memorie și puțin mai încet.
+
+Toate metodele, împreună cu cuantizarea modelelor mari, sunt descrise în [ghidul despre memorie](https://huggingface.co/docs/diffusers/optimization/memory) și în [ghidul despre viteză](https://huggingface.co/docs/diffusers/optimization/fp16).
+
+## Bibliografie
+
+- Ho, J. și Salimans, T. (2022). [Classifier-Free Diffusion Guidance](https://arxiv.org/abs/2207.12598). Preprint arXiv:2207.12598.
+- Kingma, D. P. și Welling, M. (2014). [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114). _ICLR 2014_.
+- Lu, C. et al. (2022). [DPM-Solver: A Fast ODE Solver for Diffusion Probabilistic Model Sampling in Around 10 Steps](https://arxiv.org/abs/2206.00927). _NeurIPS 2022_.
+- Meng, C. et al. (2022). [SDEdit: Guided Image Synthesis and Editing with Stochastic Differential Equations](https://arxiv.org/abs/2108.01073). _ICLR 2022_.
+- Radford, A. et al. (2021). [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020). _ICML 2021_.
+- Rombach, R. et al. (2022). [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752). _CVPR 2022_.

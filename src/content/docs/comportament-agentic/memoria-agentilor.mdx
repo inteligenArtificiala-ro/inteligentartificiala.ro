@@ -1,0 +1,187 @@
+---
+title: Memoria agenților
+description: Cum ține minte un agent ce a făcut și ce a aflat, de la rezumarea și compactarea contextului până la depozite cheie-valoare, baze de date vectoriale și memorie construită în arhitectura modelului.
+sidebar:
+  order: 6
+  label: Memoria
+level: intermediar
+tags:
+  - Sisteme agentice
+  - Modele de limbaj mari (LLM)
+  - RAG
+---
+
+import AgentMemoryDiagram from '@components/diagrams/AgentMemoryDiagram.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Un [model de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) nu ține minte nimic de la o cerere la alta. Ponderile lui nu se schimbă în timpul folosirii, iar tot ce „știe” modelul despre conversația curentă vine din textul primit în [fereastra de context](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#limitări). Când un asistent pare să-și amintească numele nostru sau o decizie luată acum o oră, de fapt [harnașamentul](/comportament-agentic/harnasamentul/) a pus din nou acea informație în prompt.
+
+**Memoria unui agent** (_agent memory_) este deci, înainte de toate, o problemă de inginerie a harnașamentului. Trebuie să decidem ce păstrăm, unde păstrăm, cum regăsim informația și când o aducem înapoi în context. Răspunsurile depind de cât timp trebuie să trăiască informația și de cât de exactă trebuie să rămână.
+
+<AgentMemoryDiagram />
+
+## Tipuri de memorie
+
+Lucrarea [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427) (Sumers și colaboratorii, 2023) a preluat din științele cognitive o împărțire care a devenit uzuală și pentru agenți.
+
+- **Memoria de lucru** (_working memory_): ce se află acum în fereastra de context.
+- **Memoria episodică** (_episodic memory_): ce s-a întâmplat, adică sesiunile anterioare, pașii încercați și erorile întâlnite.
+- **Memoria semantică** (_semantic memory_): fapte despre lume, despre utilizator sau despre proiect, de exemplu _„proiectul folosește PostgreSQL 16”_.
+- **Memoria procedurală** (_procedural memory_): cum se face un lucru. Aici intră instrucțiunile din promptul de sistem, codul harnașamentului și, la nivelul cel mai de jos, ponderile modelului.
+
+Împărțirea spune ce fel de informație păstrăm. Tehnic, aceeași informație poate sta în locuri foarte diferite.
+
+| Mecanism | Unde stă | Cât trăiește | Cum este regăsită |
+| :--- | :--- | :--- | :--- |
+| **Memoria din context** | Fereastra de context | O sesiune | Modelul o vede direct, la fiecare pas |
+| **Fișiere text** | Pe disc, de obicei lângă cod | Oricât | Încărcate la începutul sesiunii sau citite cu un instrument |
+| **Depozit cheie-valoare** | O bază de date obișnuită | Oricât | După cheia exactă |
+| **Bază de date vectorială** | Un index de vectori | Oricât | După asemănarea de sens |
+| **Memoria arhitecturală** | Ponderile sau stările interne ale modelului | De la o cerere până la toată viața modelului | Implicit, la calculul fiecărui token |
+
+:::note[În practică, memoria este text]
+Toate variantele din tabel există, dar cele mai multe harnașamente folosite azi se sprijină pe **memorie sub formă de text**: fișiere Markdown cu instrucțiuni și notițe, rezumate și liste scurte de fapte-cheie extrase din conversații. Secțiunea [Memoria ca text în harnașamentele de azi](#memoria-ca-text-în-harnașamentele-de-azi) arată cum funcționează și de ce s-a ajuns aici.
+:::
+
+## Memoria din context (in-context memory)
+
+Cea mai simplă memorie este chiar fereastra de context. Modelul vede tot ce se află acolo, cu toate detaliile, la fiecare pas. Limitele sunt cunoscute. Fereastra are un număr maxim de tokenuri, fiecare token se plătește la fiecare apel, iar modelele folosesc mai slab informația îngropată la mijlocul unui context lung decât pe cea de la început sau de la sfârșit, efect descris de [Liu și colaboratorii](https://arxiv.org/abs/2307.03172) în lucrarea _Lost in the Middle_ (2023).
+
+O bună parte din gestionarea memoriei înseamnă, așadar, să alegem ce intră în context și în ce formă.
+
+### Promptul ca memorie
+
+Privită așa, **ingineria prompturilor** (_prompt engineering_) este o formă de memorie scrisă de mână. Promptul de sistem reține identitatea agentului, regulile pe care trebuie să le respecte și convențiile proiectului. Multe harnașamente încarcă automat, la începutul fiecărei sesiuni, un fișier de instrucțiuni din directorul proiectului, de exemplu `AGENTS.md` sau `CLAUDE.md`. Agentul „își amintește” ce scrie acolo în fiecare sesiune, fără niciun mecanism de regăsire.
+
+Locul din prompt contează și din alt motiv. Furnizorii de modele păstrează în cache începutul promptului care se repetă de la un apel la altul (_prompt caching_). Un prompt de sistem stabil, pus la început, costă mai puțin la apelurile următoare, așa că informațiile care se schimbă des sunt puse mai spre final.
+
+### Rezumarea (summarization)
+
+Când conversația se lungește, mesajele vechi pot fi înlocuite de un rezumat. Varianta clasică este **rezumatul cumulativ** (_rolling summary_): la câteva schimburi de mesaje, un apel separat către model actualizează rezumatul cu ce s-a întâmplat între timp, iar mesajele rezumate ies din context. Ultimele mesaje rămân întregi, pentru că de ele depinde de obicei pasul următor.
+
+### Compactarea (context compaction)
+
+[Compactarea](/comportament-agentic/orchestrare-si-sisteme-multi-agent/#compactarea-contextului-context-compaction) este rezumarea aplicată întregii sesiuni de lucru, atunci când contextul se apropie de limită. Harnașamentul îi cere modelului un rezumat structurat: obiectivul, deciziile luate, fișierele modificate, ce a eșuat și ce a rămas de făcut. Apoi pornește un context nou, care conține promptul de sistem, rezumatul și ultimele mesaje.
+
+O variantă mai ieftină este **curățarea rezultatelor de instrumente** (_tool result clearing_). Ieșirile lungi ale comenzilor deja procesate, cum ar fi jurnalele de compilare sau conținutul fișierelor citite, sunt înlocuite cu o mențiune scurtă, de exemplu _„[rezultat eliminat, 4.200 de linii]”_. Dacă agentul are din nou nevoie de ele, rulează comanda încă o dată.
+
+:::caution[Compactarea pierde informație]
+Orice rezumat este o comprimare cu pierderi. Un detaliu care părea neimportant în momentul compactării, de exemplu o restricție menționată în treacăt de utilizator, poate dispărea, iar agentul nu știe că l-a pierdut. De aceea, harnașamentele bune îi cer modelului să păstreze explicit cerințele utilizatorului și deciziile, iar ce trebuie să supraviețuiască sigur este scris în afara contextului, într-un fișier sau într-o bază de date.
+:::
+
+## Depozitul cheie-valoare (key-value store)
+
+Când informația trebuie să supraviețuiască sesiunii, o scriem în afara contextului. Cea mai directă soluție este un **depozit cheie-valoare** (_key-value store_): o bază de date obișnuită (SQLite, PostgreSQL, Redis), în care fiecare informație are o cheie unică.
+
+Harnașamentul îi dă modelului câteva [instrumente](/comportament-agentic/apelul-de-instrumente/) simple, de exemplu `save_memory(key, value)`, `read_memory(key)` și `delete_memory(key)`. Dacă utilizatorul cere ca de acum înainte răspunsurile să fie în română, modelul poate face un apel de felul acesta.
+
+```json
+{
+  "name": "save_memory",
+  "arguments": {
+    "key": "user/preferred_language",
+    "value": "română"
+  }
+}
+```
+
+Cheile sunt organizate de obicei pe **spații de nume** (_namespaces_): pe utilizator, pe proiect sau pe sarcină. Așa, preferințele unui utilizator nu ajung în conversațiile altuia, iar harnașamentul poate încărca la începutul sesiunii toate cheile dintr-un anumit spațiu.
+
+Avantajele vin tocmai din faptul că este o bază de date obișnuită.
+
+- **Exactitate**: valoarea citită este exact cea scrisă, fără aproximări.
+- **Control**: o informație greșită sau învechită se modifică ori se șterge printr-o singură operație. Contează și pentru confidențialitate, de exemplu când un utilizator cere ștergerea datelor lui.
+- **Stare structurată**: se potrivește pentru starea unei sarcini lungi, cu pașii terminați, identificatorii resurselor create și contoare.
+
+Limita este că agentul trebuie să știe ce cheie caută. Întrebarea _„ce a spus utilizatorul luna trecută despre buget?”_ nu are o cheie evidentă. Pentru astfel de întrebări este nevoie de căutare după sens.
+
+Lucrarea [MemGPT](https://arxiv.org/abs/2310.08560) (Packer și colaboratorii, 2023) a dus ideea mai departe, cu o analogie din sistemele de operare. Fereastra de context joacă rolul memoriei RAM, iar depozitele externe pe cel al discului. Modelul își gestionează singur memoria, prin instrumente care mută informații între cele două niveluri, la fel cum un sistem de operare mută pagini între RAM și disc.
+
+## Memoria în baze de date vectoriale
+
+Mecanismul este cel de la [generarea augmentată prin regăsire (RAG)](/modele-lingvistice/generare-augmentata-prin-regasire-rag/): textul este transformat în **reprezentări vectoriale** (_embeddings_), salvate într-o bază de date vectorială, iar la nevoie căutăm fragmentele cele mai apropiate ca sens de situația curentă. Diferența ține de sursa datelor. RAG caută de obicei într-o colecție de documente scrise de oameni, care se schimbă rar. Memoria vectorială a unui agent este scrisă chiar de agent, tot timpul: rezumate de sesiuni, fapte despre utilizator, încercări reușite sau eșuate.
+
+De aici apar câteva probleme pe care RAG-ul clasic le are mai rar.
+
+- **Relevanța nu ține doar de sens.** Lucrarea [Generative Agents](https://arxiv.org/abs/2304.03442) (Park și colaboratorii, 2023) ordonează amintirile după trei criterii adunate:
+  $$\text{scor} = \alpha \cdot \text{recență} + \beta \cdot \text{importanță} + \gamma \cdot \text{relevanță}$$
+  Recența scade exponențial cu timpul trecut, importanța este o notă de la 1 la 10 dată chiar de model când salvează amintirea, iar relevanța este asemănarea cosinus cu situația curentă. În lucrare, toți coeficienții $\alpha$, $\beta$ și $\gamma$ sunt egali cu 1.
+- **Contradicțiile.** Dacă utilizatorul s-a mutat din Cluj în București, ambele fapte pot ajunge în baza de date, iar căutarea după asemănare le găsește pe amândouă. Sistemul trebuie să știe care este valabil acum.
+- **Duplicatele.** Același fapt, salvat de zece ori în formulări puțin diferite, ocupă primele locuri din rezultate și împinge afară informațiile utile.
+
+## Memoria arhitecturală
+
+Până aici, memoria a stat în afara modelului, iar harnașamentul a adus-o în context sub formă de text. O altă familie de abordări pune memoria chiar în arhitectura rețelei.
+
+- **Ponderile** sunt cea mai veche formă, adică [memoria parametrică](/modele-lingvistice/generare-augmentata-prin-regasire-rag/#memoria-parametrică-și-memoria-de-lucru). Ce a învățat modelul la preantrenare stă comprimat acolo. Putem adăuga cunoștințe prin ajustare fină, dar procesul este scump, nu se face separat pentru fiecare utilizator, iar modelul riscă să uite ce știa înainte (**uitare catastrofală**, _catastrophic forgetting_).
+- **[Memoria cache pentru chei și valori](/modele-lingvistice/arhitectura-transformer/#memoria-cache-pentru-chei-și-valori-kv-cache)** (_KV cache_) este memoria pe termen scurt a arhitecturii Transformer: cheile și valorile tokenurilor deja procesate, păstrate cât durează o cerere.
+- **Memorie externă citită prin atenție.** [Memorizing Transformers](https://arxiv.org/abs/2203.08913) (Wu și colaboratorii, 2022) păstrează cheile și valorile din textul deja citit într-o memorie mare, în care un strat de atenție caută cei mai apropiați $k$ vecini. Seamănă cu un RAG făcut în interiorul modelului, pe vectori, nu pe text.
+- **Stare recurentă.** [Recurrent Memory Transformer](https://arxiv.org/abs/2207.06881) (Bulatov și colaboratorii, 2022) adaugă tokenuri speciale de memorie, care trec de la un segment de text la următorul și duc mai departe un rezumat învățat. **Modelele cu spațiul stărilor** (_state space models_), precum Mamba, comprimă tot istoricul într-o stare de dimensiune fixă.
+- **Straturi de memorie.** [Memory Layers at Scale](https://arxiv.org/abs/2412.09764) (Berges și colaboratorii, Meta, 2024) înlocuiește unele rețele feed-forward cu tabele mari de chei și valori antrenabile, din care fiecare token citește doar câteva intrări. Modelul poate stoca mai multe fapte fără ca, la fiecare token, costul computațional să crească în aceeași măsură.
+- **Memorie care învață la inferență.** [Titans](https://arxiv.org/abs/2501.00663) (Behrouz și colaboratorii, Google, 2024) adaugă un modul neuronal de memorie pe termen lung, ale cărui ponderi se actualizează chiar în timpul inferenței, cu atât mai mult cu cât informația nouă îl „surprinde” mai tare.
+
+Aceste abordări sunt promițătoare, dar, în afară de ponderi și de KV cache, rămân în mare parte în zona de cercetare. Memoria arhitecturală nu poate fi citită sau corectată de un om, nu poate fi ștearsă selectiv pentru un singur utilizator și cere de obicei un model antrenat special pentru ea. Din aceste motive, în produsele de azi memoria pe termen lung stă aproape întotdeauna în afara modelului.
+
+## Memoria ca text în harnașamentele de azi
+
+Dacă ne uităm la asistenții conversaționali și la agenții de programare folosiți azi, observăm că cele mai multe harnașamente aleg varianta cea mai simplă: **memoria este text, pus în context**. Bazele de date vectoriale apar mai rar decât ne-am aștepta, iar memoria arhitecturală aproape deloc. Formele obișnuite sunt următoarele.
+
+- **Fișiere de instrucțiuni ale proiectului**: `AGENTS.md`, `CLAUDE.md` sau alte fișiere de reguli, scrise de oameni și încărcate automat la începutul sesiunii.
+- **Notițe scrise de agent**: un director cu fișiere Markdown în care agentul notează ce a aflat (comenzile de build, capcanele proiectului, preferințele utilizatorului) și pe care le citește în sesiunile următoare.
+- **Fapte-cheie despre utilizator**: asistenții conversaționali de tipul ChatGPT, Gemini sau Claude au funcții de memorie care păstrează informații între conversații, de exemplu _„lucrează ca inginer de date”_ sau _„preferă exemple în Python”_. Implementarea lor exactă nu este publică, dar principiul general este cel descris mai jos.
+- **Planuri și jurnale de progres**: pentru sarcinile lungi, agentul ține un fișier cu planul și cu pașii terminați, ca să poată relua lucrul după o compactare sau într-o sesiune nouă.
+
+Un fișier de memorie al unui agent de programare poate arăta, de exemplu, așa.
+
+```markdown
+# Memorie: proiectul facturare-api
+
+## Comenzi
+- Testele rulează cu `make test`, nu cu `pytest` direct (au nevoie de variabilele din `.env.test`).
+
+## Decizii
+- 2026-10-12: rapoartele folosesc interogări SQL scrise de mână, nu ORM-ul (de 5 ori mai rapide).
+
+## Preferințele utilizatorului
+- Mesajele de commit se scriu în engleză.
+- Fișierele din `migrations/` nu se modifică fără confirmare.
+```
+
+### Extragerea faptelor-cheie
+
+Când memoria nu este scrisă de mână, ea se construiește prin **extragerea faptelor-cheie** (_key fact extraction_). Ciclul are de obicei patru pași.
+
+<Steps>
+1. **Extragerea**: după o conversație, sau periodic, în fundal, un apel separat către model citește mesajele și scoate o listă de fapte scurte, care se înțeleg și singure, de exemplu _„Utilizatorul lucrează pe macOS.”_, _„Proiectul Atlas are termen pe 1 decembrie.”_
+2. **Compararea**: fiecare fapt nou este comparat cu faptele deja salvate, de obicei după asemănarea de sens, ca să găsim faptele înrudite.
+3. **Decizia**: pentru fiecare fapt, modelul alege o operație. Îl adaugă, actualizează un fapt vechi, șterge un fapt contrazis sau nu face nimic. Sistemul [Mem0](https://arxiv.org/abs/2504.19413) (Chhikara și colaboratorii, 2025) descrie exact acest ciclu, cu operațiile ADD, UPDATE, DELETE și NOOP.
+4. **Folosirea**: în conversațiile următoare, faptele relevante (sau toate, dacă sunt puține) sunt puse în promptul de sistem.
+</Steps>
+
+Observăm că, și atunci când la pasul 2 se folosesc vectori, rezultatul final rămâne tot o listă de propoziții, pe care modelul o citește ca pe orice alt text din prompt.
+
+### De ce text
+
+- **Modelul citește deja foarte bine text.** Nu este nevoie de antrenare specială sau de altă arhitectură, iar aceeași memorie funcționează cu orice model, de la orice furnizor.
+- **Oamenii o pot citi și corecta.** Un fișier Markdown poate fi deschis, editat, șters sau pus în git, alături de cod. O greșeală din memorie se repară în câteva secunde.
+- **Comportamentul este previzibil.** Ce este scris în fișier ajunge în context de fiecare dată. La căutarea vectorială, o amintire importantă poate rata primele $k$ rezultate.
+- **De obicei, este suficient.** Pentru un proiect sau un utilizator, faptele cu adevărat utile încap adesea în câteva sute sau câteva mii de tokenuri, care intră ușor într-o fereastră de context modernă.
+
+:::caution[Limitele memoriei text]
+- **Memoria crește.** Ocupă context la fiecare apel și are nevoie de curățare periodică, la fel ca orice documentație.
+- **Faptele extrase automat pot fi greșite.** Un fapt înțeles greșit, învechit sau scos din context este tratat apoi de model ca adevărat, în toate sesiunile.
+- **Otrăvirea memoriei** (_memory poisoning_). Un text malițios citit de agent, de exemplu o pagină web sau un comentariu dintr-un fișier, îl poate convinge să salveze o „regulă” care îi influențează toate sesiunile viitoare. Memoria scrisă de agent trebuie tratată ca date, nu ca instrucțiuni de încredere, iar modificările ei trebuie să poată fi verificate de un om. Pagina [Provocări și bune practici](/comportament-agentic/provocari-si-bune-practici/) discută mai pe larg securitatea agenților.
+:::
+
+## Bibliografie
+
+- AGENTS.md (2025). [AGENTS.md: a simple, open format for guiding coding agents](https://agents.md/).
+- Behrouz, A., Zhong, P. și Mirrokni, V. (2024). [Titans: Learning to Memorize at Test Time](https://arxiv.org/abs/2501.00663). Preprint arXiv:2501.00663.
+- Berges, V.-P. et al. (2024). [Memory Layers at Scale](https://arxiv.org/abs/2412.09764). Preprint arXiv:2412.09764.
+- Bulatov, A., Kuratov, Y. și Burtsev, M. S. (2022). [Recurrent Memory Transformer](https://arxiv.org/abs/2207.06881). _NeurIPS 2022_.
+- Chhikara, P. et al. (2025). [Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory](https://arxiv.org/abs/2504.19413). Preprint arXiv:2504.19413.
+- Liu, N. F. et al. (2024). [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172). _Transactions of the Association for Computational Linguistics_, 12, 157–173.
+- Packer, C. et al. (2023). [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560). Preprint arXiv:2310.08560.
+- Park, J. S. et al. (2023). [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442). _UIST 2023_.
+- Sumers, T. R. et al. (2024). [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427). _Transactions on Machine Learning Research_.
+- Wu, Y. et al. (2022). [Memorizing Transformers](https://arxiv.org/abs/2203.08913). _ICLR 2022_.

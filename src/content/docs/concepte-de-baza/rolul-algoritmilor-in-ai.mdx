@@ -1,0 +1,233 @@
+---
+title: Rolul algoritmilor în inteligența artificială
+description: "Rețelele neuronale nu lucrează singure. Pagina arată unde intervin algoritmii clasici în AI: căutarea în grafuri și arbori, programarea dinamică, memoria cache pentru chei și valori (KV cache) și decodarea textului."
+sidebar:
+  order: 3
+  label: Rolul algoritmilor
+level: incepator
+tags:
+  - Concepte de bază
+  - Algoritmi
+---
+
+import AlgorithmsAiDiagram from '../../../components/diagrams/AlgorithmsAiDiagram.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Când se vorbește despre inteligența artificială de azi, aproape totul se învârte în jurul rețelelor neuronale profunde, cu miliarde de parametri care „învață” direct din cantități uriașe de date. Privind lucrurile așa, ar părea că algoritmii clasici din informatică au fost înlocuiți de niște blocuri opace de ponderi numerice.
+
+În realitate, sistemele AI care funcționează bine combină două componente care se completează.
+
+1. **Modelul învățat** (rețeaua neuronală) aduce un fel de intuiție statistică. Aproximează funcții continue, recunoaște repede tipare, interpretează imagini, prinde nuanțele limbajului natural și face presupuneri bine informate despre ce ar putea funcționa.
+2. **Algoritmul clasic** aduce structură și determinism: la aceleași date de intrare dă mereu același rezultat și parcurge eficient spații uriașe de combinații. Explorează sistematic alternativele, evită ciclurile infinite, garantează respectarea regulilor stricte și gestionează memoria hardware.
+
+Fără algoritmii de bază de căutare, sortare, memorare și optimizare, o rețea neuronală nu poate fi antrenată, nu poate genera text fără să risipească resurse și nu poate rezolva probleme de planificare pe termen lung.
+
+<AlgorithmsAiDiagram />
+
+## Căutarea în grafuri (graph search)
+
+Multe probleme din informatică și din inteligența artificială pot fi formulate ca un **spațiu al stărilor** (_state space_), iar un astfel de spațiu este un graf.
+- Fiecare configurație posibilă (poziția pe o hartă, așezarea pieselor pe o tablă de joc, valorile unor variabile dintr-un plan) este un **nod**.
+- Fiecare acțiune permisă, care duce dintr-o stare în alta, este o **muchie** orientată.
+
+A rezolva problema înseamnă a găsi un drum de la starea inițială la o stare țintă. Pentru asta folosim algoritmi de **căutare în grafuri** (_graph search_), care au proprietăți matematice precise.
+
+### De la explorare oarbă la căutare euristică ($A^*$)
+
+Un algoritm clasic precum **căutarea în lățime** (_breadth-first search_, **BFS**) găsește garantat drumul cu cel mai mic număr de pași, dar explorează la fel de mult în toate direcțiile. Când numărul de stări crește exploziv, devine inutilizabil. Algoritmul lui **Dijkstra** găsește drumul cu cel mai mic cost total al muchiilor, dar se uită doar la costul deja parcurs. Nu are nicio idee despre cât mai este până la țintă.
+
+Pasul înainte decisiv pentru AI a venit odată cu algoritmul **$A^*$** ($A$-star), care folosește o funcție **euristică** $h(n)$ ca să estimeze cât mai costă drumul până la țintă.
+
+$$f(n) = g(n) + h(n)$$
+
+Iată ce înseamnă fiecare termen.
+- $g(n)$ este costul real al drumului parcurs de la starea inițială până la nodul curent $n$.
+- $h(n)$ este estimarea euristică a costului de la nodul $n$ până la țintă.
+- $f(n)$ este costul total estimat al drumului care trece prin $n$.
+
+Dacă euristica este admisibilă (adică nu supraestimează niciodată costul real), $A^*$ găsește garantat drumul optim și, de regulă, explorează doar o mică parte din spațiul stărilor. În sistemele de azi, de exemplu în vehiculele autonome sau în roboții din depozite, rețelele neuronale interpretează datele venite direct de la senzori ca să identifice obstacolele, dar traiectoria sigură este calculată tot de algoritmi de căutare în grafuri.
+
+### Grafuri de calcul și propagarea înapoi a erorii
+
+Grafurile nu descriu doar lumea exterioară, ci și ce se întâmplă în interiorul unui model de învățare profundă. În biblioteci precum PyTorch sau JAX, operațiile matematice sunt organizate ca un **graf aciclic direcționat** (_directed acyclic graph_, **DAG**).
+
+Nodurile acestui graf sunt tensori și operații matematice (adunări, înmulțiri de matrice, funcții de activare neliniare). Algoritmul de **propagare înapoi a erorii** (_backpropagation_) parcurge graful în sens invers și aplică regula de derivare a funcțiilor compuse (_chain rule_) ca să calculeze gradientul funcției de pierdere în raport cu fiecare pondere.
+
+$$\frac{\partial \mathcal{L}}{\partial w} = \sum_{\text{căi}} \prod_{i} \frac{\partial z_{i+1}}{\partial z_i}$$
+
+O sortare topologică a grafului stabilește ordinea calculelor, astfel încât, la fiecare pas, toate valorile de care este nevoie să fie deja calculate și păstrate în memorie.
+
+### Grafuri de cunoștințe și GraphRAG
+
+Într-un sistem construit pe LLM-uri, una dintre metodele de a reduce [halucinațiile](/modele-lingvistice/halucinatii/) este ca răspunsurile să se sprijine pe surse verificate. Pe lângă căutarea fragmentelor de text după sens, unele sisteme folosesc și **grafuri de cunoștințe** (_knowledge graphs_).
+
+Într-un astfel de graf, entitățile (persoane, concepte, documente, servere) sunt noduri, iar relațiile dintre ele sunt muchii cu etichete. Parcurgând graful, un algoritm poate lega informații aflate la mai mulți pași distanță, prin relații succesive (_multi-hop reasoning_).
+
+```python
+# Exemplu conceptual: regăsire pe căi în graf pentru un sistem GraphRAG
+def find_reasoning_chain(graph, start_entity, target_concept, max_depth=3):
+    visited = set()
+    queue = [[start_entity]]
+
+    while queue:
+        path = queue.pop(0)
+        current = path[-1]
+
+        if current == target_concept:
+            return path
+
+        if len(path) <= max_depth and current not in visited:
+            visited.add(current)
+            for neighbor in graph.neighbors(current):
+                queue.append(path + [neighbor])
+    return None
+```
+
+Modelul de limbaj primește apoi drumul găsit, un șir de fapte care pot fi verificate unul câte unul, și îl transformă într-un răspuns coerent pentru cititor.
+
+## Căutarea în arbori (tree search) și raționamentul
+
+Un arbore este un tip particular de graf, organizat ierarhic, potrivit pentru a modela decizii luate una după alta. Fiecare nod este o stare a jocului sau a raționamentului, iar ramurile care pleacă din el sunt alegerile posibile.
+
+### Minimax și retezarea alfa-beta
+
+În jocurile deterministe cu doi jucători, cum sunt șahul sau damele, algoritmul **Minimax** presupune că ambii jucători joacă optim: unul încearcă să maximizeze scorul, iar adversarul să-l minimizeze.
+
+Arborele complet al unui astfel de joc este mult prea mare ca să fie explorat în întregime, așa că algoritmul folosește **retezarea alfa-beta** (_alpha-beta pruning_). Dacă o ramură se dovedește deja mai slabă decât o variantă găsită anterior, algoritmul nu o mai explorează.
+
+$$\beta \le \alpha \implies \text{retezare ramură}$$
+
+Această optimizare pur algoritmică a dublat, practic, adâncimea până la care pot căuta programele de șah (inclusiv Deep Blue), fără să schimbe mutarea aleasă.
+
+### Căutarea arborescentă Monte Carlo (MCTS)
+
+La Go, numărul de mutări posibile la fiecare pas este atât de mare încât retezarea clasică nu mai ajută suficient. Succesul istoric al lui AlphaGo a venit din combinarea rețelelor neuronale cu **căutarea arborescentă Monte Carlo** (_Monte Carlo tree search_, **MCTS**).
+
+MCTS repetă de multe ori aceiași patru pași.
+
+<Steps>
+1. **Selecția** coboară în arbore pe nodurile care împacă cel mai bine două cerințe: exploatarea variantelor care par bune și explorarea opțiunilor încercate de puține ori. Alegerea se face cu o formulă de tip UCB (_upper confidence bound_).
+2. **Extinderea** adaugă unul sau mai multe noduri copil pentru starea nou atinsă.
+3. **Simularea și evaluarea** estimează cât de bună este noua stare. În locul simulărilor aleatoare, lente, până la finalul partidei, o rețea neuronală estimează direct probabilitatea de câștig din starea curentă.
+4. **Retropropagarea** (_backpropagation_, aici în arbore) trimite scorul obținut înapoi, în sus pe ramură, și actualizează statisticile tuturor nodurilor de pe drum.
+</Steps>
+
+Rețeaua neuronală aduce „intuiția” despre poziție, dar MCTS este cel care verifică urmările mutărilor înainte de a lua decizia.
+
+### Căutarea la momentul inferenței în LLM-uri (test-time compute)
+
+Un model de limbaj obișnuit generează textul token cu token. Dacă primul pas al raționamentului conține o greșeală subtilă, modelul merge mai departe pe acel drum greșit, pentru că nu are un mecanism încorporat de revenire (_backtracking_).
+
+Pentru probleme grele de matematică, logică și programare, unele modele de raționament folosesc căutarea în arbori chiar în timpul generării.
+
+- **Tree-of-Thoughts** (ToT): în locul unui singur șir continuu de raționament, modelul generează mai multe ramuri posibile de gândire.
+- **Modelul de recompensă pentru proces** (_process reward model_): un model separat care verifică dacă fiecare pas intermediar este corect.
+- **Revenirea la un pas anterior**: când un drum duce la o contradicție sau la un rezultat invalid, algoritmul de căutare se întoarce la nodul anterior și încearcă altă ramură.
+
+Astfel, generarea nu mai înseamnă doar alegerea următorului token, unul după altul, ci explorarea mai multor variante, organizate ca un arbore și conduse de un algoritm de căutare.
+
+## Memorare, căutare rapidă și caching
+
+De multe ori, problema unui sistem AI nu este că modelul nu ar fi destul de capabil, ci timpul și resursele de calcul de care are nevoie. Aici ajută tehnicile clasice de memorare și programarea dinamică.
+
+### Programarea dinamică
+
+**Programarea dinamică** (_dynamic programming_) este o metodă pentru probleme care se descompun în subprobleme suprapuse și au substructură optimă (soluția optimă se construiește din soluțiile optime ale subproblemelor). Principiul este simplu: fiecare subproblemă se rezolvă o singură dată, iar rezultatul se păstrează într-un tabel, ca să poată fi refolosit.
+
+În inteligența artificială, principiul apare în multe locuri.
+- **Ecuația lui Bellman** din [învățarea prin consolidare](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/) exprimă valoarea unei stări, $V(s)$, prin valorile stărilor în care se poate ajunge din ea. Calculul se face iterativ, refolosind de fiecare dată valorile deja obținute.
+  $$V(s) = \max_a \left( R(s, a) + \gamma \sum_{s'} P(s' \mid s, a) V(s') \right)$$
+- **Algoritmul Viterbi** găsește cea mai probabilă secvență de stări ascunse într-un proces Markov. Este folosit mult în recunoașterea vorbirii și în bioinformatică.
+
+### Memoria cache pentru chei și valori (KV cache)
+
+Un exemplu concret de caching clasic pus în slujba rețelelor neuronale este **memoria cache pentru chei și valori** (_KV cache_) din arhitectura Transformer.
+
+Pentru fiecare token, auto-atenția calculează trei vectori.
+- **Interogarea** ($Q$, _query_) descrie ce caută tokenul curent.
+- **Cheia** ($K$, _key_) descrie ce conține fiecare token anterior.
+- **Valoarea** ($V$, _value_) este informația pe care fiecare token anterior o transmite mai departe.
+
+Rezultatul atenției pentru poziția $t$ depinde de toate cheile și valorile de până la ea.
+
+$$\operatorname{Attention}(Q_t, K_{\le t}, V_{\le t}) = \operatorname{softmax}\left(\frac{Q_t K_{\le t}^\top}{\sqrt{d_k}}\right) V_{\le t}$$
+
+:::tip[Ce câștigăm cu KV cache]
+- **Fără caching**, la fiecare token nou, modelul recalculează tot istoricul. Pentru o secvență de lungime $N$, asta înseamnă $\mathcal{O}(N^2)$ operații, în mare parte aceleași calcule repetate inutil.
+- **Cu KV cache**, cheile și valorile se calculează o singură dată și se păstrează în memorie. Generarea fiecărui token nou costă doar $\mathcal{O}(N)$ (liniar), iar limita nu mai este puterea de calcul, ci lățimea de bandă a memoriei.
+:::
+
+Concret, vectorii $K$ și $V$ ai fiecărui token sunt calculați o dată și salvați într-o zonă de memorie dedicată (KV cache). La pasul $t$, modelul calculează $Q, K, V$ doar pentru tokenul nou, adaugă $K_t$ și $V_t$ în cache și calculează atenția direct pe istoricul salvat.
+
+### PagedAttention și alte optimizări ale memoriei
+
+La modelele mari, KV cache poate ocupa zeci de gigaocteți din memoria plăcii grafice. Ca să fie gestionată eficient, au apărut câteva soluții algoritmice.
+
+- **PagedAttention**: preia ideea memoriei virtuale cu paginare din sistemele de operare. Memoria pentru KV cache este împărțită în blocuri de dimensiune fixă, care nu trebuie să stea unul lângă altul în memoria fizică a plăcii grafice. Astfel, fragmentarea memoriei aproape dispare, iar mai multe cereri pot folosi în comun același context, fără să-l copieze.
+- **Prefix caching** (_prompt caching_): ajută când mii de utilizatori trimit cereri care încep cu același context (de exemplu, un manual tehnic sau aceleași instrucțiuni de sistem). Sistemul recunoaște începutul comun și refolosește cheile și valorile deja calculate pentru el. La prompturile lungi, timpul de răspuns scade astfel foarte mult.
+- **FlashAttention**: reorganizează calculul atenției prin împărțire pe blocuri (_tiling_). Încarcă pe rând blocuri mici de date în memoria rapidă de pe cipul plăcii grafice (SRAM) și calculează atenția fără să scrie matricele intermediare, foarte mari, în memoria video principală (HBM), care este mai lentă. Inferența devine mai rapidă, fără nicio pierdere de precizie numerică.
+
+## Algoritmii de decodare
+
+După ce rețeaua prelucrează contextul prin straturile ei de atenție, ultimul strat produce **scoruri nenormalizate** (_logits_), câte unul pentru fiecare token din vocabular (mai jos le spunem, pentru simplitate, cuvinte). Trecute prin funcția $\operatorname{softmax}$, aceste scoruri devin o distribuție de probabilitate.
+
+$$P(w_i \mid \text{context}) = \frac{\exp(z_i)}{\sum_j \exp(z_j)}$$
+
+Aici se oprește rețeaua: ea nu a ales încă niciun cuvânt. Alegerea efectivă a următorului token este treaba unui algoritm de decodare.
+
+```
+Scoruri nenormalizate (logits), ieșirea modelului
+         ↓
+Funcția softmax (probabilități)
+         ↓
+Algoritm de decodare:
+ ├── Decodare greedy      → alege mereu argmax P(w)
+ ├── Top-k / Top-p        → restrânge mulțimea de candidați
+ └── Căutare pe fascicul  → păstrează cele mai bune B secvențe parțiale
+```
+
+Algoritmul ales influențează mult felul în care arată textul generat.
+
+- **Decodarea greedy** (_greedy decoding_) alege mereu cuvântul cu cea mai mare probabilitate.
+  $$\hat{w} = \arg\max_{w} P(w \mid \text{context})$$
+  Este rapidă și deterministă, potrivită pentru răspunsuri scurte și exacte, dar în textele lungi tinde să se repete.
+- **Eșantionarea cu temperatură** modifică distribuția împărțind scorurile nenormalizate la o constantă $T$, temperatura. O temperatură mică adună probabilitatea pe câteva variante foarte probabile, iar una mare egalizează șansele, ceea ce face textul mai variat.
+- **Filtrarea top-$k$ și top-$p$** (_nucleus sampling_)
+  - *Top-$k$* păstrează doar cele $k$ cuvinte cele mai probabile și le ignoră pe celelalte.
+  - *Top-$p$* păstrează cel mai mic grup de cuvinte a căror probabilitate adunată depășește pragul $p$ (de exemplu $0{,}9$). Lista de candidați se lungește sau se scurtează de la un pas la altul, după cât de sigur este modelul.
+- **Căutarea pe fascicul** (_beam search_) păstrează în paralel cele mai promițătoare $B$ secvențe candidate (_beams_), în loc să aleagă un singur cuvânt la fiecare pas. Așa ocolește capcana decodării greedy, în care un cuvânt foarte probabil ales la pasul 1 poate împiedica apariția unei propoziții mult mai coerente la pasul 3.
+
+## Cum se completează rețelele neuronale și algoritmii clasici
+
+Nu are sens să punem față în față „vechiul” (algoritmii) și „noul” (rețelele neuronale). Sistemele AI reușite funcționează tocmai pentru că cele două se completează.
+
+| Aspect | Rețeaua neuronală | Algoritmul clasic |
+| :--- | :--- | :--- |
+| **Punct forte** | Înțelegerea sensului, aproximare statistică, recunoașterea tiparelor | Garanții matematice, determinism, explorare exactă a combinațiilor |
+| **Punct slab** | [Halucinații](/modele-lingvistice/halucinatii/), nicio verificare logică formală, cost computațional ridicat | Se descurcă greu cu ambiguitatea, ineficient pe date nestructurate (imagini, sunet) |
+| **Rolul în sistem** | Euristică, propunerea variantelor candidate, evaluare calitativă | Harnașament, căutare și planificare, memorare în cache, validare |
+
+Combinația se vede clar în multe aplicații de azi.
+- **Asistenții de programare** folosesc rețeaua neuronală ca să propună cod pe baza instrucțiunilor primite, iar algoritmii determiniști ai compilatorului, ai linterului și ai testelor verifică dacă acel cod face ce cere specificația.
+- **Roboții și vehiculele autonome** combină modele de viziune computerizată, care recunosc pietonii, drumul și indicatoarele, cu algoritmi pe grafuri și de optimizare spațială, care calculează manevre sigure.
+- **Sistemele agentice** folosesc un model de limbaj ca să decidă ce pași duc la un obiectiv, dar orchestrarea, gestionarea stării, memoria de lucru și regulile de securitate sunt controlate de un [harnașament](/comportament-agentic/harnasamentul/) algoritmic, determinist.
+
+Modelele mari aduc intuiția, dar algoritmii sunt cei care transformă această intuiție într-o soluție fiabilă.
+
+## Bibliografie
+
+- Baydin, A. G. et al. (2018). [Automatic differentiation in machine learning: a survey](https://arxiv.org/abs/1502.05767). _Journal of Machine Learning Research_, 18(153), 1–43.
+- Bellman, R. (1957). _Dynamic Programming_. Princeton University Press.
+- Campbell, M., Hoane, A. J. și Hsu, F. (2002). [Deep Blue](https://doi.org/10.1016/S0004-3702(01)00129-1). _Artificial Intelligence_, 134(1–2), 57–83.
+- Dao, T. et al. (2022). [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135). _NeurIPS 2022_.
+- Dijkstra, E. W. (1959). [A note on two problems in connexion with graphs](https://doi.org/10.1007/BF01386390). _Numerische Mathematik_, 1(1), 269–271.
+- Edge, D. et al. (2024). [From Local to Global: A Graph RAG Approach to Query-Focused Summarization](https://arxiv.org/abs/2404.16130). Preprint arXiv:2404.16130.
+- Hart, P. E., Nilsson, N. J. și Raphael, B. (1968). [A Formal Basis for the Heuristic Determination of Minimum Cost Paths](https://doi.org/10.1109/TSSC.1968.300136). _IEEE Transactions on Systems Science and Cybernetics_, 4(2), 100–107.
+- Holtzman, A. et al. (2020). [The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751). _ICLR 2020_.
+- Knuth, D. E. și Moore, R. W. (1975). [An analysis of alpha-beta pruning](https://doi.org/10.1016/0004-3702(75)90019-3). _Artificial Intelligence_, 6(4), 293–326.
+- Kocsis, L. și Szepesvári, C. (2006). [Bandit Based Monte-Carlo Planning](https://doi.org/10.1007/11871842_29). _ECML 2006_.
+- Kwon, W. et al. (2023). [Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180). _SOSP 2023_.
+- Lightman, H. et al. (2024). [Let’s Verify Step by Step](https://arxiv.org/abs/2305.20050). _ICLR 2024_.
+- Silver, D. et al. (2016). [Mastering the game of Go with deep neural networks and tree search](https://doi.org/10.1038/nature16961). _Nature_, 529(7587), 484–489.
+- Viterbi, A. J. (1967). [Error bounds for convolutional codes and an asymptotically optimum decoding algorithm](https://doi.org/10.1109/TIT.1967.1054010). _IEEE Transactions on Information Theory_, 13(2), 260–269.
+- Yao, S. et al. (2023). [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601). _NeurIPS 2023_.

@@ -1,0 +1,32 @@
+---
+title: Provocări și bune practici
+description: Ce poate merge prost într-un sistem agentic și cum ne protejăm, prin izolarea mediului de execuție, bugete de pași și de costuri și un set mic de instrumente bine alese.
+sidebar:
+  order: 8
+level: incepator
+tags:
+  - Sisteme agentice
+  - Modele de limbaj mari (LLM)
+---
+
+Construirea unor agenți stabili și utili ridică probleme serioase de inginerie. Cele mai importante țin de securitatea mediului în care lucrează agentul și de controlul asupra pașilor pe care îi face.
+
+:::caution[Securitatea și izolarea mediului (sandboxing)]
+Un agent care are acces la o consolă sau poate rula comenzi de sistem poate șterge din greșeală fișiere importante sau poate trimite date confidențiale către servere externe. De aceea, mediul de execuție trebuie izolat întotdeauna într-un container securizat (_sandbox_), iar operațiile distructive sau ireversibile trebuie să aștepte confirmarea explicită a unui om.
+:::
+
+:::tip[Bugete stricte și puține instrumente]
+- **Prevenirea devierii de la obiectiv (_goal drift_)**: într-un proces lung, cu zeci de iterații, modelul poate pierde din vedere obiectivul inițial. De aceea, instrucțiunile de sistem trebuie să i-l reamintească periodic.
+- **Bugete de pași și de costuri**: fără o limită de pași sau de apeluri API, un agent blocat poate consuma multe resurse degeaba. Orice execuție are nevoie de praguri maxime, stabilite dinainte.
+- **Instrumente puține și precise**: câteva [instrumente](/comportament-agentic/apelul-de-instrumente/) bine documentate, cu scheme stricte, dau rezultate mult mai stabile decât zeci de funcții complicate, cu roluri neclare.
+:::
+
+Comportamentul agentic nu înlocuiește judecata programatorului, ci îl ajută să facă mai mult. Omul stabilește specificațiile și criteriile de calitate și urmărește direcția generală, iar agentul preia munca repetitivă de căutare, editare, compilare și depanare.
+
+## Bibliografie
+
+- Greshake, K. et al. (2023). [Not what you’ve signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173). _AISec 2023_.
+- Kapoor, S. et al. (2024). [AI Agents That Matter](https://arxiv.org/abs/2407.01502). Preprint arXiv:2407.01502.
+- OWASP (2024). [OWASP Top 10 for LLM Applications 2025](https://genai.owasp.org/llm-top-10/). OWASP GenAI Security Project.
+- Ruan, Y. et al. (2024). [Identifying the Risks of LM Agents with an LM-Emulated Sandbox](https://arxiv.org/abs/2309.15817). _ICLR 2024_.
+- Schluntz, E. și Zhang, B. (2024). [Building effective agents](https://www.anthropic.com/research/building-effective-agents). Blogul Anthropic.

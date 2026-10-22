@@ -1,0 +1,184 @@
+---
+title: Generare augmentată prin regăsire (RAG) și apel de instrumente
+description: "Cum trec modelele de limbaj mari de limitele ponderilor statice? RAG le aduce date proaspete, iar apelul de instrumente (tool calling) le permite să acționeze în lumea reală."
+sidebar:
+  order: 6
+  label: RAG și apel de instrumente
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+  - RAG
+  - Sisteme agentice
+---
+
+import RagToolCallingDiagram from '../../../components/diagrams/RagToolCallingDiagram.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+Dacă privim un model de limbaj mare la nivel fizic, el nu este o entitate conștientă și nici o bază de date care se actualizează continuu. Un model precum Llama, Claude sau GPT este, în esență, un fișier uriaș pe disc: zeci sau sute de miliarde de numere în virgulă mobilă, organizate în **matrice de ponderi** ($\mathbb{R}^{d \times d}$).
+
+Când folosim modelul (la inferență), ponderile sunt **înghețate** (_frozen_): valorile lor nu se mai schimbă.
+
+:::caution[De ce halucinează un model izolat?]
+Pentru că ponderile nu se schimbă, modelul are trei limite importante.
+1. **Data limită a cunoștințelor** (_knowledge cutoff_) înseamnă că modelul nu știe nimic despre ce s-a întâmplat după încheierea antrenării lui.
+2. **Lipsa accesului la date private** înseamnă că modelul nu vede documentele interne ale unei organizații, fișierele locale dintr-un proiect sau starea unei baze de date tranzacționale.
+3. **Imposibilitatea de a acționa** vine din felul în care funcționează modelul: nu face decât să înmulțească vectori cu matrice de ponderi. Singur, nu poate naviga pe internet, nu poate trimite un e-mail și nu poate rula o comandă în sistemul de operare.
+
+Când modelul trebuie să răspundă doar din asocierile statistice comprimate în ponderi, produce adesea afirmații care sună plauzibil, dar sunt false ([halucinații](/modele-lingvistice/halucinatii/)).
+:::
+
+Ca să facem din această matrice statică un asistent util, conectat la realitate, folosim două mecanisme care se completează: **generarea augmentată prin regăsire** (**RAG**), care aduce date proaspete, și **apelul de instrumente** (_tool calling_), prin care modelul poate face acțiuni concrete în afara lui.
+
+<RagToolCallingDiagram />
+
+## Memoria parametrică și memoria de lucru
+
+Ca să înțelegem cum funcționează RAG, ne ajută să deosebim cele două tipuri de memorie ale unui model de limbaj.
+
+| Criteriu | Memoria parametrică (ponderile) | Memoria de lucru (fereastra de context) |
+| :--- | :--- | :--- |
+| **Unde se află** | În matricele de ponderi, stocate pe disc și în VRAM | În [fereastra de context](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#limitări) |
+| **Cum se modifică** | Doar prin reantrenare sau ajustare fină (_fine-tuning_) | La fiecare cerere trimisă de utilizator |
+| **Cât costă actualizarea** | Zile sau săptămâni de calcul pe mii de plăci grafice (GPU) | Câteva milisecunde: adăugăm text în prompt |
+| **Cum sunt cunoștințele** | Probabilistice, difuze, cu detalii ușor de confundat | Exacte, pot fi citate și verificate direct |
+| **La ce se potrivește** | Înțelegerea limbii, gramatica, raționamentul, stilul | Fapte concrete, cifre, documente recente |
+
+Nu are sens să reantrenăm un model de 70 de miliarde de parametri de fiecare dată când apare o știre nouă sau se schimbă o procedură internă. Mai simplu este să tratăm modelul ca pe un **motor de raționament peste contextul curent** și să-i dăm informațiile proaspete chiar în momentul întrebării.
+
+## Ce este RAG
+
+**Generarea augmentată prin regăsire** (_retrieval-augmented generation_, RAG), numită uneori și generare augmentată prin recuperare, este o arhitectură software care leagă un model de limbaj de o sursă externă de date verificate.
+
+Varianta clasică de RAG are patru etape.
+
+```
+Documente sursă (PDF, baze de date, pagini web)
+                  ↓ [1. Fragmentare (chunking)]
+        Fragmente scurte de text
+                  ↓ [2. Model de reprezentare vectorială]
+        Vectori numerici (embeddings)
+                  ↓ [3. Bază de date vectorială]
+       Indexare și căutare după similaritate
+                  ↓
+Utilizator: întrebare → căutare → fragmente relevante
+                  ↓ [4. Augmentarea promptului]
+Prompt cu fragmentele regăsite → LLM → răspuns ancorat în surse
+```
+
+### 1. Fragmentarea documentelor (chunking)
+
+Documentele lungi (manuale tehnice, contracte, arhive de cod) nu pot fi trimise modelului dintr-odată fără să risipească fereastra de context. De aceea, un algoritm de fragmentare împarte textul în bucăți mai mici, numite **fragmente** (_chunks_), de obicei de câteva sute de tokenuri. Fragmentele vecine se suprapun puțin (_overlap_), ca să nu se piardă sensul la granițe.
+
+### 2. Reprezentarea vectorială (embeddings)
+
+Fiecare fragment trece printr-un model specializat de reprezentare vectorială (_embedding model_), care transformă textul într-un vector numeric de dimensiune fixă, de exemplu un șir de 1.536 de numere reale:
+
+$$\vec{v} = \operatorname{Embed}(\text{fragment}) \in \mathbb{R}^d$$
+
+Partea utilă a acestui spațiu vectorial este că textele cu înțeles apropiat ajung aproape unele de altele, chiar dacă folosesc cuvinte diferite. De exemplu, _„eroare de rețea”_ și _„conexiune întreruptă”_ au vectori orientați aproape în aceeași direcție.
+
+### 3. Regăsirea informațiilor (retrieval)
+
+Vectorii tuturor fragmentelor sunt salvați într-o **bază de date vectorială** (_vector database_). Când un utilizator pune o întrebare, sistemul face pașii de mai jos.
+
+<Steps>
+1. **Vectorizarea întrebării**: și întrebarea este transformată într-un vector $\vec{q}$.
+2. **Calculul asemănării**: baza de date calculează **asemănarea cosinus** (_cosine similarity_) dintre vectorul întrebării și vectorii tuturor fragmentelor.
+   $$\operatorname{sim}(\vec{q}, \vec{v}) = \frac{\vec{q} \cdot \vec{v}}{\|\vec{q}\| \|\vec{v}\|}$$
+3. **Selecția contextului**: sistemul păstrează cele mai relevante $k$ fragmente, de exemplu primele 3–5 pasaje cu scorul cel mai mare.
+</Steps>
+
+Sistemele mai avansate folosesc **căutare hibridă** (_hybrid search_): combină căutarea semantică pe vectori cu o căutare lexicală clasică, după cuvinte exacte (de exemplu BM25). Urmează o etapă de **reclasare** (_re-ranking_), în care un model dedicat reordonează rezultatele.
+
+### 4. Augmentarea și generarea răspunsului
+
+Fragmentele regăsite sunt puse într-un prompt structurat, care este trimis modelului de limbaj.
+
+```markdown
+Folosește exclusiv fragmentele de mai jos pentru a răspunde la întrebarea utilizatorului.
+Dacă informația nu se regăsește în text, răspunde clar că nu cunoști răspunsul. Citează sursele.
+
+--- Fragmente regăsite ---
+[Document 1, pag. 4]: Temperatura de funcționare admisă a senzorului X-10 este între -20°C și +60°C.
+[Document 2, pag. 12]: În caz de depășire a 60°C, declanșați protocolul de răcire forțată.
+
+--- Întrebare ---
+La ce temperatură trebuie pornită răcirea forțată pentru senzorul X-10?
+```
+
+Modelul nu mai trebuie să-și „amintească” din ponderi un detaliu obscur despre senzorul X-10. Citește fragmentul oficial primit în context și formulează un răspuns precis: _„Răcirea forțată trebuie activată la depășirea temperaturii de 60°C, conform Documentului 2 (pag. 12).”_
+
+## Avantajele RAG față de reantrenare
+
+Ajustarea fină (_fine-tuning_) este foarte bună pentru a învăța modelul un anumit ton, un stil de dialog sau un format nou de ieșire. Nu este însă potrivită pentru a-i adăuga cunoștințe factuale care se schimbă des.
+
+:::tip[Ce câștigăm cu RAG]
+1. **Actualizare în timp real**: un document nou ajunge în baza vectorială într-o fracțiune de secundă, fără niciun cost de antrenare.
+2. **Mult mai puține halucinații**: răspunsul este condiționat direct de textul sursă aflat în context.
+3. **Auditabilitate și încredere**: fiecare afirmație poate fi însoțită de o trimitere directă la sursa primară, pe care o putem verifica.
+4. **Controlul accesului**: fragmentele pot fi filtrate după drepturile utilizatorului, astfel încât un angajat să nu primească răspunsuri bazate pe documente confidențiale pe care nu are voie să le citească.
+:::
+
+## Apelul de instrumente: trecerea la acțiune
+
+Cu RAG, modelul primește informații în mod pasiv: doar „citește” fragmentele regăsite. Ponderile, singure, tot nu pot interacționa direct cu mediul digital.
+
+Aici intervine **apelul de instrumente** (_tool calling_ sau _function calling_), mecanismul prin care un model de limbaj poate acționa în lumea reală.
+
+### Cum funcționează, concret, apelul de instrumente?
+
+Modelul nu rulează el însuși niciun cod. Nu are conexiune la rețea și nu poate accesa direct discul. În schimb, sistemul software din jurul lui ([harnașamentul](/comportament-agentic/harnasamentul/)) stabilește un protocol clar.
+
+<Steps>
+1. **Descrierea instrumentelor**: harnașamentul pune în promptul de sistem descrierile funcțiilor disponibile, în format JSON Schema (de exemplu, o funcție pentru prognoza meteo, una pentru interogarea unei baze de date SQL sau una pentru trimiterea unui mesaj).
+2. **Decizia modelului**: când primește o cerere precum _„Care este stocul actual pentru produsul cu codul A42 și scade o unitate?”_, modelul își dă seama că nu poate răspunde din memoria parametrică. În loc să scrie text pentru om, generează un obiect JSON cu instrumentul ales și argumentele lui.
+   ```json
+   {
+     "name": "interogare_stoc",
+     "arguments": {
+       "cod_produs": "A42"
+     }
+   }
+   ```
+3. **Execuția de către harnașament**: sistemul gazdă preia acest mesaj, rulează funcția în mediul real (trimite interogarea SQL către serverul bazei de date) și primește rezultatul real, `{"stoc": 14, "locatie": "Depozit B"}`.
+4. **Introducerea observației**: harnașamentul pune acest rezultat înapoi în fereastra de context a modelului, ca mesaj separat, marcat drept rezultatul apelului.
+5. **Decizia pasului următor**: modelul citește că stocul este 14 și generează următorul apel.
+   ```json
+   {
+     "name": "actualizare_stoc",
+     "arguments": {
+       "cod_produs": "A42",
+       "cantitate_noua": 13
+     }
+   }
+   ```
+6. **Confirmarea**: după ce primește confirmarea că actualizarea a reușit, modelul îi răspunde utilizatorului cu mesajul _„Stocul produsului A42 a fost redus de la 14 la 13 unități în Depozitul B.”_
+</Steps>
+
+Modelul a acționat în lumea reală și a schimbat o stare externă, deși, în interiorul lui, nu a făcut decât să genereze tokenuri de text într-un format stabilit dinainte.
+
+## RAG ca instrument într-un sistem agentic
+
+În sistemele cu [comportament agentic](/comportament-agentic/ce-este-comportamentul-agentic/), RAG și apelul de instrumente nu mai sunt tehnologii separate. Ele se îmbină: **RAG devine el însuși un instrument, pe care agentul îl apelează când are nevoie**.
+
+Un asistent complet funcționează cam așa.
+
+- Agentul primește de la utilizator un obiectiv care cere mai mulți pași.
+- Dacă are nevoie de informații dintr-o documentație internă, agentul decide singur să apeleze instrumentul `cauta_documentatie(intrebare="...")`.
+- Harnașamentul face căutarea RAG și adaugă în context fragmentele relevante.
+- Agentul analizează ce a găsit. Dacă trebuie să facă o modificare, apelează instrumentul `modifica_fisier(...)` sau `executa_test(...)`.
+- Agentul verifică ce a afișat consola și reia ciclul până când problema este rezolvată complet.
+
+Combinația arată că ce poate face azi un sistem AI nu depinde doar de mărimea matricelor de ponderi, ci și de **harnașamentul care le înconjoară**. Prin RAG, modelul lucrează cu date la zi. Prin apelul de instrumente, poate acționa direct asupra mediului și poate duce la capăt sarcini cu mulți pași.
+
+## Bibliografie
+
+- Gao, Y. et al. (2023). [Retrieval-Augmented Generation for Large Language Models: A Survey](https://arxiv.org/abs/2312.10997). Preprint arXiv:2312.10997.
+- Karpukhin, V. et al. (2020). [Dense Passage Retrieval for Open-Domain Question Answering](https://arxiv.org/abs/2004.04906). _EMNLP 2020_.
+- Lewis, P. et al. (2020). [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401). _NeurIPS 2020_.
+- Nogueira, R. și Cho, K. (2019). [Passage Re-ranking with BERT](https://arxiv.org/abs/1901.04085). Preprint arXiv:1901.04085.
+- Petroni, F. et al. (2019). [Language Models as Knowledge Bases?](https://arxiv.org/abs/1909.01066) _EMNLP 2019_.
+- Reimers, N. și Gurevych, I. (2019). [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084). _EMNLP 2019_.
+- Robertson, S. și Zaragoza, H. (2009). [The Probabilistic Relevance Framework: BM25 and Beyond](https://doi.org/10.1561/1500000019). _Foundations and Trends in Information Retrieval_.
+- Schick, T. et al. (2023). [Toolformer: Language Models Can Teach Themselves to Use Tools](https://arxiv.org/abs/2302.04761). _NeurIPS 2023_.
+- Yao, S. et al. (2023). [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629). _ICLR 2023_.

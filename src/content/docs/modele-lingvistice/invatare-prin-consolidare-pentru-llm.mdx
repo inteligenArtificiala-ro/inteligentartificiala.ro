@@ -1,0 +1,148 @@
+---
+title: Învățare prin consolidare pentru LLM-uri
+description: După preantrenare, modelele de limbaj mari sunt aliniate prin învățare prin consolidare (RL). Explicăm modelul de recompensă, algoritmii PPO și GRPO, recompensele verificabile și alternativa DPO.
+sidebar:
+  order: 4
+level: avansat
+tags:
+  - Modele de limbaj mari (LLM)
+  - Învățare prin consolidare
+---
+
+import PpoGrpoDiagram from '@components/diagrams/PpoGrpoDiagram.astro';
+import Python from '@components/Python.astro';
+
+Un model preantrenat continuă texte, iar [ajustarea fină](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#antrenarea) pe exemple îl învață formatul unei conversații. Etapa următoare folosește [învățarea prin consolidare](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/): modelul generează răspunsuri, acestea primesc un scor, iar modelul este ajustat spre răspunsurile cu scor mare. Așa poate învăța și comportamente pentru care nu există exemple scrise de oameni, ci doar o metodă de a le evalua.
+
+Pornim de la noțiunile de strategie de decizie (_policy_), recompensă și avantaj și de la formula gradientului strategiei, explicate pe pagina despre [gradientul strategiei și REINFORCE](/invatare-prin-consolidare/gradientul-politicii-reinforce/).
+
+## Modelul de limbaj ca strategie de decizie
+
+Corespondența cu termenii învățării prin consolidare este directă.
+
+- **Strategia** (_policy_) este modelul de limbaj $\pi_\theta$.
+- **Starea** este promptul $x$, împreună cu tokenurile generate până atunci.
+- **Acțiunea** este următorul token, ales din vocabular.
+- **Episodul** este un răspuns complet $y$, de la primul token până la tokenul de final.
+- **Recompensa** $r(x, y)$ se primește de obicei o singură dată, la finalul răspunsului.
+
+Recompensa poate veni de la un **model de recompensă** (_reward model_), antrenat să imite preferințele oamenilor, sau de la un program care verifică răspunsul, de exemplu rezultatul unei probleme de matematică sau trecerea unor teste pentru cod.
+
+## Modelul de recompensă și RLHF
+
+În metoda **RLHF** (_reinforcement learning from human feedback_), descrisă de [Christiano și colaboratorii](https://arxiv.org/abs/1706.03741) în 2017 și folosită de OpenAI în 2022 pentru [InstructGPT](https://arxiv.org/abs/2203.02155), evaluatori umani compară câte două răspunsuri la același prompt și îl aleg pe cel mai bun. Pe aceste comparații se antrenează un model de recompensă $r_\phi$, de obicei tot un model de limbaj, cu un strat final care dă un singur număr.
+
+$$
+L(\phi) = -\log \sigma\big( r_\phi(x, y_w) - r_\phi(x, y_l) \big)
+$$
+
+unde $y_w$ este răspunsul preferat, $y_l$ cel respins, iar $\sigma$ este funcția sigmoidă. Pierderea este mică atunci când răspunsul preferat primește un scor clar mai mare. Apoi, modelul de recompensă ține locul evaluatorilor și poate nota milioane de răspunsuri, mult mai multe decât ar putea evalua oamenii de mână.
+
+:::caution[Exploatarea recompensei]
+Modelul de limbaj poate învăța să obțină scoruri mari pe căi nedorite, de exemplu prin răspunsuri lungi sau exagerat de politicoase, dacă modelul de recompensă le favorizează. Fenomenul se numește **exploatarea recompensei** (_reward hacking_). Ca să-l limităm, obiectivul penalizează îndepărtarea de **modelul de referință** (_reference model_) $\pi_{\text{ref}}$, adică modelul de dinaintea acestei etape, printr-un termen proporțional cu divergența Kullback-Leibler (KL) dintre cele două distribuții.
+
+$$
+\max_\theta\ \mathbb{E}_{x,\ y \sim \pi_\theta}\Big[ r_\phi(x, y) - \beta \log \frac{\pi_\theta(y \mid x)}{\pi_{\text{ref}}(y \mid x)} \Big]
+$$
+
+Coeficientul $\beta$ stabilește cât de departe are voie să ajungă modelul nou față de cel inițial.
+:::
+
+## PPO
+
+**PPO** (_proximal policy optimization_) a fost propus în 2017 de [Schulman și colaboratorii](https://arxiv.org/abs/1707.06347), la OpenAI, și a fost metoda folosită pentru InstructGPT. Pornește de la gradientul strategiei (_policy gradient_), dar limitează cât se poate schimba strategia la o actualizare.
+
+Pentru fiecare token $t$ al unui răspuns se calculează raportul dintre probabilitatea tokenului sub noua strategie și sub cea care a generat răspunsul.
+
+$$
+\rho_t(\theta) = \frac{\pi_\theta(y_t \mid x, y_{<t})}{\pi_{\theta_{\text{old}}}(y_t \mid x, y_{<t})}
+$$
+
+Obiectivul cu **decupare** (_clipping_) are forma următoare.
+
+$$
+L^{\text{CLIP}}(\theta) = \mathbb{E}_t\Big[ \min\big( \rho_t(\theta)\, \hat{A}_t,\ \operatorname{clip}(\rho_t(\theta), 1 - \varepsilon, 1 + \varepsilon)\, \hat{A}_t \big) \Big]
+$$
+
+unde $\hat{A}_t$ este avantajul estimat, iar $\varepsilon$ este de obicei 0,2. Dacă un token are avantaj pozitiv, obiectivul crește cu probabilitatea lui, dar numai până când raportul ajunge la $1 + \varepsilon$. Peste această limită, gradientul devine zero, deci nu se mai câștigă nimic dacă strategia este împinsă mai departe. Pentru avantaje negative, limita este $1 - \varepsilon$. Datorită decupării, fiecare lot de răspunsuri poate fi folosit pentru mai mulți pași de actualizare fără ca strategia să se degradeze.
+
+Avantajele vin de la un **model de valoare** (_value model_), numit și critic, care estimează pentru fiecare token recompensa așteptată de acolo până la final. PPO le calculează de obicei cu metoda **GAE** (_generalized advantage estimation_), propusă tot de [Schulman și colaboratorii](https://arxiv.org/abs/1506.02438). Criticul este un model separat, de obicei de aceeași mărime cu modelul principal (strategia), care trebuie și el antrenat.
+
+:::note[Costul de memorie: PPO față de GRPO]
+În total, PPO pentru LLM-uri ține în memorie patru modele în același timp: strategia (modelul antrenat), modelul de referință, modelul de recompensă și modelul de valoare. Pentru modele de zeci de miliarde de parametri, asta înseamnă foarte mult hardware. De aceea au devenit atractive alternative precum GRPO, care renunță la critic.
+:::
+
+## GRPO
+
+**GRPO** (_group relative policy optimization_) a fost propus în 2024 de [Shao și colaboratorii](https://arxiv.org/abs/2402.03300), la DeepSeek, pentru modelul DeepSeekMath. Renunță la modelul de valoare și estimează avantajele altfel, comparând mai multe răspunsuri la același prompt.
+
+<PpoGrpoDiagram />
+
+Pentru fiecare prompt $x$, strategia generează un grup de $G$ răspunsuri $y_1, \ldots, y_G$, care primesc recompensele $r_1, \ldots, r_G$. Avantajul fiecărui răspuns este recompensa lui normalizată în interiorul grupului.
+
+$$
+\hat{A}_i = \frac{r_i - \operatorname{mean}(r_1, \ldots, r_G)}{\operatorname{std}(r_1, \ldots, r_G)}
+$$
+
+Același avantaj se folosește pentru toate tokenurile răspunsului $i$. Un răspuns mai bun decât media grupului devine mai probabil, iar unul mai slab devine mai puțin probabil. Media grupului joacă rolul liniei de bază din REINFORCE, fără să fie nevoie de un critic învățat.
+
+Obiectivul păstrează decuparea din PPO. Penalizarea KL față de modelul de referință nu mai este scăzută din recompensă, ci adăugată direct în funcția de pierdere, cu o estimare a divergenței calculată pentru fiecare token.
+
+$$
+\mathbb{D}_{\text{KL}} = \frac{\pi_{\text{ref}}(y_t \mid \cdot)}{\pi_\theta(y_t \mid \cdot)} - \log \frac{\pi_{\text{ref}}(y_t \mid \cdot)}{\pi_\theta(y_t \mid \cdot)} - 1
+$$
+
+Codul de mai jos calculează avantajele pentru un grup de șase răspunsuri, dintre care două corecte, și arată efectul decupării asupra obiectivului pentru un token.
+
+<Python
+  packages={['numpy']}
+  code={`
+import numpy as np
+
+# Recompensele pentru G = 6 răspunsuri la același prompt: 1 dacă rezultatul final este corect.
+rewards = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+advantages = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+print("Avantaje:", np.round(advantages, 2))
+
+same = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+print("Toate corecte:", np.round((same - same.mean()) / (same.std() + 1e-8), 2))
+
+def clipped_objective(ratio, advantage, epsilon=0.2):
+    # Obiectivul PPO pentru un token, în funcție de raportul π_θ / π_vechi.
+    return min(ratio * advantage, np.clip(ratio, 1 - epsilon, 1 + epsilon) * advantage)
+
+for ratio in [0.5, 0.9, 1.0, 1.1, 1.5]:
+    print(f"raport {ratio:.1f}: avantaj +1 -> {clipped_objective(ratio, 1.0):5.2f}, "
+          f"avantaj -1 -> {clipped_objective(ratio, -1.0):5.2f}")
+`}
+/>
+
+Când toate răspunsurile din grup primesc aceeași recompensă, toate avantajele sunt zero și grupul nu contribuie la învățare. De aceea, problemele folosite la antrenare nu trebuie să fie nici prea ușoare, nici prea grele pentru modelul curent. În valorile afișate pentru obiectiv, cele cu avantaj pozitiv se opresc la 1,2: odată ce un token a devenit cu 20% mai probabil, nu se mai câștigă nimic dacă probabilitatea lui crește în continuare.
+
+## Recompense verificabile și raționament
+
+Pentru matematică, programare sau logică, răspunsul poate fi verificat automat. Rezultatul final se compară cu cel corect, iar codul este rulat pe teste. Recompensa nu mai vine de la un model care imită preferințe, ci de la o regulă, deci este mult mai greu de exploatat. Abordarea a fost numită **învățare prin consolidare cu recompense verificabile** (_reinforcement learning with verifiable rewards_, RLVR) în lucrarea despre modelele [Tülu 3](https://arxiv.org/abs/2411.15124), în 2024.
+
+Modelul [DeepSeek-R1](https://arxiv.org/abs/2501.12948), publicat în ianuarie 2025, a fost antrenat cu GRPO. Pentru problemele de raționament, recompensele erau bazate pe reguli, una pentru corectitudinea răspunsului și una pentru format. Varianta DeepSeek-R1-Zero a primit această antrenare direct după preantrenare, fără ajustare fină pe exemple. Autorii raportează că, pe parcursul antrenării, răspunsurile au devenit mai lungi și au început să conțină pași de verificare și de corectare, deși nicio recompensă nu cerea explicit acest lucru. Multe dintre modelele apărute de atunci, care scriu un raționament înainte de răspunsul final, folosesc metode asemănătoare. Pagina despre [raționamentul în modelele de limbaj](/modele-lingvistice/rationament-si-gandire/) explică ce înseamnă acest raționament și de ce ne dă impresia că modelul gândește.
+
+## Alternative fără consolidare
+
+Învățarea prin consolidare este costisitoare, deoarece modelul trebuie să genereze răspunsuri în timpul antrenării, iar procesul este sensibil la hiperparametri. **DPO** (_direct preference optimization_), propus în 2023 de [Rafailov și colaboratorii](https://arxiv.org/abs/2305.18290), folosește aceleași perechi de răspunsuri preferate și respinse ca RLHF, dar optimizează modelul direct pe ele, cu o funcție de pierdere obișnuită, fără model de recompensă separat și fără generare în timpul antrenării. Modelul SmolLM2 din [demo-ul de pe pagina despre LLM-uri](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#un-model-compact-în-browser) a fost aliniat cu DPO.
+
+:::tip[Rețeta obișnuită de post-antrenare]
+În practică, metodele sunt adesea combinate.
+1. **Ajustare fină supervizată (SFT)**: pe dialoguri model, pentru învățarea formatului.
+2. **Optimizare directă a preferințelor (DPO)**: pentru alinierea rapidă cu tonul și stilul dorite.
+3. **Învățare prin consolidare cu recompense verificabile (RLVR / GRPO)**: pentru un raționament matematic mai bun și mai multă corectitudine logică, cu un risc mult mai mic de exploatare a recompensei.
+:::
+
+## Bibliografie
+
+- Christiano, P. et al. (2017). [Deep reinforcement learning from human preferences](https://arxiv.org/abs/1706.03741). _NeurIPS 2017_.
+- DeepSeek-AI (2025). [DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948). Preprint arXiv:2501.12948.
+- Lambert, N. et al. (2024). [Tulu 3: Pushing Frontiers in Open Language Model Post-Training](https://arxiv.org/abs/2411.15124). Preprint arXiv:2411.15124.
+- Ouyang, L. et al. (2022). [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155). _NeurIPS 2022_.
+- Rafailov, R. et al. (2023). [Direct Preference Optimization: Your Language Model is Secretly a Reward Model](https://arxiv.org/abs/2305.18290). _NeurIPS 2023_.
+- Schulman, J. et al. (2016). [High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438). _ICLR 2016_.
+- Schulman, J. et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). Preprint arXiv:1707.06347.
+- Shao, Z. et al. (2024). [DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://arxiv.org/abs/2402.03300). Preprint arXiv:2402.03300.

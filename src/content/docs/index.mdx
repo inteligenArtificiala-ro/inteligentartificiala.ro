@@ -1,0 +1,31 @@
+---
+title: Inteligență artificială, explicată în detaliu
+description: Documentație în limba română despre inteligența artificială, de la conceptele de bază până la implementarea modelelor de limbaj mari (LLM).
+template: splash
+hero:
+  tagline: O inițiativă care explică în limba română inteligența artificială, de la ideile de bază până la felul în care sunt construite modelele de limbaj mari (LLM).
+  actions:
+    - text: Ce este inteligența artificială?
+      link: /concepte-de-baza/ce-este-inteligenta-artificiala/
+      icon: right-arrow
+    - text: Despre proiect
+      link: /despre/
+      variant: minimal
+    - text: GitHub
+      link: https://github.com/inteligentArtificiala-ro
+      icon: external
+      variant: minimal
+---
+
+import { Card } from '@astrojs/starlight/components';
+import FeatureGrid from 'starlight-theme-exquisitus/components/FeatureGrid.astro';
+
+<FeatureGrid layout="lead">
+  <Card title="De la concepte de bază la modele de limbaj mari" icon="open-book">
+    Pornim de la ce înseamnă **învățarea automată** (_machine learning_) și ajungem la arhitectura și funcționarea
+    sistemelor de tipul ChatGPT, Gemini, Grok sau Claude.
+  </Card>
+  <Card title="Laboratoare cu sursă deschisă pe GitHub" icon="github">
+    Codul complet al laboratoarelor este public, în organizația proiectului de pe [GitHub](https://github.com/inteligentArtificiala-ro), și poate fi clonat și rulat pe propriul calculator.
+  </Card>
+</FeatureGrid>

@@ -1,0 +1,132 @@
+---
+title: Mediul și acțiunile continue
+description: Robotul HalfCheetah în MuJoCo, spațiul de observație, spațiul de acțiuni continue, funcția de recompensă și strategia stocastică modelată printr-o distribuție gaussiană.
+sidebar:
+  order: 2
+  label: Mediul și acțiunile continue
+level: avansat
+tags:
+  - Învățare prin consolidare
+  - Control continuu
+---
+
+import Python from '@components/Python.astro';
+
+În problemele clasice de [învățare prin consolidare](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/), agentul alege de obicei dintr-un set finit de acțiuni discrete: apasă o tastă într-un joc, trage una dintre cele trei manete ale unui automat sau, în cazul unui [model de limbaj](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/), alege un token din vocabular. În astfel de cazuri, rețeaua neuronală produce scoruri nenormalizate (_logits_), iar funcția softmax le transformă în probabilitatea fiecărei opțiuni.
+
+Un robot fizic funcționează altfel. Motoarele și actuatoarele lui primesc valori continue: tensiuni electrice, presiuni hidraulice sau **cupluri mecanice** (_torques_). Spațiul acțiunilor nu mai este o mulțime discretă, ci un interval multidimensional din $\mathbb{R}^d$.
+
+## Mediul HalfCheetah în MuJoCo
+
+Mediul `HalfCheetah` simulează un ghepard robotic bidimensional, care se poate mișca doar într-un plan vertical: pe axa orizontală $X$, de înaintare, și pe axa verticală $Z$. Corpul lui este format din 7 segmente rigide articulate:
+- un trunchi (_torso_),
+- un picior din spate (coapsă, tibie și laba piciorului),
+- un picior din față (coapsă, tibie și laba piciorului).
+
+Articulațiile dintre segmente sunt acționate de 6 servomotoare independente: 3 pentru piciorul din spate și 3 pentru cel din față.
+
+### Spațiul de observație
+
+La fiecare pas de timp $t$, MuJoCo returnează o **observație** (_state / observation_) $s_t \in \mathbb{R}^{17}$. Vectorul conține tot ce ne trebuie pentru a descrie starea fizică a robotului: poziții, unghiuri și viteze.
+
+| Dimensiune | Semnificație fizică |
+| --- | --- |
+| $s[0]$ | Poziția pe verticală a corpului (înălțimea $z$) |
+| $s[1]$ | Unghiul de înclinare al trunchiului |
+| $s[2..7]$ | Unghiurile celor 6 articulații acționate de motoare |
+| $s[8]$ | Viteza de înaintare pe orizontală ($v_x$) |
+| $s[9]$ | Viteza pe verticală ($v_z$) |
+| $s[10]$ | Viteza unghiulară a trunchiului |
+| $s[11..16]$ | Vitezele unghiulare ale celor 6 articulații |
+
+Poziția absolută pe orizontală, $x$, lipsește intenționat din observația primită de agent. Vrem ca strategia învățată să fie invariantă la translație: felul în care robotul aleargă trebuie să depindă doar de postură și de vitezele curente, nu de distanța parcursă până atunci.
+
+### Spațiul de acțiune
+
+**Acțiunea** $a_t \in \mathbb{R}^6$ este un vector de 6 numere reale din intervalul $[-1, 1]$. Fiecare element este cuplul mecanic normalizat aplicat motorului unei articulații:
+- $a_0, a_1, a_2$ sunt cuplurile aplicate articulațiilor piciorului din spate (coapsă, tibie, labă),
+- $a_3, a_4, a_5$ sunt cuplurile aplicate articulațiilor piciorului din față (coapsă, tibie, labă).
+
+### Funcția de recompensă
+
+Agentul trebuie să înainteze cât mai repede pe axa $X$ și, în același timp, să consume cât mai puțină energie.
+
+$$
+r_t = v_{x, t} - 0{,}1 \cdot \sum_{i=1}^{6} a_{t, i}^2
+$$
+
+:::tip[De ce penalizăm pătratul acțiunilor]
+Primul termen răsplătește viteza de înaintare, măsurată în metri pe secundă. Al doilea termen penalizează pătratul forței aplicate. Fără el, rețeaua ar putea trimite la fiecare pas impulsuri maxime, de $\pm 1$. Pe un robot real, asta ar distruge actuatoarele, iar în simulator ar produce mișcări necontrolate. Costul pătratic $\sum a_i^2$ încurajează mișcări fluide, eficiente din punct de vedere energetic.
+:::
+
+## Strategia gaussiană continuă
+
+Cum putem construi o [strategie stocastică](/invatare-prin-consolidare/ce-este-invatarea-prin-consolidare/#strategia-de-decizie-policy) $\pi_\theta(a \mid s)$ atunci când $a$ este un vector continuu?
+
+Soluția obișnuită este o **distribuție gaussiană multivariată diagonală** (_diagonal Gaussian distribution_). Rețeaua neuronală primește observația $s_t$ și prezice media acțiunilor, $\mu_\theta(s_t) \in \mathbb{R}^6$. Pe lângă medie, fiecare articulație $i$ are propria deviație standard, $\sigma_i = \exp(\log \sigma_i)$.
+
+Tratăm articulațiile ca independente, așa că densitatea de probabilitate a unei acțiuni continue $a \in \mathbb{R}^d$ este produsul densităților gaussiene unidimensionale, câte una pentru fiecare articulație:
+
+$$
+p(a \mid s) = \prod_{i=1}^{d} \frac{1}{\sqrt{2\pi \sigma_i^2}} \exp\left( -\frac{(a_i - \mu_i)^2}{2\sigma_i^2} \right)
+$$
+
+Pentru optimizarea pe gradient avem nevoie de logaritmul natural al densității de probabilitate, numit de obicei **log-probabilitate** (_log-probability_):
+
+$$
+\log \pi(a \mid s) = -\frac{1}{2} \sum_{i=1}^{d} \left( \frac{(a_i - \mu_i)^2}{\sigma_i^2} + 2\log \sigma_i + \log(2\pi) \right)
+$$
+
+**Entropia** distribuției ne spune cât de mare este incertitudinea strategiei și, implicit, cât de mult explorează agentul. Pentru o gaussiană multivariată diagonală, ea se calculează astfel:
+
+$$
+H(\pi(\cdot \mid s)) = \frac{1}{2} \sum_{i=1}^{d} \left( 1 + \log(2\pi) + 2\log \sigma_i \right)
+$$
+
+La începutul antrenării, $\sigma_i$ este mare (de regulă în jurul valorii $1{,}0$), așa că agentul încearcă comenzi foarte variate. Pe măsură ce antrenarea avansează, $\sigma_i$ scade, iar strategia devine tot mai concentrată și mai precisă în jurul mediei învățate $\mu(s)$.
+
+## Calculul interactiv în Python
+
+Exemplul de mai jos rulează direct în browser. Eșantionează o acțiune pentru cele 6 articulații, apoi calculează log-probabilitatea și entropia cu formulele de mai sus.
+
+<Python
+  packages={['numpy']}
+  code={String.raw`
+import numpy as np
+
+rng = np.random.default_rng(seed=42)
+d = 6  # 6 articulații motorizate
+
+# Presupunem că rețeaua actor a returnat următoarea medie mu și log_std:
+mu = np.array([0.5, -0.2, 0.1, 0.8, -0.4, 0.0])
+log_std = np.zeros(d)  # exp(0) = 1.0 deviație standard inițială
+std = np.exp(log_std)
+
+# Eșantionarea acțiunii: a = mu + std * zgomot_normal
+noise = rng.normal(size=d)
+action = mu + std * noise
+
+# Calculul log-probabilității analitice
+log_probs = -0.5 * (((action - mu) / std) ** 2 + 2 * log_std + np.log(2 * np.pi))
+total_log_prob = np.sum(log_probs)
+
+# Calculul entropiei
+entropy = 0.5 * np.sum(1.0 + np.log(2 * np.pi) + 2 * log_std)
+
+np.set_printoptions(precision=3, suppress=True)
+print("Media prezisă de rețea (mu):", mu)
+print("Acțiunea eșantionată (a):   ", np.round(action, 3))
+print("Log-probabilitate totală:    ", round(float(total_log_prob), 4))
+print("Entropia distribuției:       ", round(float(entropy), 4))
+`}
+/>
+
+Acum că știm cum parametrizăm distribuția gaussiană, putem construi rețeaua neuronală în PyTorch. Asta facem pe pagina următoare, despre [rețeaua Actor-Critic](/laboratoare/control-continuu-ppo-halfcheetah/arhitectura-actor-critic/).
+
+## Bibliografie
+
+- Sutton, R. S. și Barto, A. G. (2018). [_Reinforcement Learning: An Introduction_](http://incompleteideas.net/book/the-book-2nd.html) (ed. a 2-a). MIT Press.
+- Todorov, E., Erez, T. și Tassa, Y. (2012). [MuJoCo: A physics engine for model-based control](https://doi.org/10.1109/IROS.2012.6386109). _IROS 2012_.
+- Towers, M. et al. (2024). [Gymnasium: A Standard Interface for Reinforcement Learning Environments](https://arxiv.org/abs/2407.17032). Preprint arXiv:2407.17032.
+- Wawrzyński, P. (2009). [A Cat-Like Robot Real-Time Learning to Run](https://doi.org/10.1007/978-3-642-04921-7_39). _ICANNGA 2009_.
+- Williams, R. J. (1992). [Simple statistical gradient-following algorithms for connectionist reinforcement learning](https://doi.org/10.1007/BF00992696). _Machine Learning_, 8(3–4), 229–256.

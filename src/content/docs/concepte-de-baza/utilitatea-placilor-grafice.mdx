@@ -1,0 +1,115 @@
+---
+title: Utilitatea plăcilor grafice (GPU)
+description: De ce antrenarea și rularea modelelor moderne de inteligență artificială depind de plăcile grafice, de la calculul paralel și înmulțirea matricelor până la memoria rapidă și clusterele de mii de plăci.
+sidebar:
+  order: 5
+  label: Utilitatea plăcilor grafice
+level: incepator
+tags:
+  - Concepte de bază
+---
+
+import Python from '@components/Python.astro';
+
+Aproape toate modelele moderne de inteligență artificială, de la recunoașterea imaginilor până la [modelele de limbaj mari](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/) (LLM), sunt antrenate și rulate pe un tip de procesor creat inițial pentru jocurile video, **placa grafică** (_graphics processing unit_, GPU). Accesul la plăci grafice a ajuns să decidă cât de mari pot fi modelele, cât costă antrenarea lor și cât de repede răspund. Pentru a înțelege de ce, trebuie să ne uităm la tipul de calcul pe care îl face o rețea neuronală.
+
+## De la pixeli la rețele neuronale
+
+O placă grafică a fost gândită să calculeze culoarea a milioane de pixeli de zeci de ori pe secundă. Fiecare pixel se calculează după aceleași formule, independent de vecinii săi. De aceea, o placă grafică nu are câteva nuclee foarte puternice, ca un procesor obișnuit (CPU), ci mii de nuclee simple, care aplică aceeași operație pe date diferite în același timp.
+
+În 2007, NVIDIA a lansat **CUDA**, o platformă care permite programarea plăcilor grafice pentru calcule generale, nu doar pentru imagini. Cercetătorii au observat repede că rețelele neuronale au exact forma de calcul pentru care sunt construite plăcile grafice.
+
+## Ce calculează de fapt o rețea neuronală
+
+Un strat al unei [rețele neuronale](/retele-neuronale/ce-sunt-retelele-neuronale/) înmulțește vectorul de intrare cu o matrice de ponderi și adună un termen liber.
+
+$$
+\mathbf{y} = W\mathbf{x} + \mathbf{b}
+$$
+
+Când rețeaua prelucrează un lot de exemple deodată, vectorii devin matrice, iar operația devine o **înmulțire de matrice**. Fiecare element al rezultatului este o sumă de produse care nu depinde de celelalte elemente, deci toate pot fi calculate în paralel. Un model de limbaj face, pentru fiecare token, aproximativ $2P$ operații în virgulă mobilă, unde $P$ este numărul de parametri, așa cum arată pagina despre [costul computațional](/modele-lingvistice/arhitectura-transformer/#costul-computațional). Pentru un model de 8 miliarde de parametri, asta înseamnă 16 miliarde de operații pentru un singur token.
+
+| | Procesor (CPU) | Placă grafică (GPU) |
+| --- | --- | --- |
+| Nuclee | Câteva zeci, foarte puternice | Mii, mai simple |
+| Optimizat pentru | Timp de răspuns mic la sarcini variate, cu multe ramificații | Volum mare de operații identice pe date diferite |
+| Lățimea de bandă a memoriei | Zeci până la sute de GB/s | De ordinul TB/s la plăcile pentru centre de date |
+| Potrivit pentru | Sistemul de operare, logica aplicațiilor, baze de date | Grafică, simulări, antrenarea și rularea rețelelor neuronale |
+
+## Momentul AlexNet
+
+În 2009, [Raina, Madhavan și Ng](https://dl.acm.org/doi/10.1145/1553374.1553486) au arătat că plăcile grafice pot accelera de zeci de ori antrenarea rețelelor neuronale. Momentul decisiv a venit în 2012, când rețeaua **AlexNet**, construită de Alex Krizhevsky, Ilya Sutskever și Geoffrey Hinton, a câștigat competiția de recunoaștere a imaginilor ImageNet. AlexNet a fost antrenată pe două plăci grafice NVIDIA GTX 580, destinate jocurilor, și a avut o rată de eroare top-5 de 15,3%, față de 26,2% pentru locul al doilea. Rezultatul a arătat că rețelele adânci, antrenate pe multe date și pe plăci grafice, depășesc metodele clasice, iar **învățarea profundă** (_deep learning_) a devenit direcția dominantă în domeniu.
+
+## Nuclee specializate și precizie redusă
+
+Pe măsură ce inteligența artificială a devenit principala lor utilizare, plăcile grafice au fost adaptate pentru ea. Din 2017, plăcile NVIDIA pentru centre de date au **nuclee tensoriale** (_Tensor Cores_), circuite dedicate înmulțirii de matrice mici într-un singur pas.
+
+A doua schimbare ține de **precizia numerelor**. Calculele științifice folosesc de obicei numere pe 32 sau 64 de biți, însă rețelele neuronale tolerează bine numere mai puțin precise. Antrenarea se face astăzi frecvent pe 16 biți (formatele FP16 și BF16), iar generațiile recente de plăci pot calcula și pe 8 sau chiar 4 biți. Un număr pe 16 biți ocupă jumătate din memoria unuia pe 32 de biți, iar nucleele tensoriale procesează de câteva ori mai multe operații pe secundă la precizie redusă.
+
+## Memoria, adesea adevăratul blocaj
+
+La generarea textului, un model produce câte un singur token pe pas, iar pentru fiecare token nou trebuie citite din memorie toate ponderile modelului. Pentru un utilizator singur, viteza de generare nu este limitată de numărul de operații, ci de cât de repede se pot citi ponderile, adică de **lățimea de bandă a memoriei** (_memory bandwidth_). Din acest motiv, plăcile pentru centre de date folosesc memorie HBM (_high bandwidth memory_), montată lângă procesorul grafic, cu o lățime de bandă de câțiva TB/s.
+
+Codul de mai jos estimează limita superioară a vitezei de generare pentru câteva modele și dispozitive, presupunând ponderi pe 16 biți.
+
+<Python
+  code={`
+modele = {"SmolLM2 135M": 135e6, "Model de 8 miliarde": 8e9, "Model de 70 miliarde": 70e9}
+# Lățimea de bandă a memoriei (octeți/s) și memoria disponibilă (octeți), valori aproximative.
+dispozitive = {
+    "Procesor obișnuit, DDR5": (100e9, 32e9),
+    "Apple M4 Pro": (273e9, 48e9),
+    "NVIDIA H100": (3.35e12, 80e9),
+}
+octeti_per_pondere = 2  # numere pe 16 biți
+
+for nume_model, parametri in modele.items():
+    memorie = parametri * octeti_per_pondere
+    print(f"{nume_model}, {memorie / 1e9:.1f} GB de ponderi")
+    for nume, (banda, capacitate) in dispozitive.items():
+        if memorie > capacitate:
+            print(f"  {nume:<24} nu încape în memorie")
+        else:
+            print(f"  {nume:<24} cel mult {banda / memorie:,.0f} tokenuri/s")
+`}
+/>
+
+Estimarea ignoră calculul propriu-zis și [memoria cache pentru chei și valori](/modele-lingvistice/arhitectura-transformer/#memoria-cache-pentru-chei-și-valori-kv-cache), deci vitezele reale sunt mai mici. Ea arată totuși de ce un model de 70 de miliarde de parametri nu încape pe o singură placă fără compresie și de ce aceeași placă poate genera de zeci de ori mai repede decât un procesor obișnuit. Serviciile comerciale prelucrează simultan cererile mai multor utilizatori în loturi, astfel încât o singură citire a ponderilor produce câte un token pentru fiecare cerere din lot.
+
+## De la o placă la mii de plăci
+
+Antrenarea costă aproximativ $6P$ operații pentru fiecare token din datele de antrenare. Un model de 8 miliarde de parametri, antrenat pe 15.000 de miliarde de tokenuri, ordinul de mărime folosit pentru Llama 3 8B, are nevoie de aproximativ $6 \cdot 8 \cdot 10^{9} \cdot 15 \cdot 10^{12} \approx 7{,}2 \cdot 10^{23}$ operații. O placă NVIDIA H100 face în jur de $10^{15}$ operații pe secundă pe 16 biți, iar în practică folosește cam 40% din această capacitate. Pe o singură placă, antrenarea ar dura peste 50 de ani.
+
+De aceea, modelele mari sunt antrenate pe clustere cu mii sau zeci de mii de plăci grafice, legate prin conexiuni foarte rapide, precum NVLink și InfiniBand. Meta a raportat că cel mai mare model Llama 3, cu 405 miliarde de parametri, a fost antrenat pe până la 16.000 de plăci H100. Munca este împărțită în mai multe moduri.
+
+- **Paralelismul datelor** (_data parallelism_): fiecare placă primește alte exemple din lot, iar gradienții sunt adunați la final.
+- **Paralelismul tensorial** (_tensor parallelism_): matricele unui strat sunt împărțite între mai multe plăci.
+- **Paralelismul pe etape** (_pipeline parallelism_): straturile modelului sunt distribuite pe plăci diferite, ca la o linie de asamblare.
+
+## De ce contează și economic
+
+Pentru că plăcile grafice limitează direct ce modele pot fi construite, ele au devenit una dintre cele mai căutate resurse din industria tehnologică. Costul computațional este cheltuiala principală la antrenarea unui model mare, iar accesul la plăci grafice influențează competiția dintre companii și chiar politicile de export ale unor state.
+
+Dominația NVIDIA vine nu doar din hardware, ci și din ecosistemul CUDA, pe care se sprijină bibliotecile folosite în practică, precum PyTorch. Există însă și alternative.
+
+- **TPU** (_tensor processing unit_): procesoarele dezvoltate de Google special pentru rețele neuronale, folosite intern din 2015 și oferite prin serviciile sale cloud.
+- **Plăcile AMD Instinct**: acceleratoare pentru centre de date, programate prin platforma ROCm.
+- **Procesoarele Apple Silicon**: cipurile din seria M au memorie unificată, partajată de procesor și de placa grafică, ceea ce permite rularea locală a unor modele relativ mari.
+
+## Plăcile grafice pe calculatorul propriu
+
+Nu este nevoie de un centru de date pentru a experimenta. [Laboratorul de antrenare a unui model de la zero](/laboratoare/model-lingvistic-de-la-zero/prezentare/#cerințe-de-sistem) detectează automat o placă grafică NVIDIA prin CUDA sau un cip Apple Silicon prin MPS și antrenează un model de 14,6 milioane de parametri în aproximativ 10 minute. Chiar și browserul poate accesa placa grafică, prin interfața WebGPU. [Demo-ul cu modelul SmolLM2](/modele-lingvistice/ce-sunt-modelele-lingvistice-de-scara-larga/#un-model-compact-în-browser) o folosește atunci când browserul o suportă.
+
+## Bibliografie
+
+- Grattafiori, A. et al. (2024). [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783). Preprint arXiv:2407.21783.
+- Hooker, S. (2021). [The Hardware Lottery](https://arxiv.org/abs/2009.06489). _Communications of the ACM_, 64(12), 58–65.
+- Huang, Y. et al. (2019). [GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism](https://arxiv.org/abs/1811.06965). _NeurIPS 2019_.
+- Jouppi, N. P. et al. (2017). [In-Datacenter Performance Analysis of a Tensor Processing Unit](https://arxiv.org/abs/1704.04760). _ISCA 2017_.
+- Kaplan, J. et al. (2020). [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361). Preprint arXiv:2001.08361.
+- Krizhevsky, A., Sutskever, I. și Hinton, G. E. (2012). [ImageNet Classification with Deep Convolutional Neural Networks](https://papers.nips.cc/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html). _NeurIPS 2012_.
+- Micikevicius, P. et al. (2018). [Mixed Precision Training](https://arxiv.org/abs/1710.03740). _ICLR 2018_.
+- Nickolls, J., Buck, I., Garland, M. și Skadron, K. (2008). [Scalable Parallel Programming with CUDA](https://doi.org/10.1145/1365490.1365500). _Queue_, 6(2), 40–53.
+- Raina, R., Madhavan, A. și Ng, A. Y. (2009). [Large-scale deep unsupervised learning using graphics processors](https://doi.org/10.1145/1553374.1553486). _ICML 2009_.
+- Russakovsky, O. et al. (2015). [ImageNet Large Scale Visual Recognition Challenge](https://arxiv.org/abs/1409.0575). _International Journal of Computer Vision_, 115, 211–252.
+- Shoeybi, M. et al. (2019). [Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism](https://arxiv.org/abs/1909.08053). Preprint arXiv:1909.08053.

@@ -1,0 +1,139 @@
+---
+title: Un model de raționament local
+description: Rulăm local Qwen3-1.7B, un model care poate scrie un raționament înainte de răspuns. Separăm gândurile de răspunsul final, comparăm modul cu și fără gândire și controlăm bugetul de gândire din cod.
+sidebar:
+  order: 4
+level: intermediar
+tags:
+  - Modele de limbaj mari (LLM)
+  - Învățare prin consolidare
+---
+
+import Colab from '@components/Colab.astro';
+
+Pagina despre [raționamentul în modelele de limbaj](/modele-lingvistice/rationament-si-gandire/) explică, în teorie, cum ajunge un model să „gândească” înainte de răspuns. Aici vedem același lucru pe un model care rulează local. Folosim [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B), publicat de Alibaba sub licența Apache 2.0. Modelul are 1,7 miliarde de parametri, ocupă aproximativ 4 GB pe disc și poate lucra în două moduri, cu gândire și fără gândire.
+
+<Colab notebook='laboratoare/model-local-transformers/notebooks/04-model-de-rationament.ipynb' />
+
+## Gândurile și răspunsul
+
+În modul cu gândire, modelul scrie mai întâi un raționament între tokenurile `<think>` și `</think>`, apoi răspunsul. Modul se alege din șablonul de chat, cu argumentul `enable_thinking`. Codul de mai jos pune aceeași întrebare în ambele moduri și separă raționamentul de răspuns după poziția tokenului `</think>`.
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_id = "Qwen/Qwen3-1.7B"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id, dtype="auto", device_map="auto")
+end_think = tokenizer.convert_tokens_to_ids("</think>")
+
+messages = [{"role": "user", "content": "How many numbers from 1 to 100 are divisible by 3 or by 5?"}]
+
+for thinking in [True, False]:
+    inputs = tokenizer.apply_chat_template(
+        messages, add_generation_prompt=True, enable_thinking=thinking, return_dict=True, return_tensors="pt"
+    ).to(model.device)
+    # generation_config.json conține parametrii de eșantionare recomandați pentru modul cu gândire.
+    output = model.generate(**inputs, max_new_tokens=8192)
+    new_tokens = output[0, inputs["input_ids"].shape[1]:].tolist()
+
+    # Raționamentul se termină la tokenul </think>. Fără gândire, el lipsește din răspuns.
+    split = new_tokens.index(end_think) + 1 if end_think in new_tokens else 0
+    reasoning = tokenizer.decode(new_tokens[:split], skip_special_tokens=True)
+    answer = tokenizer.decode(new_tokens[split:], skip_special_tokens=True).strip()
+
+    print(f"\nenable_thinking={thinking}: {split} tokenuri de gândire, {len(new_tokens) - split} în răspuns")
+    print("Începutul raționamentului:", reasoning[:300])
+    print("Finalul răspunsului:", answer[-120:])
+```
+
+```text
+enable_thinking=True: 3860 tokenuri de gândire, 307 în răspuns
+Începutul raționamentului: <think>
+Okay, so I need to figure out how many numbers between 1 and 100 are divisible by 3 or 5.
+Hmm, let me think. I remember something about the principle of inclusion-exclusion for these
+kinds of problems. Let me recall... Yeah, if I want to find the number of elements in the union
+of two sets,
+Finalul răspunsului: … |A ∪ B| = 33 + 20 - 6 = 47 … Final Answer … \boxed{47}
+
+enable_thinking=False: 0 tokenuri de gândire, 486 în răspuns
+Finalul răspunsului: … There are **47 numbers from 1 to 100** that are divisible by 3 or 5.
+```
+
+Am scurtat puțin rezultatul, iar numerele exacte diferă de la o rulare la alta, pentru că generarea folosește eșantionare. Câteva observații:
+
+- **Monologul interior seamănă cu al unui om.** _„Hmm, let me think”_, _„Let me recall…”_ sunt exact tiparele descrise pe pagina despre [raționament](/modele-lingvistice/rationament-si-gandire/#de-unde-vine-impresia-de-gândire), învățate din texte scrise de oameni. Autorii Qwen3 le-au întărit prin învățare prin consolidare în modelele mari ale familiei, iar modelele mici, precum Qwen3-1.7B, le-au preluat de la acestea prin **distilare** (_distillation_).
+- **Gândirea costă.** Pentru o problemă de gimnaziu, modelul a scris aproape 4.000 de tokenuri de gândire. Este exemplul de [gândire excesivă](/modele-lingvistice/rationament-si-gandire/#bugetul-de-gândire) despre care vorbește pagina despre raționament.
+- **Și fără gândire, modelul lucrează pas cu pas.** Răspunsul din modul fără gândire conține tot un [**lanț de gânduri**](/modele-lingvistice/rationament-si-gandire/#lanțul-de-gânduri-chain-of-thought) (_chain of thought_), doar că scurt și scris direct în răspuns. Pentru o problemă atât de simplă, ajunge.
+
+Recomandările autorilor pentru fiecare mod sunt pe [pagina modelului](https://huggingface.co/Qwen/Qwen3-1.7B). Fișierul `generation_config.json` conține valorile pentru modul cu gândire (temperatura 0,6, `top_p` 0,95, `top_k` 20), pe care Transformers le aplică automat. În acest mod, decodarea greedy trebuie evitată. Pentru modul fără gândire, autorii recomandă temperatura 0,7 și `top_p` 0,8, care trebuie trimise explicit lui `generate`, de exemplu `model.generate(**inputs, temperature=0.7, top_p=0.8)`. Pentru simplitate, exemplul de mai sus folosește aceleași valori în ambele moduri.
+
+## Bugetul de gândire
+
+Raționamentul este doar text, așa că [harnașamentul](/comportament-agentic/harnasamentul/) îl poate controla din afară. Funcția de mai jos implementează varianta simplă a **forțării bugetului** (_budget forcing_) din lucrarea [s1](https://arxiv.org/abs/2501.19393).
+
+- Dacă modelul depășește `max_thinking` tokenuri, oprim generarea, încheiem noi raționamentul și cerem răspunsul.
+- Dacă modelul vrea să se oprească înainte de `min_thinking` tokenuri, ștergem `</think>` și adăugăm cuvântul _„Wait”_, ca modelul să continue.
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_id = "Qwen/Qwen3-1.7B"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id, dtype="auto", device_map="auto")
+
+
+def continue_text(text, max_new_tokens, **kwargs):
+    inputs = tokenizer(text, return_tensors="pt").to(model.device)
+    output = model.generate(**inputs, max_new_tokens=max_new_tokens, **kwargs)
+    new_tokens = output[0, inputs["input_ids"].shape[1]:]
+    return tokenizer.decode(new_tokens, skip_special_tokens=True), len(new_tokens)
+
+
+def answer_with_budget(question, max_thinking, min_thinking=0):
+    text = tokenizer.apply_chat_template(
+        [{"role": "user", "content": question}], add_generation_prompt=True, enable_thinking=True, tokenize=False
+    )
+    used = 0
+    while True:
+        chunk, n = continue_text(text, max_thinking - used, stop_strings=["</think>"], tokenizer=tokenizer)
+        used += n
+        text += chunk.removesuffix("</think>")
+        finished = chunk.endswith("</think>")
+        if finished and used < min_thinking:
+            text += "\nWait"  # modelul voia să se oprească prea devreme, așa că îl lăsăm să mai gândească
+            continue
+        if not finished:
+            text += "\n\nI must give the final answer now.\n"  # bugetul s-a terminat
+        break
+    answer, _ = continue_text(text + "</think>\n\n", 1024)
+    return used, answer.strip()
+
+
+question = "How many numbers from 1 to 100 are divisible by 3 or by 5? Reply with the number only."
+for max_thinking in [32, 256, 2048]:
+    used, answer = answer_with_budget(question, max_thinking)
+    print(f"buget maxim {max_thinking:4d}: {used:4d} tokenuri de gândire, răspuns: {answer[-40:]!r}")
+
+used, answer = answer_with_budget(question, max_thinking=4096, min_thinking=3000)
+print(f"buget minim 3000: {used} tokenuri de gândire, răspuns: {answer[-40:]!r}")
+```
+
+```text
+buget maxim   32:   32 tokenuri de gândire, răspuns: '-\n\n### ✅ Final Answer:\n\n$$\n\\boxed{47}\n$$'
+buget maxim  256:  256 tokenuri de gândire, răspuns: '-\n\n### ✅ Final Answer:\n\n$$\n\\boxed{47}\n$$'
+buget maxim 2048: 1477 tokenuri de gândire, răspuns: '\n---\n\n### Final Answer\n\n$$\n\\boxed{47}\n$$'
+```
+
+Rezultatul ultimului apel nu este afișat, pentru că nu are o valoare fixă. Modelul primește „Wait” ori de câte ori vrea să se oprească înainte de 3.000 de tokenuri, așa că scrie între 3.000 și 4.096 de tokenuri de gândire, limita maximă a apelului. Numărul exact se schimbă de la o rulare la alta, pentru că tokenurile sunt eșantionate aleatoriu.
+
+Argumentul `stop_strings` oprește generarea imediat ce apare `</think>`, ca să putem decide ce urmează. Restul este manipulare de text obișnuită: modelul nu știe că raționamentul lui a fost tăiat sau prelungit, pentru că vede doar textul din context.
+
+Pe această problemă, bugetul nu schimbă rezultatul. Chiar și cu 32 de tokenuri de gândire, modelul ajunge la 47, pentru că face calculul pas cu pas în răspuns, deși i-am cerut doar numărul. Diferențele apar pe probleme mai grele, de exemplu de la olimpiadele de matematică, unde un buget mic scade vizibil acuratețea. Merită încercată funcția pe astfel de probleme, comparând răspunsurile pentru mai multe valori ale bugetului.
+
+## Bibliografie
+
+- DeepSeek-AI (2025). [DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948). Preprint arXiv:2501.12948.
+- Muennighoff, N. et al. (2025). [s1: Simple test-time scaling](https://arxiv.org/abs/2501.19393). Preprint arXiv:2501.19393.
+- Qwen Team (2025). [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388). Preprint arXiv:2505.09388.
+- Wei, J. et al. (2022). [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903). _NeurIPS 2022_.

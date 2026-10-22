@@ -1,0 +1,99 @@
+<figure class="relu-graph">
+  <svg viewBox="0 0 720 340" role="img" aria-labelledby="relu-graph-title relu-graph-description">
+    <title id="relu-graph-title">Graficul funcției ReLU</title>
+    <desc id="relu-graph-description">
+      Funcția ReLU este zero pentru toate intrările negative și crește liniar pentru intrările pozitive.
+    </desc>
+    <defs>
+      <marker id="relu-graph-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" />
+      </marker>
+    </defs>
+
+    <g class="relu-graph-grid">
+      <path d="M 104 52 V 262" /><path d="M 194 52 V 262" /><path d="M 284 52 V 262" />
+      <path d="M 464 52 V 262" /><path d="M 554 52 V 262" /><path d="M 644 52 V 262" />
+      <path d="M 104 52 H 644" /><path d="M 104 122 H 644" /><path d="M 104 192 H 644" />
+    </g>
+    <g class="relu-graph-axes" marker-end="url(#relu-graph-arrow)">
+      <path d="M 82 262 H 670" /><path d="M 374 284 V 28" />
+    </g>
+    <g class="relu-graph-ticks">
+      <text x="104" y="286" text-anchor="middle">−3</text><text x="194" y="286" text-anchor="middle">−2</text>
+      <text x="284" y="286" text-anchor="middle">−1</text><text x="374" y="286" text-anchor="middle">0</text>
+      <text x="464" y="286" text-anchor="middle">1</text><text x="554" y="286" text-anchor="middle">2</text><text x="644" y="286" text-anchor="middle">3</text>
+      <text x="358" y="198" text-anchor="end">1</text><text x="358" y="128" text-anchor="end">2</text><text x="358" y="58" text-anchor="end">3</text>
+    </g>
+    <path class="relu-graph-curve" d="M 104 262 H 374 L 644 52" />
+    <circle class="relu-graph-origin" cx="374" cy="262" r="5" />
+    <text x="670" y="310" text-anchor="end" class="relu-graph-axis-label">Intrare <tspan font-style="italic">z</tspan></text>
+    <text x="386" y="30" class="relu-graph-axis-label">Ieșire ReLU(<tspan font-style="italic">z</tspan>)</text>
+  </svg>
+  <figcaption>La stânga lui zero, ieșirea rămâne zero. La dreapta, ieșirea este egală cu intrarea.</figcaption>
+</figure>
+
+<style>
+  .relu-graph {
+    margin: 1.5rem 0;
+  }
+
+  .relu-graph svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .relu-graph-grid {
+    fill: none;
+    stroke: var(--sl-color-gray-5);
+    stroke-width: 1;
+  }
+
+  .relu-graph-axes {
+    fill: none;
+    stroke: var(--sl-color-gray-2);
+    stroke-width: 1.5;
+  }
+
+  .relu-graph marker path {
+    fill: var(--sl-color-gray-2);
+  }
+
+  .relu-graph-ticks text,
+  .relu-graph-axis-label {
+    fill: var(--sl-color-gray-3);
+    font-size: 15px;
+  }
+
+  .relu-graph-axis-label {
+    font-size: 16px;
+  }
+
+  .relu-graph-curve {
+    fill: none;
+    stroke: var(--sl-color-accent);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 5;
+  }
+
+  .relu-graph-origin {
+    fill: var(--sl-color-accent);
+  }
+
+  .relu-graph figcaption {
+    color: var(--sl-color-gray-3);
+    font-size: 0.9375rem;
+    text-align: center;
+  }
+
+  @media (max-width: 32rem) {
+    .relu-graph-ticks text {
+      font-size: 13px;
+    }
+
+    .relu-graph-axis-label {
+      font-size: 14px;
+    }
+  }
+</style>
